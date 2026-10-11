@@ -1,22 +1,23 @@
-class_name RespawnPanel
+class_name TaggedPanel
 extends Control
-## What you see while waiting to respawn: the street dims, and a card at the bottom
-## shows "KNOCKED OUT", a countdown ring, your two weapons and a big Change weapons
-## button. Built in code; MatchHud feeds it with `sync()`.
+## What you see while tagged and waiting in the box: the street dims a little (you
+## can still watch your team), and a card at the bottom says "TAGGED!", how to get
+## out, your two weapons and a big Change weapons button. Built in code; MatchHud
+## feeds it with `sync()`.
 
 signal swap_pressed
 
-const DIM: Color = Color(0.03, 0.02, 0.08, 0.38)
+const DIM: Color = Color(0.03, 0.02, 0.08, 0.2)
 const INK: Color = Color(0.1, 0.06, 0.06)
 const TITLE_COLOR: Color = Color(1.0, 0.4, 0.34)
-const CARD_SIZE: Vector2 = Vector2(460.0, 330.0)
+const CARD_SIZE: Vector2 = Vector2(480.0, 300.0)
+const WAIT_TEXT: String = "Wait in the box.\nA teammate who steps in\nsets you free!"
 const BOTTOM_GAP: float = 40.0
 const WEAPON_ICON: float = 64.0
 
-## "RESPAWN IN 8" (kept as a label for screen readers and tests).
-var respawn_label: Label
+## How to get out (kept as a label for screen readers and tests).
+var wait_label: Label
 var swap_button: Button
-var ring: CountdownRing
 
 var _icons: Array[TextureRect] = []
 
@@ -48,20 +49,17 @@ func _ready() -> void:
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 10)
 	card.add_child(column)
-	var title: Label = _label("KNOCKED OUT!", 30, TITLE_COLOR)
+	var title: Label = _label("TAGGED!", 34, TITLE_COLOR)
 	column.add_child(title)
 	var middle: HBoxContainer = HBoxContainer.new()
 	middle.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_theme_constant_override("separation", 22)
 	column.add_child(middle)
-	ring = CountdownRing.new()
-	ring.custom_minimum_size = Vector2(108.0, 108.0)
-	middle.add_child(ring)
 	var right: VBoxContainer = VBoxContainer.new()
 	right.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_child(right)
-	respawn_label = _label("", 24, Color.WHITE)
-	right.add_child(respawn_label)
+	wait_label = _label(WAIT_TEXT, 22, Color.WHITE)
+	right.add_child(wait_label)
 	var loadout: HBoxContainer = HBoxContainer.new()
 	loadout.alignment = BoxContainer.ALIGNMENT_CENTER
 	loadout.add_theme_constant_override("separation", 10)
@@ -82,15 +80,12 @@ func _ready() -> void:
 	column.add_child(swap_button)
 
 
-## Shown while `player` is dead; the swap button hides while the swap screen is open.
-func sync(player: PlayerState, respawn_time: float, pick_open: bool) -> void:
-	visible = not player.alive
-	respawn_label.visible = visible
+## Shown while `player` is tagged; the swap button hides while the swap screen is open.
+func sync(player: PlayerState, pick_open: bool) -> void:
+	visible = player.tagged
 	swap_button.visible = visible and not pick_open
 	if not visible:
 		return
-	respawn_label.text = "RESPAWN IN %d" % ceili(player.respawn_time_left)
-	ring.show_time(player.respawn_time_left, respawn_time)
 	for i: int in _icons.size():
 		var id: StringName = player.weapons[i] if i < player.weapons.size() else &""
 		_icons[i].texture = Icons.art(StringName("btn_" + String(id))) if id != &"" else null

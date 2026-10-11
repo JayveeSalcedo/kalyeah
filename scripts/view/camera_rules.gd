@@ -1,7 +1,8 @@
 class_name CameraRules
 extends Resource
 ## The gameplay camera for a portrait (9:16) phone: a perspective camera above and
-## behind the hero at a fixed downward angle (45-55 degrees), straight behind
+## behind the hero at a fixed, fairly low downward angle (40 degrees, like the
+## street-game reference: you see far up the street) with a wide lens, straight behind
 ## (`yaw_offset_degrees`), with the hero held near the lower centre of the screen
 ## so the battlefield ahead fills the rest. The distance is derived so that
 ## `visible_width` metres of lane are on screen at the camera's aim point, whatever
@@ -17,7 +18,7 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 ## back right): it is turned this many degrees around the hero, so the street runs
 ## diagonally up the screen from bottom left to top right.
 @export var yaw_offset_degrees: float = 0.0
-## Pitch from horizontal, in degrees (45-55 for this framing).
+## Pitch from horizontal, in degrees.
 @export var pitch_degrees: float = 0.0
 ## VERTICAL field of view, in degrees.
 @export var vfov_degrees: float = 0.0

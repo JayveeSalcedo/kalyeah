@@ -137,8 +137,8 @@ func test_events_are_replayed_as_signals_on_the_mirror() -> void:
 	watch_signals(b.mirror)
 	server_match.sim.kill(b.player_id)
 	_pump(0.3)
-	assert_signal_emitted_with_parameters(b.mirror, "player_died", [b.player_id])
-	assert_false(b.mirror.players[b.player_id].alive)
+	assert_signal_emitted_with_parameters(b.mirror, "player_tagged", [b.player_id])
+	assert_true(b.mirror.players[b.player_id].tagged)
 
 
 func test_a_dropped_client_reconnects_into_its_slot() -> void:

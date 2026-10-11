@@ -7,7 +7,6 @@ const BTN_WEAPON_1: int = 1 << 0
 const BTN_WEAPON_2: int = 1 << 1
 const BTN_DASH: int = 1 << 2
 const BTN_BOOKMARK: int = 1 << 3
-const BTN_BALL: int = 1 << 4
 ## Sent on the tick a weapon button is released over the cancel zone: no cast.
 const BTN_AIM_CANCEL: int = 1 << 5
 

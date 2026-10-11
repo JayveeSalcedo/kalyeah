@@ -1,11 +1,11 @@
 class_name OverheadHud
 extends Control
 ## MOBA-style overhead display drawn in screen space over each hero, like League
-## of Legends: a segmented health bar (green you, blue ally, red enemy, grey gray
-## HP in the death delay), a status in *italic* above it ("Stunned"), and one thin
-## bar under it: the pin's cooldown. No names and no damage numbers (heals still
-## pop a green "+N"). Over every damaged cardboard wall, a cardboard-coloured
-## health bar. Reads the sim and projects through the match camera.
+## of Legends: a segmented health bar (green you, blue ally, red enemy), a status
+## in *italic* above it ("Stunned", "Tagged"), and one thin bar under it: the pin's
+## cooldown. No names and no damage numbers (heals still pop a green "+N"). While a
+## team holds the enemy base, a spinner fills over its kids' heads. Reads the sim
+## and projects through the match camera.
 
 const BAR_SIZE: Vector2 = Vector2(92.0, 13.0)
 const COOLDOWN_HEIGHT: float = 5.0
@@ -21,17 +21,12 @@ const BACK: Color = Color(0.08, 0.06, 0.1, 0.85)
 const SELF_COLOR: Color = Color(0.35, 0.95, 0.35)
 const ALLY_COLOR: Color = Color(0.35, 0.65, 1.0)
 const ENEMY_COLOR: Color = Color(1.0, 0.3, 0.3)
-const GRAY_COLOR: Color = Color(0.78, 0.78, 0.8)
 const STATUS_COLOR: Color = Color(1.0, 0.86, 0.3)
 const COOLDOWN_COLOR: Color = Color(0.3, 0.68, 1.0)
 const COOLDOWN_ACTIVE_COLOR: Color = Color(1.0, 0.82, 0.25)
 const DAMAGE_COLOR: Color = Color(1.0, 0.95, 0.85)
 const HEAL_COLOR: Color = Color(0.55, 1.0, 0.45)
-const WALL_BAR_SIZE: Vector2 = Vector2(78.0, 10.0)
-const WALL_TOP: float = 2.7
-const WALL_COLOR: Color = Color(1.0, 0.68, 0.3)
-const WALL_LOW_COLOR: Color = Color(1.0, 0.36, 0.22)
-## The spinner above a hero standing in the enemy's scoring area.
+## The spinner above a hero holding the enemy base.
 const SPINNER_RADIUS: float = 15.0
 const SPINNER_LIFT: float = 36.0
 const SPINNER_COLOR: Color = Color(1.0, 0.86, 0.3)
@@ -59,16 +54,7 @@ func setup(sim: MatchSim, camera: Camera3D, local_id: int, local_team: int) -> v
 	sim.player_healed.connect(_on_healed)
 
 
-## Screen point above wall `index`, or null when it is off camera.
-func _wall_top(index: int) -> Variant:
-	var center: Vector2 = _sim.walls[index].rect.get_center()
-	var world: Vector3 = Vector3(center.x, WALL_TOP, center.y)
-	if _camera == null or _camera.is_position_behind(world):
-		return null
-	return _camera.unproject_position(world)
-
-
-## The status words shown (in italic) above a hero's bar: "Stunned", "Down", ...
+## The status words shown (in italic) above a hero's bar: "Stunned", "Tagged", ...
 ## Empty when nothing is wrong. Heroes have no name text.
 func text_for(id: int) -> String:
 	return _status_text(_sim.players[id])
@@ -76,8 +62,8 @@ func text_for(id: int) -> String:
 
 func _status_text(state: PlayerState) -> String:
 	var words: PackedStringArray = state.effects.display_names()
-	if state.death_delay:
-		words.insert(0, "Down")
+	if state.tagged:
+		words.insert(0, "Tagged")
 	return " · ".join(words)
 
 
@@ -128,46 +114,30 @@ func _draw() -> void:
 		return
 	for id: int in _sim.players:
 		var state: PlayerState = _sim.players[id]
-		if not state.alive:
-			continue
 		var at: Variant = _head(state)
 		if at != null:
 			_draw_hero(state, at as Vector2)
-	for index: int in _sim.walls.size():
-		var wall: MapLayout.WallSpec = _sim.walls[index]
-		if wall.hp > 0 and wall.hp < _sim.layout.wall_hp:
-			var top: Variant = _wall_top(index)
-			if top != null:
-				_draw_wall_bar(top as Vector2, float(wall.hp) / float(_sim.layout.wall_hp))
 	for popup: Dictionary in _popups:
 		_draw_popup(popup)
 
 
-## A cardboard-coloured bar over a damaged wall (turns red when it is about to break).
-func _draw_wall_bar(top: Vector2, health: float) -> void:
-	var rect: Rect2 = Rect2(top - Vector2(WALL_BAR_SIZE.x / 2.0, 0.0), WALL_BAR_SIZE)
-	draw_rect(rect.grow(2.0), BACK)
-	var color: Color = WALL_COLOR if health > 0.3 else WALL_LOW_COLOR
-	draw_rect(Rect2(rect.position, Vector2(rect.size.x * health, rect.size.y)), color)
-	draw_rect(Rect2(rect.position, Vector2(rect.size.x * health, rect.size.y * 0.35)), color.lightened(0.35))
-
-
+## True while `state`'s team holds the enemy base and this kid stands in it.
 func spinner_visible(state: PlayerState) -> bool:
-	return state.alive and state.base_time > 0.0
+	return (
+		not state.tagged and _sim.capture_team == state.team
+		and _sim.capture_kind == MatchSim.CaptureKind.BASE
+		and _sim.layout.in_base(-_sim.side_for_team(state.team), state.position)
+	)
 
 
 func _draw_hero(state: PlayerState, head: Vector2) -> void:
 	var rect: Rect2 = Rect2(head - Vector2(BAR_SIZE.x / 2.0, 0.0), BAR_SIZE)
 	draw_rect(rect.grow(2.0), BACK)
 	var max_hp: float = float(_sim.rules.player_max_hp)
-	if state.death_delay:
-		var gray: float = clampf(state.gray_hp / _sim.rules.death_delay_gray_hp, 0.0, 1.0)
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x * gray, rect.size.y)), GRAY_COLOR)
-	else:
-		var fill: float = clampf(float(state.hp) / max_hp, 0.0, 1.0)
-		var color: Color = bar_color(state)
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y)), color)
-		draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y * 0.35)), color.lightened(0.35))
+	var fill: float = clampf(float(state.hp) / max_hp, 0.0, 1.0)
+	var color: Color = bar_color(state)
+	draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y)), color)
+	draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y * 0.35)), color.lightened(0.35))
 	var segments: int = int(max_hp) / SEGMENT_HP
 	for i: int in range(1, segments):
 		var x: float = rect.position.x + rect.size.x * float(i) / float(segments)
@@ -178,12 +148,12 @@ func _draw_hero(state: PlayerState, head: Vector2) -> void:
 	if not status.is_empty():
 		_text(_italic, status, head + Vector2(0.0, -8.0), STATUS_FONT, STATUS_COLOR, 6)
 		lift = 22.0
-	if state.base_time > 0.0:
-		_draw_spinner(head + Vector2(0.0, -SPINNER_LIFT - lift), state.base_time / _sim.rules.base_capture_time)
+	if spinner_visible(state):
+		_draw_spinner(head + Vector2(0.0, -SPINNER_LIFT - lift), _sim.capture_elapsed / _sim.rules.capture_time)
 
 
-## A spinning ring over a hero who is behind the enemy's inner wall: the ring fills as
-## the point gets closer (it scores when it is full).
+## A spinning ring over a hero holding the enemy base: the ring fills as the point
+## gets closer (it scores when it is full).
 func _draw_spinner(center: Vector2, progress: float) -> void:
 	draw_circle(center, SPINNER_RADIUS + 4.0, SPINNER_BACK)
 	draw_arc(center, SPINNER_RADIUS, 0.0, TAU, 28, Color(1.0, 1.0, 1.0, 0.25), 4.0)

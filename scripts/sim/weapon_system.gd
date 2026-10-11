@@ -94,11 +94,8 @@ func fire(sim: MatchSim, caster: PlayerState, def: WeaponDef, aim: Vector2, hold
 				var projectile: Projectile = _new_projectile(caster, def, caster.position.direction_to(target.position))
 				projectile.target_id = target.id
 			else:
-				# no enemy to lock: the rock is thrown straight at the nearest enemy wall in range
-				var wall_point: Variant = nearest_wall_point(sim, caster, def.max_range)
-				if wall_point == null:
-					return false
-				_new_projectile(caster, def, caster.position.direction_to(wall_point as Vector2))
+				# nobody to lock on: nothing is thrown and no cooldown is spent
+				return false
 		WeaponDef.Shape.CONE:
 			var direction: Vector2 = aim_direction(caster, aim)
 			if def.delay > 0.0:
@@ -232,15 +229,6 @@ func _hit_cone(sim: MatchSim, caster: PlayerState, def: WeaponDef, direction: Ve
 			continue
 		for i: int in hits:
 			_hit(sim, target, def)
-	for index: int in sim.walls_in_circle(caster.team, caster.position, def.max_range):
-		var rect: Rect2 = sim.walls[index].rect
-		var closest: Vector2 = Vector2(
-			clampf(caster.position.x, rect.position.x, rect.end.x),
-			clampf(caster.position.y, rect.position.y, rect.end.y)
-		)
-		var to_wall: Vector2 = closest - caster.position
-		if to_wall.length() < 0.001 or absf(direction.angle_to(to_wall)) <= half_angle:
-			sim.damage_wall(index, def.damage * hits)
 
 
 func _step_cones(sim: MatchSim, dt: float) -> void:
@@ -251,7 +239,7 @@ func _step_cones(sim: MatchSim, dt: float) -> void:
 			still.append(cone)
 			continue
 		var caster: PlayerState = sim.players.get(cone.owner_id) as PlayerState
-		if caster != null and caster.alive and not caster.death_delay:
+		if caster != null and not caster.tagged:
 			_hit_cone(sim, caster, cone.def, cone.direction, 1)
 	_cones = still
 
@@ -264,23 +252,9 @@ func _step_throws(sim: MatchSim, dt: float) -> void:
 			still.append(queued)
 			continue
 		var caster: PlayerState = sim.players.get(queued.owner_id) as PlayerState
-		if caster != null and caster.alive and not caster.death_delay:
+		if caster != null and not caster.tagged:
 			_new_projectile(caster, queued.def, queued.direction)
 	_throws = still
-
-
-## The closest point of the nearest enemy wall column within `max_range`, or null.
-func nearest_wall_point(sim: MatchSim, caster: PlayerState, max_range: float) -> Variant:
-	var best: Variant = null
-	var best_distance: float = INF
-	for index: int in sim.walls_in_circle(caster.team, caster.position, max_range):
-		var rect: Rect2 = sim.walls[index].rect
-		var closest: Vector2 = Vector2(clampf(caster.position.x, rect.position.x, rect.end.x), clampf(caster.position.y, rect.position.y, rect.end.y))
-		var distance: float = caster.position.distance_to(closest)
-		if distance < best_distance and distance > 0.001:
-			best_distance = distance
-			best = closest
-	return best
 
 
 func _step_projectiles(sim: MatchSim, dt: float) -> void:
@@ -302,9 +276,6 @@ func _advance_projectile(sim: MatchSim, projectile: Projectile, distance: float)
 		if not _move_projectile(sim, projectile, move):
 			return false
 		if _blocked(projectile, previous, blocking):
-			var wall: int = sim.wall_at_point(projectile.team, projectile.position)
-			if wall >= 0:
-				sim.damage_wall(wall, projectile.def.damage)
 			if projectile.def.shape == WeaponDef.Shape.BOOMERANG and not projectile.returning:
 				projectile.position = previous
 				_turn_back(projectile)
@@ -325,13 +296,10 @@ func _move_projectile(sim: MatchSim, projectile: Projectile, move: float) -> boo
 				if target == null or not sim.is_targetable(target):
 					return false
 				projectile.direction = projectile.position.direction_to(target.position)
-			elif projectile.travelled >= def.max_range:
-				# thrown at a wall: flies straight and drops at max range
-				return false
 		WeaponDef.Shape.BOOMERANG:
 			if projectile.returning:
 				var thrower: PlayerState = sim.players.get(projectile.owner_id) as PlayerState
-				if thrower == null or not thrower.alive:
+				if thrower == null or thrower.tagged:
 					return false
 				if projectile.position.distance_to(thrower.position) <= sim.rules.boomerang_catch_distance:
 					return false
@@ -361,7 +329,7 @@ func _turn_back(projectile: Projectile) -> void:
 	projectile.hit_ids.clear()
 
 
-## Enemy walls, lane edges and enemy shields stop projectiles.
+## Obstacles, street edges and enemy shields stop projectiles.
 func _blocked(projectile: Projectile, previous: Vector2, blocking: Array[Rect2]) -> bool:
 	for rect: Rect2 in blocking:
 		if rect.has_point(projectile.position):
@@ -458,8 +426,6 @@ func _step_shields(dt: float) -> void:
 func _area_hit(sim: MatchSim, team: int, def: WeaponDef, center: Vector2, radius: float) -> void:
 	for target: PlayerState in _enemies_within(sim, team, center, radius):
 		_hit(sim, target, def)
-	for wall: int in sim.walls_in_circle(team, center, radius):
-		sim.damage_wall(wall, def.damage)
 
 
 func _enemies_within(sim: MatchSim, team: int, center: Vector2, radius: float) -> Array[PlayerState]:

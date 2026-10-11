@@ -7,7 +7,6 @@ extends Resource
 @export var player_max_hp: int = 0
 @export var move_speed: float = 0.0
 @export var player_radius: float = 0.0
-@export var respawn_time: float = 0.0
 @export var spawn_spacing: float = 0.0
 ## Takbo (dash): distance over `dash_duration`, then a stumble where the player can't move or cast.
 @export var dash_distance: float = 0.0
@@ -23,25 +22,16 @@ extends Resource
 @export var bookmark_returns: bool = false
 ## Pin: after the short blink the player tumbles (can't move or cast) this long.
 @export var bookmark_tumble: float = 0.0
-## Death delay: at 0 HP a player (once per respawn) keeps walking with "gray HP" that
-## drains while moving. A living teammate touching them, or the player touching their own
-## base post, revives them with the gray HP they have left. Skills are off meanwhile.
-@export var death_delay_enabled: bool = false
-@export var death_delay_gray_hp: float = 0.0
-## Gray HP lost per second at full stick (scaled by stick length; standing still is free).
-@export var death_delay_drain_per_second: float = 0.0
-@export var death_delay_move_speed_scale: float = 0.0
-## Center-to-center distance at which a teammate's touch revives.
-@export var revive_touch_distance: float = 0.0
-## Distance to the own base post center at which touching it revives.
-@export var post_touch_distance: float = 0.0
-## Data toggle (GDD D8): can enemies damage a player in death delay? Default no.
-@export var death_delay_takes_damage: bool = false
+## Tag: at 0 HP a player is sent to their team's box. A free teammate stepping into
+## the box rescues everyone waiting there (data toggle: off = one per touch).
+@export var rescue_frees_all: bool = true
+## Practice: a tagged training dummy walks out of the box on its own after this long.
+@export var dummy_release_time: float = 0.0
 ## Every weapon in the game (docs/GDD.md "Weapons"); each player equips two different ones.
 @export var weapons: Array[WeaponDef] = []
 ## The six cosmetic characters, assigned at random with no duplicates.
 @export var characters: Array[CharacterDef] = []
-## Weapon pick time (match start and while waiting to respawn).
+## Weapon pick time (match start).
 @export var weapon_pick_time: float = 0.0
 ## POLYMORPH: walk at this fraction of normal speed (no casting).
 @export var polymorph_speed_scale: float = 0.0
@@ -49,47 +39,17 @@ extends Resource
 @export var aim_deadzone: float = 0.0
 ## A returning boomerang is caught when this close to its thrower.
 @export var boomerang_catch_distance: float = 0.0
-## Scoring (volleyball format): stand in the enemy base zone this long to score.
-@export var base_capture_time: float = 0.0
-## Freeze after a point before everyone is reset to their bases.
+## Scoring: a capture (the whole team in the enemy base, or every enemy tagged) has
+## to hold this long to win the point.
+@export var capture_time: float = 0.0
+## Freeze after a point before everyone is reset to their posts.
 @export var point_freeze_time: float = 0.0
 ## A set is won at `set_points_to_win` with a lead of `set_win_by`, or at `set_point_cap`.
 @export var set_points_to_win: int = 0
 @export var set_win_by: int = 0
 @export var set_point_cap: int = 0
-## Sets needed to win the match (best of 3 = 2).
+## Sets needed to win the match (1 = the first set decides it).
 @export var match_sets_to_win: int = 0
-## Rubber ball: spawns at the lane center this long after there is no ball.
-@export var ball_spawn_interval: float = 0.0
-@export var ball_range: float = 0.0
-@export var ball_speed: float = 0.0
-@export var ball_radius: float = 0.0
-## The holder walks at this fraction of normal speed.
-@export var ball_holder_speed_scale: float = 0.0
-## KNOCKOUT duration on an enemy hit by the ball.
-@export var ball_wall_damage: int = 0
-## An enemy who pressed the ball button this recently before contact catches it (D2).
-@export var ball_catch_window: float = 0.0
-## Tapping the held guava bites it: each bite heals this fraction of max HP.
-@export var ball_bite_heal_fraction: float = 0.0
-## A guava is eaten up after this many bites.
-@export var ball_bites: int = 0
-## A press released within this many seconds without dragging is a tap (a bite), not a throw.
-@export var ball_tap_time: float = 0.0
-## A thrown guava hurts an enemy for this fraction of max HP (whole) or the second one (bitten).
-@export var ball_hit_damage_fraction: float = 0.0
-@export var ball_bitten_damage_fraction: float = 0.0
-## Tricycle: first crossing and the time between crossings.
-@export var tricycle_first_time: float = 0.0
-@export var tricycle_interval: float = 0.0
-## Horn + lane marker this long before it drives in.
-@export var tricycle_warning_time: float = 0.0
-@export var tricycle_crossing_time: float = 0.0
-## Push distance away from its path (D4), spread over `tricycle_push_time`.
-@export var tricycle_knockback: float = 0.0
-@export var tricycle_push_time: float = 0.0
-@export var tricycle_length: float = 0.0
-@export var tricycle_width: float = 0.0
 ## Practice-mode training dummies (two enemies and one ally).
 @export var dummy_z: float = 0.0
 @export var dummy_stand_x: float = 0.0

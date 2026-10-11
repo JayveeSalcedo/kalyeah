@@ -15,10 +15,9 @@ const ALLY_ID: int = 4
 const MAX_STEPS_PER_FRAME: int = 8
 const AIRBORNE_LIFT: float = 1.0
 const WEAPON_SLOTS: int = 2
-const BALL_SLOT: int = 2
-const PIN_SLOT: int = 3
+const PIN_SLOT: int = 2
 const RECONNECT_INTERVAL: float = 2.0
-## Practice-only debug button to test the death delay without an enemy that fights back.
+## Practice-only debug button to test getting tagged without an enemy that fights back.
 const DEBUG_DAMAGE: int = 30
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 
@@ -38,7 +37,7 @@ var _accumulator: float = 0.0
 var _views: Dictionary[int, KidModel] = {}
 var _pins: Dictionary[int, MeshInstance3D] = {}
 var _characters: Dictionary[StringName, CharacterDef] = {}
-## The opening pick pauses the match; the respawn swap does not.
+## The opening pick pauses the match; the box swap does not.
 var _opening_pick: bool = false
 ## Online: our own input counter (the server acks it for reconciliation).
 var _input_tick: int = 0
@@ -52,9 +51,6 @@ var _reconnect_left: float = -1.0
 @onready var _aim_indicator: AimIndicator = %AimIndicator
 @onready var _pick_screen: WeaponPickScreen = %PickScreen
 @onready var _map: StreetMap = %Map
-@onready var _walls: WallsView = %Walls
-var _enemy_walls_removed: bool = false
-@onready var _neutrals: NeutralsView = %Neutrals
 @onready var _audio: MatchAudio = %Audio
 
 
@@ -70,8 +66,6 @@ func _ready() -> void:
 	_fx.watch(sim)
 	_audio.watch(sim, local_team, local_id)
 	_views[local_id].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
-	_walls.watch(sim)
-	_neutrals.watch(sim)
 	_map.set_own_side(own_side())
 	_map.show_back_button(false)
 	_setup_hud()
@@ -113,7 +107,7 @@ func press_skill(button_bit: int) -> void:
 	input.press_skill(button_bit)
 
 
-## A weapon (or guava) button started aiming.
+## A weapon (or pin) button started aiming.
 func aim_started(slot: int) -> void:
 	input.aim_started(slot)
 
@@ -159,14 +153,14 @@ func is_picking() -> bool:
 	return _pick_screen.is_open() or _opening_pick
 
 
-## Ends the open pick now (auto-fills empty slots), e.g. for tests or on respawn.
+## Ends the open pick now (auto-fills empty slots), e.g. for tests or on a rescue.
 func finish_pick() -> void:
 	_pick_screen.force_finish()
 
 
-## Opens the respawn swap screen (only while dead; reopen as often as you like).
+## Opens the box swap screen (only while tagged; reopen as often as you like).
 func open_swap() -> void:
-	if sim.players[local_id].alive:
+	if not sim.players[local_id].tagged:
 		return
 	_open_swap_screen()
 
@@ -202,7 +196,8 @@ func _setup_practice() -> void:
 		rules.dummy_patrol_x, rules.dummy_patrol_range, rules.dummy_patrol_speed_scale
 	)
 	sim.add_dummy(ENEMY_PATROL_ID, 1, Vector2(rules.dummy_patrol_x, rules.dummy_z), patrol)
-	sim.add_dummy(ALLY_ID, local_team, Vector2(rules.dummy_ally_x, rules.dummy_ally_z), DummyBrain.standing())
+	var ally_spot: Vector2 = Vector2(rules.dummy_ally_x, rules.dummy_ally_z)
+	sim.add_dummy(ALLY_ID, local_team, ally_spot, DummyBrain.rescuer(ally_spot))
 	sim.assign_characters()
 	var loadout: Array[StringName] = sim.random_loadout()
 	sim.set_loadout(local_id, loadout[0], loadout[1])
@@ -231,12 +226,7 @@ func _connect_hud() -> void:
 		hud.aim_buttons[slot].aim_started.connect(aim_started.bind(slot))
 		hud.aim_buttons[slot].aim_released.connect(aim_released.bind(slot))
 	hud.hurt_button.pressed.connect(hurt_local.bind(DEBUG_DAMAGE))
-	hud.tricycle_button.pressed.connect(sim.tricycle.call_now)
 	hud.hurt_button.visible = not online
-	hud.menu.walls_button.visible = not online
-	hud.enemy_walls_toggled.connect(_set_enemy_walls_removed)
-	sim.sides_switched.connect(_apply_enemy_walls)
-	hud.tricycle_button.visible = not online
 	hud.again_pressed.connect(_on_again_pressed)
 	hud.swap_pressed.connect(open_swap)
 	hud.exit_pressed.connect(_on_exit_pressed)
@@ -244,18 +234,14 @@ func _connect_hud() -> void:
 
 func _connect_sim() -> void:
 	sim.player_damaged.connect(func(id: int, amount: int) -> void: if id == local_id: _camera.shake(minf(0.1 + amount * 0.01, 0.4)))
-	sim.wall_destroyed.connect(func(_index: int) -> void: _camera.shake(0.18))
 	sim.weapon_cast.connect(func(id: int, weapon: StringName) -> void: _views[id].play_cast(sim.weapon_defs[weapon].cast_lock))
 	sim.player_damaged.connect(func(id: int, _amount: int) -> void: _views[id].play_hit())
 	sim.point_scored.connect(_on_point_scored)
 	sim.set_won.connect(_on_set_won)
 	sim.match_won.connect(_on_match_won)
 	sim.sides_switched.connect(_on_sides_switched)
-	sim.tricycle.warning_started.connect(_on_tricycle_warning)
-	sim.ball.hit_enemy.connect(_on_ball_hit)
-	sim.ball.caught.connect(_on_ball_caught)
-	sim.player_died.connect(_on_player_died)
-	sim.player_respawned.connect(_on_player_respawned)
+	sim.player_tagged.connect(_on_player_tagged)
+	sim.player_rescued.connect(_on_player_rescued)
 
 
 # ---- one tick of input ---------------------------------------------------------------
@@ -282,7 +268,7 @@ func _screen_to_world(screen_aim: Vector2) -> Vector2:
 func _mouse_aim(slot: int) -> Vector2:
 	var player: PlayerState = sim.players[local_id]
 	var viewport: Viewport = get_viewport()
-	if viewport == null or (slot < BALL_SLOT and slot >= player.weapons.size()):
+	if viewport == null or (slot < PIN_SLOT and slot >= player.weapons.size()):
 		return Vector2.ZERO
 	var mouse: Vector2 = viewport.get_mouse_position()
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(mouse), _camera.project_ray_normal(mouse))
@@ -290,10 +276,8 @@ func _mouse_aim(slot: int) -> Vector2:
 		return Vector2.ZERO
 	var point: Vector3 = hit as Vector3
 	var offset: Vector2 = Vector2(point.x, point.z) - player.position
-	var reach: float = rules.ball_range
-	if slot == PIN_SLOT:
-		reach = rules.bookmark_blink
-	elif slot != BALL_SLOT:
+	var reach: float = rules.bookmark_blink
+	if slot != PIN_SLOT:
 		var def: WeaponDef = sim.weapon_defs[player.weapons[slot]]
 		reach = def.max_range if def.max_range > 0.0 else 1.0
 	return (offset / reach).limit_length(1.0)
@@ -389,11 +373,8 @@ func _sync_views(delta: float) -> void:
 		_sync_actor(sim.players[id], delta)
 	var player: PlayerState = sim.players[local_id]
 	hud.sync_player(sim, rules, player, local_id, _pick_screen.visible)
-	if not player.alive:
-		_pick_screen.show_time(player.respawn_time_left)
 	_sync_aim(player)
 	_fx.sync(sim, delta)
-	_neutrals.sync(delta)
 	hud.overhead.tick(delta)
 	hud.minimap.queue_redraw()
 	hud.sync_score(sim, rules, local_team, delta)
@@ -404,11 +385,10 @@ func _sync_actor(state: PlayerState, delta: float) -> void:
 	var view: KidModel = _views[state.id]
 	var lift: float = AIRBORNE_LIFT if state.effects.has(StatusEffects.Type.AIRBORNE) else 0.0
 	view.position = Vector3(state.position.x, lift, state.position.y)
-	view.visible = state.alive
 	view.face(state.facing)
 	view.animate(delta, minf(view.ground_speed(state.position, delta), 20.0), state)
 	var pin: MeshInstance3D = _pins[state.id]
-	pin.visible = state.alive and state.mark_active
+	pin.visible = not state.tagged and state.mark_active
 	pin.position = Vector3(state.mark_position.x, 0.0, state.mark_position.y)
 
 
@@ -416,7 +396,7 @@ func _sync_actor(state: PlayerState, delta: float) -> void:
 func _sync_aim(player: PlayerState) -> void:
 	var any_aiming: bool = false
 	for slot: int in MatchInput.SLOTS:
-		if not player.alive:
+		if player.tagged:
 			break
 		var stick: Vector2
 		var cancelled: bool
@@ -428,13 +408,6 @@ func _sync_aim(player: PlayerState) -> void:
 			cancelled = input.key_cancel[slot]
 		else:
 			continue
-		if slot == BALL_SLOT:
-			if not sim.ball.is_holder(local_id):
-				continue
-			var direction: Vector2 = sim.resolved_ball_aim(player, stick)
-			_aim_indicator.show_lines(AimIndicator.ball_outline(player.position, direction, rules.ball_range), cancelled, true, 1)
-			any_aiming = true
-			break
 		if slot == PIN_SLOT:
 			if not player.bookmark_ready():
 				continue
@@ -458,18 +431,32 @@ func _sync_aim(player: PlayerState) -> void:
 
 # ---- sim events -> banners -----------------------------------------------------------
 
-func _on_player_died(id: int) -> void:
+## TAGGED! / RESCUED! slide in at the left like a kill feed, team-coloured.
+func _on_player_tagged(id: int) -> void:
+	hud.feed(MatchHud.Feed.TAGGED, sim.players[id].team == local_team, _name_of(id))
 	if id == local_id:
-		_open_swap_screen()
+		_camera.shake(0.25)
 
 
-func _on_player_respawned(id: int) -> void:
+func _on_player_rescued(id: int, by_id: int) -> void:
+	if by_id != MatchSim.RELEASED_ALONE:
+		hud.feed(MatchHud.Feed.RESCUED, sim.players[id].team == local_team, _name_of(id))
 	if id == local_id and _pick_screen.visible:
 		_pick_screen.force_finish()
 
 
-func _on_point_scored(team: int, _by_id: int) -> void:
-	show_banner("BASE CAPTURED!" if team == local_team else "YOUR BASE WAS CAPTURED!")
+func _name_of(id: int) -> String:
+	if id == local_id:
+		return "YOU"
+	var character: CharacterDef = _characters.get(sim.players[id].character_id) as CharacterDef
+	return character.display_name if character != null else "Player %d" % id
+
+
+func _on_point_scored(team: int, _how: int) -> void:
+	var points: Array[int] = sim.score.points
+	var mine: int = points[local_team]
+	var theirs: int = points[1 - local_team]
+	show_banner("SCORED!  %d-%d" % [mine, theirs] if team == local_team else "THEY SCORED  %d-%d" % [mine, theirs])
 
 
 func _on_set_won(team: int) -> void:
@@ -482,30 +469,6 @@ func _on_match_won(team: int) -> void:
 
 func _on_sides_switched() -> void:
 	_map.set_own_side(own_side())
-
-
-func _on_tricycle_warning(_direction: int) -> void:
-	show_banner("TRICYCLE INCOMING!\nGet off the road!")
-
-
-## The settings toggle (practice only): knock the enemy walls down, or rebuild them.
-func _set_enemy_walls_removed(removed: bool) -> void:
-	_enemy_walls_removed = removed
-	_apply_enemy_walls()
-
-
-func _apply_enemy_walls() -> void:
-	sim.set_walls_standing(-own_side(), not _enemy_walls_removed)
-
-
-func _on_ball_hit(id: int) -> void:
-	if id == local_id:
-		show_banner("GUAVA HIT!")
-
-
-func _on_ball_caught(id: int) -> void:
-	if id == local_id:
-		show_banner("NICE CATCH!")
 
 
 func _on_again_pressed() -> void:

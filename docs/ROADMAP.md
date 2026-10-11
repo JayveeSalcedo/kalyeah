@@ -12,6 +12,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | M3 Objectives | Breakable cardboard walls, base scoring, sets and side switch, the guava neutral (heals half HP on pickup, can be thrown), tricycle |
 | M4 Multiplayer | Rooms with passcodes, headless authoritative server, snapshots, prediction and reconnect, lobby screens, Dockerfile and deploy guide |
 | M5 Look and feel (first pass) | Procedural low-poly street, props and kids, themed UI, vector icons, synthesised audio, MOBA HUD, camera, rigged kid animation |
+| Tag street (owner redesign) | The street-game redesign from the reference video: a 24 × 48 m barangay street with your post bottom left and theirs top right, a matching tall minimap, a few cover pieces (crates, benches, a sawhorse, a NO ENTRY board) that block both teams, Tag (always, at 0 HP) with taped boxes and rescues, captures (whole team in the enemy base, or every enemy tagged) held 5 s, first to 3; the guava, the tricycle, the breakable walls and the death delay are gone; a 40° wide-lens camera |
 
 ## Next: the Kalyeah visual overhaul
 
@@ -50,8 +51,8 @@ Budgets (M6): 60 fps on a recommended Android phone, 30+ on the minimum; APK und
 5. Pull requests are meaningful chunks, opened by Claude and merged by the owner. See `CLAUDE.md`.
 
 ## Decisions log
-- No basic attack; death delay with gray HP; teams pass through their own walls (see `GDD.md`).
-- The neutral is the guava; eating it heals half max HP and you keep it to throw (change in one data value).
+- No basic attack (see `GDD.md`).
+- Tag street (owner): the map, the rules and the camera follow the reference video of the street game; portrait stays binding. The guava, the tricycle, breakable walls and the death delay were removed.
 - Game name: **Kalyeah**. Tagline: *Mga larong Pinoy sa kalye*. Android package `com.kalyeah.game`.
 - Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are sprites from sheets the owner generates (`tools/sprites/slice_sheets.py` cuts them).
 - Multiplayer is built and tested; deploying the server and setting `KALYEAH_SERVER_URL` is the owner's step (`server/README.md`).

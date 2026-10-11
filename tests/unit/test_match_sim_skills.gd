@@ -41,39 +41,17 @@ func test_skill_numbers_come_from_data() -> void:
 	assert_eq(RULES.bookmark_cooldown, 14.0)
 
 
-# ---- HP, death, respawn ----
+# ---- HP and tagging ----
 
 func test_damage_reduces_hp() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	sim.damage(1, 30)
 	assert_eq(p.hp, 70)
-	assert_true(p.alive)
+	assert_false(p.tagged)
 
 
-func test_overkill_clamps_to_zero_and_starts_the_death_delay() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	watch_signals(sim)
-	sim.damage(1, 500)
-	assert_eq(p.hp, 0)
-	assert_true(p.alive, "still on their feet during the death delay")
-	assert_true(p.death_delay)
-	assert_signal_emitted_with_parameters(sim, "player_death_delay_started", [1])
-	assert_signal_not_emitted(sim, "player_died")
-
-
-func test_kill_is_immediate_death() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	watch_signals(sim)
-	sim.kill(1)
-	assert_false(p.alive)
-	assert_false(p.death_delay)
-	assert_signal_emitted_with_parameters(sim, "player_died", [1])
-
-
-func test_damage_to_a_dead_or_unknown_player_is_ignored() -> void:
+func test_damage_to_a_tagged_or_unknown_player_is_ignored() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	sim.kill(1)
@@ -81,36 +59,12 @@ func test_damage_to_a_dead_or_unknown_player_is_ignored() -> void:
 	sim.damage(1, 10)
 	sim.damage(99, 10)
 	sim.damage(1, 0)
-	assert_signal_not_emitted(sim, "player_died")
-	assert_signal_not_emitted(sim, "player_death_delay_started")
+	assert_signal_not_emitted(sim, "player_tagged")
+	assert_signal_not_emitted(sim, "player_damaged")
 	assert_eq(p.hp, 0)
 
 
-func test_respawn_after_ten_seconds_at_own_base_with_full_hp() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	_run(sim, 1, Vector2(1.0, 0.0), 5)
-	sim.kill(1)
-	watch_signals(sim)
-	_run(sim, 1, Vector2.ZERO, 295)
-	assert_false(p.alive, "still down just before 10 s")
-	_run(sim, 1, Vector2.ZERO, 6)
-	assert_true(p.alive)
-	assert_eq(p.hp, 100)
-	assert_eq(p.position, p.spawn_position)
-	assert_signal_emitted_with_parameters(sim, "player_respawned", [1])
-
-
-func test_other_team_respawns_at_its_own_base() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(2, 1)
-	sim.kill(2)
-	_run(sim, 2, Vector2.ZERO, 305)
-	assert_true(p.alive)
-	assert_eq(p.position, LAYOUT.spawn_center(MapLayout.SIDE_ENEMY))
-
-
-func test_death_cancels_dash_and_bookmark_effects() -> void:
+func test_a_tag_cancels_dash_and_bookmark_effects() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	_pin(sim, 1, Vector2(0.0, -1.0))
@@ -176,22 +130,14 @@ func test_dash_cooldown_is_eight_seconds() -> void:
 	assert_gt(p.dash_time_left, 0.0, "ready again after 8 s")
 
 
-func test_dash_stops_at_enemy_walls() -> void:
+func test_dash_stops_at_an_obstacle() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, _enemy_face() + 1.5)
+	var cover: Rect2 = LAYOUT.obstacle_rects()[0]
+	p.position = Vector2(cover.get_center().x, cover.end.y + 1.5)
 	_tick(sim, 1, Vector2(0.0, -1.0), PlayerInput.BTN_DASH)
 	_run(sim, 1, Vector2(0.0, -1.0), 8)
-	assert_almost_eq(p.position.y, _enemy_face() + p.radius, 0.05)
-
-
-func test_dash_goes_through_the_own_teams_walls() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, 21.0)
-	_tick(sim, 1, Vector2(0.0, -1.0), PlayerInput.BTN_DASH)
-	_run(sim, 1, Vector2(0.0, -1.0), 8)
-	assert_almost_eq(p.position.y, 16.0, 0.05, "5 m through the own wall at z = 19")
+	assert_almost_eq(p.position.y, cover.end.y + p.radius, 0.05)
 
 
 # ---- Bookmark ----
@@ -305,32 +251,13 @@ func test_holding_bookmark_through_its_cooldown_does_not_precast() -> void:
 	assert_false(p.mark_active, "letting go afterwards does not cast")
 
 
-func test_bookmark_blink_stops_at_enemy_walls() -> void:
+func test_bookmark_blink_stops_at_an_obstacle() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, _enemy_face() + 2.5)
+	var cover: Rect2 = LAYOUT.obstacle_rects()[0]
+	p.position = Vector2(cover.get_center().x, cover.end.y + 2.5)
 	_pin(sim, 1, Vector2.ZERO)
-	assert_almost_eq(p.position.y, _enemy_face() + p.radius, 0.05)
-
-
-func test_bookmark_blink_goes_through_the_own_teams_walls() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	var row_z: float = 0.0
-	for spec: MapLayout.WallSpec in (load("res://data/rules/map_layout.tres") as MapLayout).wall_columns():
-		if spec.side == MapLayout.SIDE_OWN and spec.layer == 0:
-			row_z = spec.rect.get_center().y
-	p.position = Vector2(0.0, row_z + 1.0)
-	_pin(sim, 1, Vector2.ZERO)
-	assert_almost_eq(p.position.y, row_z + 1.0 - RULES.bookmark_blink, 0.05, "straight through the own wall row")
-
-
-## Near face of the enemy wall layer nearest mid.
-func _enemy_face() -> float:
-	for spec: MapLayout.WallSpec in (load("res://data/rules/map_layout.tres") as MapLayout).wall_columns():
-		if spec.side == MapLayout.SIDE_ENEMY and spec.layer == 1:
-			return spec.rect.end.y
-	return 0.0
+	assert_almost_eq(p.position.y, cover.end.y + p.radius, 0.05)
 
 
 # ---- the pin dash: tap = facing, drag = chosen direction ---------------------------------
@@ -348,6 +275,7 @@ func test_a_tap_on_the_pin_dashes_the_way_the_player_faces() -> void:
 func test_dragging_the_pin_chooses_the_dash_direction() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
+	p.position = Vector2(0.0, -4.0)
 	p.facing = Vector2(0.0, -1.0)
 	var start: Vector2 = p.position
 	_pin(sim, 1, Vector2.ZERO, Vector2(-1.0, 0.0))

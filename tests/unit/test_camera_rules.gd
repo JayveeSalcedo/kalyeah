@@ -5,17 +5,16 @@ const LAYOUT: MapLayout = preload("res://data/rules/map_layout.tres")
 const PHONE: float = 720.0 / 1280.0
 
 
-func test_a_fixed_45_to_55_degree_angle_with_a_perspective_lens() -> void:
-	assert_between(CAMERA.pitch_degrees, 45.0, 55.0)
-	assert_eq(CAMERA.pitch_degrees, 50.0)
-	assert_eq(CAMERA.vfov_degrees, 50.0, "vertical field of view")
+func test_a_fixed_low_angle_with_a_wide_perspective_lens() -> void:
+	assert_eq(CAMERA.pitch_degrees, 40.0, "low behind-the-kid view, far up the street")
+	assert_eq(CAMERA.vfov_degrees, 60.0, "wide vertical field of view")
 	assert_eq(CameraRules.DESIGN_ASPECT, 9.0 / 16.0, "portrait 9:16")
 
 
 func test_other_camera_numbers_come_from_data() -> void:
-	assert_eq(CAMERA.visible_width, 18.0)
+	assert_eq(CAMERA.visible_width, 15.0)
 	assert_eq(CAMERA.end_margin, 2.0)
-	assert_eq(CAMERA.player_screen_y, 0.68)
+	assert_eq(CAMERA.player_screen_y, 0.62)
 
 
 func test_distance_shows_the_visible_width_on_any_phone() -> void:
@@ -23,12 +22,12 @@ func test_distance_shows_the_visible_width_on_any_phone() -> void:
 		var distance: float = CAMERA.distance(aspect)
 		var width: float = 2.0 * distance * tan(deg_to_rad(CAMERA.vfov_degrees / 2.0)) * aspect
 		assert_almost_eq(width, CAMERA.visible_width, 0.001, "aspect %.2f" % aspect)
-	assert_almost_eq(CAMERA.distance(PHONE), 34.31, 0.05)
+	assert_almost_eq(CAMERA.distance(PHONE), 23.09, 0.05)
 
 
-func test_the_camera_is_far_and_high() -> void:
+func test_the_camera_is_high_behind_the_hero() -> void:
 	var offset: Vector3 = CAMERA.camera_offset(CAMERA.distance(PHONE), false)
-	assert_almost_eq(offset.y, 26.28, 0.1, "about 26 m up")
+	assert_almost_eq(offset.y, 14.84, 0.1, "about 15 m up")
 	assert_almost_eq(offset.length(), CAMERA.distance(PHONE), 0.001)
 
 
@@ -60,7 +59,7 @@ func test_other_team_view_is_mirrored() -> void:
 func test_the_aim_point_is_far_enough_ahead_to_hold_the_hero_low_on_screen() -> void:
 	var reach: float = CAMERA.distance(PHONE)
 	var ahead: float = CAMERA.look_ahead(reach)
-	assert_almost_eq(ahead, 6.59, 0.05, "about 6.6 m ahead")
+	assert_almost_eq(ahead, 4.27, 0.05, "about 4.3 m ahead")
 	assert_eq(CAMERA.clamp_target(Vector2(0.0, 10.0), LAYOUT, false, reach), Vector2(0.0, 10.0 - ahead), "own side looks toward -Z")
 	assert_eq(CAMERA.clamp_target(Vector2(0.0, -10.0), LAYOUT, true, reach), Vector2(0.0, -10.0 + ahead), "flipped looks toward +Z")
 

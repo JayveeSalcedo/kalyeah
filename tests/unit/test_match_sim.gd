@@ -20,7 +20,7 @@ func test_rules_match_gdd_core_numbers() -> void:
 	assert_almost_eq(RULES.tick_dt(), DT, 0.00001)
 	assert_eq(RULES.player_max_hp, 100)
 	assert_eq(RULES.move_speed, 5.0)
-	assert_eq(RULES.respawn_time, 10.0)
+	assert_eq(RULES.capture_time, 5.0)
 
 
 func test_players_spawn_at_their_own_base_with_full_hp() -> void:
@@ -30,7 +30,7 @@ func test_players_spawn_at_their_own_base_with_full_hp() -> void:
 	assert_eq(a.position, LAYOUT.spawn_center(MapLayout.SIDE_OWN))
 	assert_eq(b.position, LAYOUT.spawn_center(MapLayout.SIDE_ENEMY))
 	assert_eq(a.hp, 100)
-	assert_true(a.alive)
+	assert_false(a.tagged)
 	assert_eq(a.radius, 0.4)
 
 
@@ -82,11 +82,11 @@ func test_no_input_means_no_movement() -> void:
 	assert_eq(p.position, start)
 
 
-func test_dead_players_do_not_move() -> void:
+func test_tagged_players_do_not_move() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	sim.kill(1)
-	assert_false(p.alive)
+	assert_true(p.tagged)
 	var start: Vector2 = p.position
 	_run(sim, 1, Vector2(1.0, 0.0), 10)
 	assert_eq(p.position, start)
@@ -136,10 +136,10 @@ func test_rng_is_seeded_and_differs_between_seeds() -> void:
 
 func test_player_input_button_bits() -> void:
 	var input: PlayerInput = PlayerInput.create(
-		Vector2.ZERO, Vector2.ZERO, PlayerInput.BTN_DASH | PlayerInput.BTN_BALL, 3
+		Vector2.ZERO, Vector2.ZERO, PlayerInput.BTN_DASH | PlayerInput.BTN_WEAPON_2, 3
 	)
 	assert_true(input.is_pressed(PlayerInput.BTN_DASH))
-	assert_true(input.is_pressed(PlayerInput.BTN_BALL))
+	assert_true(input.is_pressed(PlayerInput.BTN_WEAPON_2))
 	assert_false(input.is_pressed(PlayerInput.BTN_WEAPON_1))
 	assert_false(input.is_pressed(PlayerInput.BTN_BOOKMARK))
 	assert_eq(input.tick, 3)

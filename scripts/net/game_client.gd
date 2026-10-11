@@ -284,7 +284,7 @@ func _on_events(list: Array) -> void:
 	if mirror == null:
 		return
 	var targets: Dictionary[String, Object] = {
-		"sim": mirror, "weapons": mirror.weapons, "ball": mirror.ball, "tricycle": mirror.tricycle,
+		"sim": mirror, "weapons": mirror.weapons,
 	}
 	for event: Array in list:
 		if event.size() != 3 or not targets.has(event[0] as String):

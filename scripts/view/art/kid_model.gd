@@ -136,7 +136,7 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	_sprite.visible = not polymorphed
 	_shadow.visible = true
 	_can.visible = polymorphed
-	set_ghost(state.death_delay)
+	set_ghost(state.tagged)
 	if polymorphed:
 		pose = "can"
 		_can.rotation.z = sin(_clock * 10.0) * 0.1 * clampf(speed, 0.0, 1.0)
@@ -156,7 +156,10 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	var squash: Vector2 = Vector2.ONE
 	var anim: String = "idle"
 	_stride_flip = false
-	if knocked_out:
+	if state.tagged:
+		# waiting in the box: just standing there
+		pose = "idle"
+	elif knocked_out:
 		pose = "ko"
 		anim = "ko_stagger" if _ko_time < KO_FALL_TIME else "ko_lying"
 	elif state.effects.has(StatusEffects.Type.AIRBORNE) or state.effects.has(StatusEffects.Type.BOUNCE):
@@ -174,10 +177,6 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	elif state.stumble_time_left > 0.0:
 		pose = "stumble"
 		anim = "ko_stagger" if _stumble_age < STUMBLE_FALL_TIME else "down"
-	elif state.death_delay:
-		pose = "down"
-		anim = "ko_stagger"
-		squash = Vector2(1.0, 1.0 + sin(_clock * 2.5) * 0.02)
 	elif _cast_left > 0.0:
 		pose = "cast"
 		anim = "cast"

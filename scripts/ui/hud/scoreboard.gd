@@ -1,7 +1,8 @@
 class_name Scoreboard
 extends Control
-## Top-centre scoreboard pill: your team's points (blue) and theirs (red), the set
-## number and set pips underneath. Team-relative: you are always on the left.
+## Top-centre scoreboard pill: your team's points (blue) and theirs (red), and in
+## the middle the points needed ("TO 3") when one set decides the match, or the set
+## number with set pips underneath. Team-relative: you are always on the left.
 
 const OWN: Color = Color(0.2, 0.5, 1.0)
 const ENEMY: Color = Color(1.0, 0.3, 0.3)
@@ -16,9 +17,10 @@ var set_number: int = 1
 var sets_mine: int = 0
 var sets_theirs: int = 0
 var sets_to_win: int = 2
+var points_to_win: int = 0
 
 
-func show_score(score: MatchScore, my_team: int, sets_needed: int) -> void:
+func show_score(score: MatchScore, my_team: int, sets_needed: int, points_needed: int = 0) -> void:
 	var values: Array[int] = [score.points[my_team], score.points[1 - my_team], score.set_number, score.sets[my_team], score.sets[1 - my_team]]
 	if values != [mine, theirs, set_number, sets_mine, sets_theirs]:
 		mine = values[0]
@@ -27,7 +29,10 @@ func show_score(score: MatchScore, my_team: int, sets_needed: int) -> void:
 		sets_mine = values[3]
 		sets_theirs = values[4]
 		queue_redraw()
-	sets_to_win = sets_needed
+	if sets_to_win != sets_needed or points_to_win != points_needed:
+		sets_to_win = sets_needed
+		points_to_win = points_needed
+		queue_redraw()
 
 
 ## Plain-text version (tests, accessibility).
@@ -46,6 +51,10 @@ func _draw() -> void:
 	_round_rect(Rect2(w - 6.0 - box * 1.25, 6.0, box * 1.25, box), ENEMY, 12.0)
 	_center_text(font, str(mine), Vector2(6.0 + box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
 	_center_text(font, str(theirs), Vector2(w - 6.0 - box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
+	if sets_to_win <= 1:
+		# one set decides it: show how many points win
+		_center_text(font, "TO %d" % points_to_win, Vector2(w / 2.0, h / 2.0), SMALL_FONT + 4, RIM)
+		return
 	_center_text(font, "SET %d" % set_number, Vector2(w / 2.0, h / 2.0), SMALL_FONT + 4, RIM)
 	# set pips under the pill
 	for i: int in sets_to_win:

@@ -9,7 +9,7 @@ All numbers live in `res://data/` resources, never hardcoded. Units: meters, sec
 | Move speed | 5.0 m/s |
 | Server tick | 30 Hz; snapshots to clients at 20 Hz |
 | Weapon pick time | 10 s (match start); unpicked slots auto-fill with random weapons |
-| Respawn time | 10 s after a real death, in own yard; weapons can be swapped any number of times during the timer (D13) |
+| Tag | No deaths: at 0 HP you are **tagged** and wait in your team's box until a teammate rescues you (see Tag); weapons can be swapped any number of times while you wait (D13) |
 | Basic attack | **None.** There is no basic attack: players only use the weapons they picked plus the two default skills (owner decision) |
 
 ## Characters (cosmetic, randomized)
@@ -17,16 +17,14 @@ All numbers live in `res://data/` resources, never hardcoded. Units: meters, sec
 - Assigned by the **server** at match start with the match's seeded RNG: shuffle the roster, give one per player, no duplicates (6 characters ≥ max 6 players). Fixed for the whole match, including respawns and set switches.
 - Purely visual: identical hitbox (circle r=0.4 m), HP, speed, animations timing. Shown in loading screen, scoreboard and kill feed.
 - Team readability: team-colored bandana/armband + ground ring; enemy outline on the local client.
-- Practice mode: random character for the player, dummies use the others. Practice has two training dummies on the enemy team (one stands still, one walks sideways +/-3 m around its post at half speed) and one standing ally dummy, so the revive touch can be tested. Dummies never attack or use skills, have no death delay, and respawn at their spot after 10 s.
+- Practice mode: random character for the player, dummies use the others. Practice has two training dummies on the enemy team (one stands still, one walks sideways +/-3 m around its spot at half speed) and one ally dummy that **runs to your box and rescues you** when you are tagged, then walks back to its spot. Dummies never attack or use skills. A tagged dummy walks out of the box by itself after 6 s (`dummy_release_time`) and goes back to its spot. Dummies never count for a capture, so a team of dummies can never score.
 
-## Death delay (once per respawn)
-- When HP reaches 0 the player does **not** die yet. They enter the **death delay**: HP stays 0 and they get temporary **gray HP**.
-- Gray HP **drains while they move** (rate scales with stick length; standing still costs nothing). If gray HP reaches 0 they really die and respawn after 10 s with full HP.
-- **Skills are disabled** during the death delay (dash, bookmark, weapons). Movement still works.
-- **Revive:** a living teammate (not themselves in death delay) touching the downed player revives them, or the downed player touches **their own base's electric post** and revives themselves with no help. They come back with the **gray HP they had left** as their HP (at least 1).
-- The death delay can trigger **only once per respawn**: if HP reaches 0 again after a revive, the player dies for real. Respawning re-arms it.
-- Training dummies in practice mode have no death delay.
-- Numbers (starting points, in `data/rules/game_rules.tres`): gray HP 50, drain 8 per second at full stick, same move speed, teammate touch within 1.0 m (center to center), base post touch within 1.2 m of the post center. Enemies cannot damage a player in death delay (D8).
+## Tag (replaces the death delay)
+The match is the Filipino street game of tagging the enemy base, like the reference video:
+- **Tagged, every time.** When HP reaches 0 the player is **tagged** (no limit; there is no real death and no respawn timer). They are sent at once to their team's **box**, a taped rectangle on the street. From your point of view, tagged allies (and you) go to the box at the **top left**, tagged opponents to the box at the **bottom right** (each team's box is at the far end, on the same side as its own post).
+- In the box: no moving, no skills, can't be hit or healed; cooldowns keep running. A *TAGGED!* line slides in at the left under the minimap (blue for your team, red for theirs) and *Tagged* shows over the kid's bar. Your controls hide and a card says how to get out, with a **Change weapons** button (D13).
+- **Rescue:** a free teammate who steps into the box sets **everyone** waiting there free (data toggle `rescue_frees_all`; off = one per touch). Rescued players go straight back to **their post** at full HP (cooldowns keep running). A *RESCUED!* line shows.
+- Numbers and toggles in `data/rules/game_rules.tres` (`rescue_frees_all`, `dummy_release_time`); box size and place in `data/rules/map_layout.tres` (`jail_size`, `jail_inset`).
 
 ## Default skills
 | Skill | Effect | CD |
@@ -38,13 +36,13 @@ All numbers live in `res://data/` resources, never hardcoded. Units: meters, sec
 
 **No precasting (owner):** a skill or weapon on cooldown is disabled. Its button is dimmed and ignores presses, and holding a key or button through the cooldown does nothing when the cooldown ends; it needs a fresh press. Bookmark can't be used again while you are still out on a mark, and its cooldown only starts after the return (or when you die out on a mark).
 
-Dash and Bookmark blink stop at walls that block you, i.e. the enemy's walls and the lane edges (your own team's walls are passable). Death cancels active dash/stumble/bookmark effects; cooldowns keep running through death and respawn.
+Dash and Bookmark blink stop at obstacles and the street edges. Being tagged cancels active dash/stumble/bookmark effects; cooldowns keep running in the box.
 
 ## Weapons
-Status effects: `STUN` (no move/cast), `SLOW(x%)`, `AIRBORNE` (stun + vertical anim, no knockback), `POLYMORPH` (can: no cast, 50% speed), `BOUNCE` (short airborne), `KNOCKOUT` (downed, no actions; no longer caused by the guava).
+Status effects: `STUN` (no move/cast), `SLOW(x%)`, `AIRBORNE` (stun + vertical anim, no knockback), `POLYMORPH` (can: no cast, 50% speed), `BOUNCE` (short airborne), `KNOCKOUT` (downed, no actions).
 
 - **Casting while moving (owner):** every weapon can be aimed while you keep moving. **Light attacks** can also be cast while moving (no rooting). **Heavy attacks** (Bato H, Gunting H, Tsinelas H; `cast_lock` in `data/weapons/*.tres`, 0.5-0.6 s) root the caster until their cast animation finishes.
-- **Aim previews:** a ground circle (rock meteor and the like) is drawn alone, with no line from the player to it. The guava's throw is drawn as a thick band (about 1.1 m wide) instead of a line.
+- **Aim previews:** a ground circle (rock meteor and the like) is drawn alone, with no line from the player to it.
 Statuses never stack: only one is active at a time and a new status of a different kind overwrites the current one. The same status re-applied keeps the longer time (SLOW keeps the stronger slow).
 
 | ID | Type | Shape | Range | Damage | Effect | CD |
@@ -54,7 +52,7 @@ Statuses never stack: only one is active at a time and a new status of a differe
 | gunting_light | ATK | cone 60°, 3 m, 2–6 snips (by hold/tap) | 3 | 4/snip | — | 5 |
 | gunting_heavy | ATK | cone 60°, 3.5 m, 0.5 s delay | 3.5 | 24 | — | 9 |
 | papel_trap | CC | placed, 0.75 s arm; triggers r=1.5 → slow zone r=2.5, 3 s | 6 | 0 | SLOW 40% | 12 |
-| papel_shield | BLOCK | wall 3 m wide in front, 2.5 s, blocks enemy projectiles (incl. ball) | — | — | — | 14 |
+| papel_shield | BLOCK | wall 3 m wide in front, 2.5 s, blocks enemy projectiles | — | — | — | 14 |
 | tsinelas_light | ATK | 3 boomerangs, fast, 0.15 s apart, out + back | 7 | 8 each way | — | 6 |
 | tsinelas_heavy | ATK | 1 large boomerang, slow, out + back | 8 | 18 each way | — | 10 |
 | lata | CC | thrown to point, r=1.5 | 7 | 5 | POLYMORPH 2 s | 14 |
@@ -70,67 +68,49 @@ Two copies of the same weapon cannot be equipped; two weapons of the same *type*
 - **Cast on release.** Hold a weapon button to aim, release to cast. Releasing over the **Cancel** zone (shown above the buttons while aiming) cancels; nothing is spent. Keyboard: hold Q / E to aim at the mouse, release to cast; Esc or right mouse while holding cancels.
 - **Auto-aim:** a tap (or a drag shorter than the deadzone, `aim_deadzone` 0.1 of full stick) aims at the nearest targetable enemy in range; with nobody in range it fires straight ahead (ground shapes land at full range). Drag length scales the distance for ground shapes (lata, bato heavy, papel trap, jacks).
 - **Auto-aim never follows a moving enemy while you hold (owner, fairness).** It is taken once, at the moment you press: the spot (relative to you) or, for `bato_light`, the enemy. Holding keeps that aim; if the enemy walks away the cast still goes where they were. Dragging past the deadzone aims by hand instead.
-- `bato_light` throws at the enemy locked at the press. If that enemy has left range (or is down) when you release, nothing is thrown and **no cooldown** is spent. Once thrown, the rock homes on that enemy (a targeted projectile, per the weapon table).
-- A hard CC (or going down) while aiming drops the aim; press again when it ends.
+- `bato_light` throws at the enemy locked at the press. If there is none, or that enemy has left range (or is tagged) when you release, nothing is thrown and **no cooldown** is spent. Once thrown, the rock homes on that enemy (a targeted projectile, per the weapon table).
+- A hard CC (or getting tagged) while aiming drops the aim; press again when it ends.
 - `gunting_light` snips: 2 on a tap, +1 per 0.25 s held, max 6, all on release.
-- Projectiles are stopped by enemy cardboard walls, the lane edges and enemy paper shields; they pass through their own team's walls and shields (D11).
-- Boomerangs (tsinelas) hit each enemy once going out and once coming back, turn back at max range or when they hit a wall, and are caught within 0.8 m of the thrower (`boomerang_catch_distance`).
+- Projectiles are stopped by obstacles (for both teams: you can hide behind cover), the street edges and enemy paper shields; they pass through their own team's shields.
+- Boomerangs (tsinelas) hit each enemy once going out and once coming back, turn back at max range or when they hit an obstacle, and are caught within 0.8 m of the thrower (`boomerang_catch_distance`).
 - An unarmed `papel_trap` waits on the ground for 20 s (`lifetime`) before it disappears.
 - Lata travels at 14 m/s to its point before it lands; bato heavy lands 0.6 s after the cast.
-- Effects are applied before damage. Players in the death delay are not hit by anything (D8).
+- Effects are applied before damage. Tagged players are not hit by anything.
 
-## Map (single mid lane, 100 m long × 16 m wide)
-- Layout per side, from the lane end toward mid: the **yard** (8 m) → the **inner wall row**, with the **electric post standing at the center of it** → a long stretch → the **middle wall row** → mid.
-- Each wall layer = 3 columns (left / center / right), each column 150 HP (owner: 300 was too tough). A column at 0 HP is removed and opens that slot. Every hit shows: the sheet flashes and wobbles, cardboard chips fly, the damage number pops above it, a cardboard-coloured health bar appears over a damaged column, and rips, holes and tape spread over it as it weakens; it bursts into chips when it breaks.
-- **A team passes straight through its own cardboard walls; the enemy team is blocked by them** (owner decision, completes D5). Boundary walls block everyone. Walls take damage from enemy attacks and the ball (ball: 60). Which projectiles a wall stops: enemy projectiles are blocked; own-team projectiles pass through (D11).
-- What damages a wall column: enemy weapons deal their normal damage to it. The targeted rock (Bato light) normally needs an enemy in range; with none, it is thrown straight at the nearest enemy wall column in range instead. A projectile that hits it deals its damage once (a boomerang turns back); ground areas, jacks ticks and bola bounces hit every column inside their circle; cones hit columns in front within range. Non-damaging weapons (trap, shield) don't hurt walls. Own walls never take damage from their own team.
-- **Scoring (owner): going behind the enemy's inner wall is a point.** A living, non-CC'd enemy standing in the yard behind a team's inner wall for **2 s** (`base_capture_time`, owner: harder than before) scores. The yard is tinted in that team's colour. The enemy team is blocked by the inner wall, so they have to break a column (150 HP) to get in. While you stand in the enemy yard a **spinner appears above your head** and fills as the 2 s run out. The yard tint is drawn under the players. Players start and respawn in the middle of their own yard; the electric post (revive touch) is at the center of the inner wall.
-- Boundary walls on the long sides (house fronts, fences).
-- Lane geometry (owner): from each lane end: outer wall → yard (8 m) → the inner wall row with the post → **21.3 m** (3:4 with the lane width) → the middle wall row. The middle between the two middle rows is **41.3 m** long: outer wall, alley, a **2.4 m pedestrian crossing (horizontal bars)**, **the four-lane cross street (16 m: four 4 m lanes split by a dashed, a solid and a dashed line)**, a pedestrian crossing, alley, outer wall. The sides of the road have no wall or paint (no yellow bars) but the lane boundary still blocks players there. The post/inner wall row is 42 m from the middle and 8 m from the lane end (100 m lane). It lives in `data/rules/map_layout.tres`; adjust there, not in code. A lane end to end takes about 18 s at full speed. The look is separate (`docs/ART.md`).
+## Map (a barangay street, 24 m wide × 48 m long)
+Copied from the reference video (owner): one street, twice as long as it is wide, the same shape as the minimap.
+- **Posts and bases:** each team's electric post stands in a corner, 2.5 m in from both edges (`post_inset`): from your point of view **your post is bottom left, theirs top right**. The **base** is a chalk circle of 4.5 m round the post (`base_radius`), cut off by the street edges, tinted blue (yours) or red (theirs). Players start next to their post and come back there after a rescue (`spawn_offset`).
+- **Boxes:** each team's tagged box is a 3 × 4 m taped rectangle (`jail_size`) at the far end, on the same side as its post (yours top left, theirs bottom right; `jail_inset`).
+- **Cover (owner: fewer, and they are not objectives):** a handful of street things kids hide behind — stacked crates, long benches, a striped sawhorse, a NO ENTRY board. Six pieces on each half, the same pieces turned round on the other half so both teams play the same street. They block walking, dashes and throws **for both teams** and can't be broken. Listed in `data/rules/map_layout.tres` (`obstacles`, drawn as `obstacle_props`).
+- The street edges (curbs) and both ends (sawhorse barricades) block everyone. Outside: gutters, sidewalks, house fronts, a sari-sari store with an umbrella, power poles with wires along and across the street, bunting, chalk piko and tumbang preso on the road, manholes; the street goes on past both ends to more houses. The look is in `docs/ART.md`.
+- There are no breakable walls, no cross street, no guava and no tricycle any more (owner).
 
 ## Vertical layout (portrait game)
-- The lane runs **along the screen's long axis**: your base at the bottom, the enemy base at the top. The server/sim map is orientation-agnostic (lane axis = Z); only the camera and UI know about portrait.
+- The street runs **along the screen's long axis**: your end at the bottom, the enemy end at the top. The server/sim map is orientation-agnostic (lane axis = Z); only the camera and UI know about portrait.
 - Camera (data, tunable in `data/rules/camera_rules.tres`), **copied from League of Legends** (owner):
-  - **Portrait 9:16 mobile camera (owner):** a perspective camera above and behind the hero (straight behind, yaw 0) at a **fixed 50° downward angle** (allowed range 45-55°) with a **50° vertical field of view**. The distance is derived so about **18 m** (the lane plus a little) is visible across the screen at the aim point on any phone shape (about 34 m away, 26 m up on 720x1280). The hero is held near the **lower centre** of the screen (68% of the height from the top), so the battlefield ahead fills the view. The joystick, drag-aim and keyboard follow the screen: pushing up moves toward the top of the screen. All numbers live in `data/rules/camera_rules.tres` (`pitch_degrees`, `vfov_degrees`, `visible_width`, `player_screen_y`, `top_safe_y`, `end_margin`, `edge_margin`, `follow_rate`).
-  - **Smooth tracking with map bounds:** the camera eases after the hero (7/s). It stops scrolling when its view reaches an edge of the map: at your own end the bottom of the screen stops 2 m past the lane end (`end_margin`); at the enemy end the far lane end stops just under the HUD (`top_safe_y` = 16% of the height), so the hero stays in sight. From there the hero walks toward the screen edge instead of the camera moving. Sideways, the lane already fits the screen, so the view stays centred.
-  - The lane minimap shows the rest of the width.
+  - **Portrait 9:16 mobile camera (owner, like the reference video):** a perspective camera above and behind the hero (straight behind, yaw 0) at a **fixed 40° downward angle** with a wide **60° vertical field of view**, so you see far up the street. The distance is derived so about **15 m** is visible across the screen at the aim point on any phone shape (about 23 m away, 15 m up on 720x1280); the camera scrolls sideways to show the rest of the 24 m street. The hero is held a bit below the middle of the screen (62% of the height from the top). The reference video is landscape; Kalyeah stays portrait (binding), so this is the same angle and lens on a tall screen. The joystick, drag-aim and keyboard follow the screen: pushing up moves toward the top of the screen. All numbers live in `data/rules/camera_rules.tres` (`pitch_degrees`, `vfov_degrees`, `visible_width`, `player_screen_y`, `top_safe_y`, `end_margin`, `edge_margin`, `follow_rate`).
+  - **Smooth tracking with map bounds:** the camera eases after the hero (7/s). It stops scrolling when its view reaches an edge of the map: at your own end the bottom of the screen stops 2 m past the lane end (`end_margin`); at the enemy end the far end stops just under the HUD (`top_safe_y` = 20% of the height), so the hero stays in sight. From there the hero walks toward the screen edge instead of the camera moving. Sideways it follows the hero until the street edge is 1 m from the screen edge (`edge_margin`).
+  - The minimap shows the whole street.
   - Team-relative: both teams see their own base at the bottom (the view flips for the other team).
-- Offscreen awareness: edge indicators for allies/enemies/ball/tricycle plus a slim lane minimap. Aim previews and skill ranges must remain readable within the visible area (long-range weapons rely on drag-to-aim and edge indicators).
-- Because the visible depth is shorter than the lane, ranges, speeds and the lane length stay as specified; balance is re-checked in M6 with real play on phones.
+- Offscreen awareness: edge indicators for allies/enemies plus the street minimap. Aim previews and skill ranges must remain readable within the visible area (long-range weapons rely on drag-to-aim and edge indicators).
+- Ranges and speeds stay as specified; balance is re-checked in M6 with real play on phones.
 
 ## HUD
-- **Over each hero:** a segmented health bar (green you, blue ally, red enemy, grey for gray HP in the death delay). **No names.** A status (*Stunned*, *Down*, ...) is shown in *italic* above the bar. Under the bar, one thin bar: the **pin** cooldown. **No damage numbers** (none on heroes or walls); heals pop a green +N.
-- **Skill buttons:** art only (weapon icons, the pin, guava), the weapon's type as a small tag (ATK, CC or BLK), a cooldown number, a ready flash. Buttons on cooldown are disabled.
-- **Top:** a square minimap (gold frame) at the top left showing the lane slanted from your base (bottom left) to the enemy base (top right), with a small settings button beside it, top aligned; the guava and tricycle countdowns in the centre; score and set pips at the top right. The settings button opens a see-through menu: the practice test buttons, **an Enemy walls ON/OFF toggle (practice only: OFF knocks every enemy wall column down so you can run straight to the yard, ON rebuilds them)**, Resume, Exit match. There is no health panel in the corner.
-- **Controls:** fixed at the bottom centre, no handedness setting: the joystick sits on the centre line and the four skills fan out in a symmetrical arc over it: weapon 1, weapon 2, the pin, the guava (left to right). Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green). The pin button shows the pin, the blue dash arrow during the blink and the pin-with-return-arrow while the kid is out on the pin; the guava button shows the whole or the bitten guava.
-- The pin bar shows your own and everyone else's pin (it fills as it recharges; it turns gold and drains while the kid is out on the pin). The minimap is a square, cropped to its frame, with the lane slanted from your base (bottom left) to the enemy base (top right).
+- **Over each hero:** a segmented health bar (green you, blue ally, red enemy). **No names.** A status (*Stunned*, *Tagged*, ...) is shown in *italic* above the bar. Under the bar, one thin bar: the **pin** cooldown. **No damage numbers**; heals pop a green +N. While a team holds the enemy base, a **spinner** over each of its kids fills as the 5 s run out.
+- **Skill buttons:** art only (weapon icons, the pin), the weapon's type as a small tag (ATK, CC or BLK), a cooldown number, a ready flash. Buttons on cooldown are disabled.
+- **Top:** a **tall minimap** (1:2, gold frame) at the top left showing the whole street with your end at the bottom: your base the blue corner bottom left, theirs the red corner top right, the two taped boxes (yours top left, theirs bottom right), the cover as dark blocks and every player as a dot (you white-ringed, tagged kids darker). The settings button sits beside it, top aligned. The score is in the centre (your points blue on the left, theirs red, "TO 3" between). Top right: who is tagged ("Tagged you 1/3, them 0/3"). The settings button opens a see-through menu: the practice test button, Resume, Exit match. There is no health panel in the corner.
+- **Feed:** *TAGGED!* and *RESCUED!* lines slide in under the minimap with the kid's name (blue for your team, red for theirs) and fade after 2.6 s; at most three show.
+- **Capture countdown:** while a capture runs, big text in the middle says *HOLD THE BASE! 4* (or *ALL TAGGED! 4*) for your team and *DEFEND YOUR BASE! 4* (or *ALL OF YOU TAGGED! 4*) against you.
+- **Controls:** fixed at the bottom centre, no handedness setting: the joystick sits on the centre line and the three skills fan out in a symmetrical arc over it: weapon 1, weapon 2 (straight over the stick), the pin (left to right). Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green). The pin button shows the pin, the blue dash arrow during the blink and the pin-with-return-arrow while the kid is out on the pin.
+- The pin bar shows your own and everyone else's pin (it fills as it recharges; it turns gold and drains while the kid is out on the pin).
 
-## Scoring (volleyball format)
-- **Point**: get behind the enemy's inner wall (see Map). After a point: 3 s freeze, all players reset to their bases at full HP, cooldowns reset. Walls **persist** within a set.
-- **Set**: first to 5 points, win by 2, hard cap 7.
-- **Match**: best of 3 sets. Teams switch bases each set; walls fully rebuild each set.
-- Implementation defaults: during the 3 s freeze nothing moves. The reset also clears status effects, weapon objects on the field, the ball (its 15 s spawn timer restarts) and an active tricycle crossing (the next one comes a full interval later). Dead players come back too. After the last point of the match the game stops and shows the result. Numbers in `data/rules/game_rules.tres` (`base_capture_time`, `point_freeze_time`, `set_points_to_win`, `set_win_by`, `set_point_cap`, `match_sets_to_win`).
-
-## The guava (neutral ball)
-The neutral at the centre of the lane is a **guava** (*bayabas* is the Tagalog word for guava). It can be eaten, carried and thrown:
-- **Bite it to heal.** Walking over the guava picks it up and heals nothing. With it in hand, **tap** the guava button to take a bite: each bite heals **a quarter of max HP** (25 of 100, capped at max; `ball_bite_heal_fraction`). The second bite (`ball_bites`) eats it up, and the next guava comes after the usual 15 s. A tap is a press released within 0.25 s (`ball_tap_time`) without dragging. A catch, a pass or a pickup never heals. Nobody who is dead or down can be healed.
-- **Throw it to hurt.** **Press and drag** (the skill indicator shows) or hold the button longer than a tap, then release. A **whole** guava hits an enemy for a **quarter of max HP** (25, `ball_hit_damage_fraction`); a **bitten** one for **an eighth** (12.5, rounded to 13, `ball_bitten_damage_fraction`). There is no knockout any more. The button shows the whole or the bitten guava, and **is only on the HUD while you hold the guava**, can blink to your own throw, or an enemy's throw is flying (so you can still catch it).
-- Each bite shows a green "+25" over the player.
-- Spawns at center every 15 s if none exists.
-- Pick up: walk over it. Holder can throw (skillshot, 12 m, fast). Holder moves at 90% speed.
-- Hit enemy → damage (above), the guava despawns, timer restarts.
-- Enemy "catch": an enemy who presses the Catch button within 0.3 s before contact catches it instead (becomes holder). **(D2 confirm)**
-- Hit ally → ally becomes holder (no heal); the bites stay.
-- Hit cardboard wall → 60 dmg, the guava despawns, timer restarts.
-- Hit boundary or max range → drops on the ground, can be picked up .
-- While in flight and not yet hit anything, the **thrower** can recast to blink to the guava. **(D3 confirm: thrower only)**
-- Controls: one **guava button** (R on keyboard), art only. With the guava in hand (the button glows gold) press, drag to aim and release to throw (auto-aim locked at the press like weapons, cancel zone works); while your own throw flies a press blinks to it; otherwise a press opens the 0.3 s catch window.
-- Implementation defaults: thrown at 20 m/s (`ball_speed`); an enemy paper shield stops it and it drops there; it passes through the thrower's own walls (D11) and only damages enemy walls; the holder drops it when they go down or die; the blink moves the thrower onto the ball and the ball keeps flying. Numbers in `data/rules/game_rules.tres` (`ball_*`).
-
-## Tricycle
-- Every 120 s (first at 120 s), drives across the map's midline from a random side, ~3 s crossing, warning horn + lane marker 2 s before.
-- Contact: 8 m knockback perpendicular to its path, away from it; no damage. **(D4 confirm)**
-- Implementation defaults: the push is spread over 0.3 s and stops at walls that block you; each player is pushed at most once per crossing; it pushes players in the death delay too. Practice mode has a "Tricycle (test)" button. Numbers in `data/rules/game_rules.tres` (`tricycle_*`).
+## Scoring (first to 3, like the street game)
+- **A point** is won by either capture, held for **5 s** (`capture_time`):
+  - **Base capture:** every player of your team is free and standing in the enemy base. The countdown starts when the last one steps in and restarts if anyone steps out or gets tagged (so a tagged teammate has to be rescued first).
+  - **All tagged:** every player of the other team is waiting in their box. The countdown starts when the last one is tagged and restarts if one is rescued.
+- After a point: 3 s freeze (nothing moves), then everyone is back at their post at full HP, out of the boxes, with cooldowns, status effects and weapon objects cleared. "SCORED! 1-0" (or "THEY SCORED") shows.
+- **Match:** the first team to **3 points** wins (`set_points_to_win` 3, `set_win_by` 1, `set_point_cap` 3, `match_sets_to_win` 1). The old volleyball sets still work as data: with more sets, the teams switch ends each set. After the last point the game stops and shows the result. Numbers in `data/rules/game_rules.tres` (`capture_time`, `point_freeze_time`, `set_*`, `match_sets_to_win`).
+- Training dummies never count for a capture: in practice you score alone even though the ally dummy stays home, and the dummy team can't score.
 
 ## Lobby rules
 - Modes: 1v1, 2v2, 3v3. Passcode: 6 chars, A–Z/2–9, no ambiguous chars.
@@ -150,21 +130,17 @@ The neutral at the centre of the lane is a **guava** (*bayabas* is the Tagalog w
   - Clients send their input every sim tick (30 Hz). The server applies one input per tick per player, oldest first, so a quick tap is never lost.
   - Snapshots go out at 20 Hz.
   - Your own movement is predicted and corrected; other players are drawn 0.1 s in the past between snapshots.
-  - Server-side events (hits, deaths, points, the ball, the tricycle) are replayed on the client as the same signals the offline game uses.
+  - Server-side events (hits, tags, rescues, points) are replayed on the client as the same signals the offline game uses.
 
 ## Open decisions (defaults are implemented; change if the designer says so)
 - **D1** ~~Basic attack~~ **Decided: no basic attack** (owner). See D10.
-- **D2** Ball catch input/timing.
-- **D3** Who can blink to the ball (default: thrower only).
-- **D4** Tricycle push direction (default: perpendicular, away from vehicle).
-- **D5** Original brief for walls ends with "This must …" — unfinished requirement. Partly answered by the owner: a team can pass through its own walls (implemented). Ask whether anything else was meant.
-- **D11** Do a team's own projectiles pass through its own walls? Default **yes** (matches movement; implemented in M2).
+- **D2 / D3 / D4 / D5 / D11** Retired: the guava, the tricycle and the breakable walls are gone (owner).
 - **D7** Bookmark "then return to mark": default = the player is moved back to the mark when the 4 s speed boost ends (data toggle `bookmark_returns` in `data/rules/game_rules.tres`).
-- **D8** Can enemies damage a player in the death delay? Default **no** (untargetable); data toggle `death_delay_takes_damage` (damage then drains gray HP).
-- **D9** Death-delay numbers (gray HP 50, drain 8/s, touch distances) are placeholders; tune in data.
+- **D8 / D9** Retired with the death delay (replaced by Tag).
+- **D16** Tag defaults not given by the owner: one teammate in the box rescues **everyone** in it (`rescue_frees_all`, off = one per touch); rescued players keep their cooldowns; the tagged can't move inside the box; the capture counts **every** player of the team (so rescue first). Each capture wins **one point, first to 3 wins** (like the video), not the whole match at once (set `set_points_to_win` / `set_point_cap` to 1 for that). Confirm or change.
 - **D10** With no basic attack, a loadout of only non-damaging weapons (e.g. `papel_trap` + `papel_shield`) deals no damage. Default: allowed; consider requiring at least one damaging weapon at pick time.
 - **D12** Unarmed papel trap lifetime (not in the brief): default 20 s.
-- **D13** ~~Respawn weapon swap~~ **Decided (owner): swap with no limit while dead.** For the whole respawn timer you can change weapons as often as you like. The swap screen opens on death with your current weapons pre-picked and shows the respawn countdown; every full pair applies at once; **Done** closes it and a **Swap weapons** button reopens it while still dead. It closes when you respawn. No swapping while alive. A weapon kept across a swap keeps its cooldown.
+- **D13** ~~Respawn weapon swap~~ **Decided (owner): swap with no limit while waiting.** Now: while tagged (in the box) you can change weapons as often as you like. The **Change weapons** button on the tagged card opens the swap screen with your current weapons pre-picked (it no longer opens by itself, so you can watch your team come for you); every full pair applies at once; **Done** closes it. It closes when you are rescued. No swapping while free. A weapon kept across a swap keeps its cooldown.
 - **D14** *Heal* numbers were not given by the owner: defaults 30 HP, 12 s cooldown, 8 m range, 60° pick cone, tap = self (all in `data/weapons/heal.tres`). Confirm or change.
 - **D15** *Lupa (soil block)* numbers were not given by the owner: defaults 1.2 m wide, 2.2 m in front, stands 3.5 s then collapses, 14 s cooldown, blocks projectiles like the paper shield (`data/weapons/langit_lupa.tres`). Confirm or change; say if it should also block movement.
 - **D6** Only one Block weapon exists — consider a second one for loadout variety.

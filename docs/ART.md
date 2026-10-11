@@ -8,7 +8,7 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 ### 3D (procedural, current)
 - `scripts/view/art/low_poly.gd` (`LowPoly`): bevelled boxes, smooth cylinders and spheres, gable roofs, with vertex colours and **one shared matte material** (wrap lighting, soft rim, no hard speculars). Cartoon outlines come from an inverted shell (`add_outline`).
 - `scripts/view/art/palette.gd` (`Palette`): the shared colour palette.
-- `scripts/view/art/props.gd` (`Props`): sari-sari store, houses (one and two storey), laundry lines, electric post with flyers, power poles and wires, banderitas, tarpaulins, basketball ring, jeepney, tricycle, plants and trees, manholes, hopscotch, the guava, the thrown weapon objects, and the polymorph can. Meshes are cached and kept under a vertex budget by a test.
+- `scripts/view/art/props.gd` (`Props`): sari-sari store, houses (one and two storey), laundry lines, electric post with flyers, power poles and wires, banderitas, tarpaulins, basketball ring, jeepney, market umbrella, the cover pieces (crates, bench, sawhorse, sign board), plants and trees, manholes, hopscotch, the thrown weapon objects, and the polymorph can. Meshes are cached and kept under a vertex budget by a test.
 - **Cardboard walls** are the bahay-bahayan: disassembled boxes as single flat sheets (creases, tape, printing, curled flaps, a torn corner) leaning on sticks. Never stacked boxes.
 - `scripts/view/street_map.gd` (`StreetMap`): asphalt, lane paint, a cross street with zebra crossings, curbs, sidewalks, house rows, base pads and posts, props. The lane geometry comes from `MapLayout` and never changes for looks.
 - Lighting: one sun with soft shadows, 2x MSAA, saturation grading, a light distance haze.
@@ -20,13 +20,13 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 
 ## HUD and UI
 - Theme (`scripts/ui/kalyeah_theme.gd`, `KalyeahTheme`): chunky rounded buttons with a dark rim and drop shadow, outlined text, cream text fields, merged into the engine default theme at startup.
-- Icons (`scripts/ui/icons.gd`): **painted PNGs** in `assets/icons/` for the 12 weapons, Dash, Bookmark, the guava, the settings gear and the round button face (gold rim, navy face), all drawn with Pillow by `tools/art/make_assets.py` (4x supersampled, chunky dark outline, gradient, highlight, drop shadow). The old vector drawings remain as a fallback.
+- Icons (`scripts/ui/icons.gd`): **painted PNGs** in `assets/icons/` for the 12 weapons, Dash, Bookmark, the title guava, the settings gear and the round button face (gold rim, navy face), all drawn with Pillow by `tools/art/make_assets.py` (4x supersampled, chunky dark outline, gradient, highlight, drop shadow). The old vector drawings remain as a fallback.
 - HUD (`scripts/ui/hud/`, built in code by `MatchHud`): over each hero a health bar, an *italic* status above it ("Stunned") and a Dash and a Mark cooldown bar under it (no names); damage and heal numbers; the scoreboard pill with set pips; the lane minimap. Spec in `docs/GDD.md` "HUD". The skill buttons are art only with an ATK / CC / BLK tag.
 - The title screen shows a live 3D street with three kids.
 - Banners pop in, the camera shakes on hits and wall breaks, buttons click.
 
 ## Street textures (Pillow)
-- `tools/art/make_assets.py` also paints `assets/textures/`: warm asphalt and concrete pavers (tiling), six kids' marker doodles for the cardboard walls (sun, house, star, crown, smiley, heart "PINAS"), the SARI-SARI STORE sign, three barangay posters, the DAHAN-DAHAN road paint and chalk piko and tumbang preso marks.
+- `tools/art/make_assets.py` also paints `assets/textures/`: warm asphalt and concrete pavers (tiling), the SARI-SARI STORE sign, three barangay posters, the DAHAN-DAHAN road paint and chalk piko and tumbang preso marks.
 - `scripts/view/art/street_art.gd` (`StreetArt`) puts them in the world: textured ground planes, doodles on both faces of every wall (darkened with the wall's damage), billboard signs and posters, ground decals that turn to read the right way up for the viewer's side.
 - Rerun: `python3 tools/art/make_assets.py` (all) or `python3 tools/art/make_assets.py guava dash` (only those icons). Textures used in 3D are imported with mipmaps.
 
@@ -37,7 +37,7 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 - Wall damage (`walls_view.gd`, `OverheadHud`): flash, wobble, flying cardboard chips, a damage number, a health bar over damaged columns, and rips / holes / tape (`assets/textures/cardboard_tears.png`) fading in as a column weakens.
 
 ## Audio
-- `scripts/view/audio/sound_bank.gd` (`SoundBank`): synthesised effects (each weapon has its own cast sound; footsteps, heal, stun, poof, KO, respawn, victory and defeat, UI clicks, the tricycle horn) and a looping music track built in small chunks so phones do not stall.
+- `scripts/view/audio/sound_bank.gd` (`SoundBank`): synthesised effects (each weapon has its own cast sound; footsteps, heal, stun, poof, KO (tagged), revive (rescued), victory and defeat, UI clicks) and a looping music track built in small chunks so phones do not stall.
 - `scripts/view/audio/match_audio.gd` (`MatchAudio`) plays them from `MatchSim` signals, so it works online too (the server replays events as the same signals).
 
 ## Asset pipeline (planned, P4 onward)
@@ -46,7 +46,7 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 - Budgets: web build under 50 MB, APK under 150 MB, 60 fps target on a recommended phone.
 - Effects use CPU particles (web-safe) and simple mesh and ring effects.
 - Replacing a procedural prop or character with its `.glb` must not change gameplay: same height and hitbox for the kids, same footprint for props.
-- **Alley, not road (owner):** the lane is a concrete alley (`assets/textures/alley.png`, drawn by `tools/art/make_assets.py`): no lane paint, no curbs and sidewalks, tall painted house walls with doors, windows, a roof edge and a drainpipe along both sides. **The only road is the horizontal cross street** where the tricycle drives (asphalt, with its zebra crossings).
-- **The cross street** is the only road: 16 m wide, asphalt, four 4 m lanes split by a dashed, a solid and a dashed pale-yellow line. There are no white road lines or crosswalks anywhere, and no floating white dots (the dust motes and the stones at the foot of the cardboard walls are gone).
-- **Soft colours (owner):** the map must not tire the eyes. The environment is deliberately calm: lower sun and glow, saturation 0.9, contrast 0.97 (all constants at the top of `street_map.gd`), the yard tint mixed toward grey (`YARD_SOFTEN`) at 40% opacity, muted yellow curbs and softer roof reds in `palette.gd`.
-- One narrow **pedestrian crossing** (5 m wide, horizontal off-white bars) runs through the middle of the road from one alley to the other. At the left and right of the road stands a **signal gantry**: a pole in each alley, a bar over the road joining them, and a horizontal signal in the middle whose lights face the drivers (along the road), not the camera. The road's sides have no yellow bars or walls; players are still blocked there by the lane boundary.
+- **A barangay street, like the reference video (owner):** one wide concrete street (`assets/textures/alley.png`, drawn by `tools/art/make_assets.py`) with dark gutters, low curbs and paved sidewalks, house fronts and a sari-sari store with a striped umbrella on both sides, power poles with wires along and across, bunting, chalk piko and tumbang preso on the road and manholes. The street goes on past both ends (behind red-and-white sawhorses) to more houses. No floating white dots.
+- **Bases and boxes:** each post stands in its corner inside a chalk-coloured base circle (blue yours, red theirs, softened toward grey) with a white chalk rim; each team's box is a rectangle of team-coloured tape with a faint fill. Both are drawn under the kids.
+- **Cover:** stacked wooden fruit crates, long wooden benches, a red-and-white striped sawhorse and a plywood NO ENTRY board, each built to fill its footprint exactly (`Props.crates`, `street_bench`, `sawhorse`, `sign_board`).
+- **Soft colours (owner):** the map must not tire the eyes. The environment is deliberately calm: lower sun and glow, saturation 0.9, contrast 0.97 (all constants at the top of `street_map.gd`), the base and box tints mixed toward grey (`BASE_SOFTEN`), muted yellow curbs and softer roof reds in `palette.gd`.

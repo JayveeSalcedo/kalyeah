@@ -103,7 +103,7 @@ func test_the_joystick_and_skills_sit_at_the_bottom_centre() -> void:
 	assert_almost_eq(stick.x, screen.x / 2.0, 1.0, "joystick on the centre line")
 	assert_gt(stick.y, screen.y * 0.8)
 	var xs: Array[float] = []
-	for button: Control in [hud.weapon_buttons[0], hud.weapon_buttons[1], hud.bookmark_button, hud.ball_button]:
+	for button: Control in [hud.weapon_buttons[0], hud.weapon_buttons[1], hud.bookmark_button]:
 		var centre: Vector2 = button.get_rect().get_center()
 		assert_almost_eq(centre.distance_to(stick), MatchHud.ARC_RADIUS, 1.0, "in an arc around the joystick")
 		assert_lt(centre.y, stick.y + 1.0, "over the joystick, not under it")
@@ -112,9 +112,8 @@ func test_the_joystick_and_skills_sit_at_the_bottom_centre() -> void:
 		xs.append(centre.x)
 	assert_lt(xs[0], xs[1])
 	assert_lt(xs[1], xs[2])
-	assert_lt(xs[2], xs[3])
-	assert_almost_eq(xs[0] + xs[3], screen.x, 1.0, "the fan is symmetrical")
-	assert_almost_eq(xs[1] + xs[2], screen.x, 1.0)
+	assert_almost_eq(xs[0] + xs[2], screen.x, 1.0, "the fan is symmetrical")
+	assert_almost_eq(xs[1], screen.x / 2.0, 1.0, "weapon 2 straight over the stick")
 
 
 func test_the_menu_has_no_handedness_switch() -> void:

@@ -39,10 +39,10 @@ func test_kid_turns_into_a_can_and_greys_out() -> void:
 	kid.animate(0.1, 0.0, state)
 	assert_true(kid.is_can())
 	state.effects.clear()
-	state.death_delay = true
+	state.tagged = true
 	kid.animate(0.1, 0.0, state)
 	assert_false(kid.is_can())
-	assert_true(kid.is_ghost())
+	assert_true(kid.is_ghost(), "tagged kids wait greyed out in the box")
 
 
 func test_kid_faces_its_movement() -> void:
@@ -78,11 +78,11 @@ func test_match_audio_follows_sim_events() -> void:
 	var audio: MatchAudio = autofree(MatchAudio.new()) as MatchAudio
 	add_child(audio)
 	audio.watch(sim, 0)
-	sim.point_scored.emit(0, 1)
-	sim.point_scored.emit(1, 2)
-	sim.tricycle.warning_started.emit(1)
-	sim.ball.hit_enemy.emit(3)
-	assert_eq(audio.played, [&"point", &"lose_point", &"horn", &"bonk"] as Array[StringName])
+	sim.point_scored.emit(0, MatchSim.CaptureKind.BASE)
+	sim.point_scored.emit(1, MatchSim.CaptureKind.ALL_TAGGED)
+	sim.player_tagged.emit(3)
+	sim.player_rescued.emit(3, 4)
+	assert_eq(audio.played, [&"point", &"lose_point", &"ko", &"revive"] as Array[StringName])
 
 
 func test_the_ui_theme_is_applied_everywhere() -> void:
@@ -115,8 +115,8 @@ func test_each_state_shows_its_own_sprite() -> void:
 	state.effects.apply(StatusEffects.Type.AIRBORNE, 2.0)
 	assert_eq(_animation_after(kid, state), "stun", "every status uses the stars")
 	state = PlayerState.new()
-	state.death_delay = true
-	assert_eq(_animation_after(kid, state), "ko_stagger", "delayed death is the stagger pose")
+	state.tagged = true
+	assert_eq(_animation_after(kid, state), "idle", "tagged kids stand in the box")
 	state = PlayerState.new()
 	state.stumble_time_left = 0.5
 	assert_eq(_animation_after(kid, state), "ko_stagger", "a tumble starts with the slightly falling pose")
@@ -183,11 +183,11 @@ func test_match_audio_has_sounds_for_casts_heals_effects_and_the_result() -> voi
 	sim.effect_applied.emit(2, StatusEffects.Type.POLYMORPH)
 	sim.player_dashed.emit(1)
 	sim.bookmark_used.emit(1)
-	sim.player_respawned.emit(1)
-	sim.player_respawned.emit(2)
+	sim.player_rescued.emit(1, MatchSim.RELEASED_ALONE)
+	sim.player_rescued.emit(2, MatchSim.RELEASED_ALONE)
 	sim.match_won.emit(0)
 	sim.match_won.emit(1)
-	assert_eq(audio.played, [&"cast_lata", &"heal", &"stun", &"poof", &"dash", &"mark", &"respawn", &"victory", &"defeat"] as Array[StringName])
+	assert_eq(audio.played, [&"cast_lata", &"heal", &"stun", &"poof", &"dash", &"mark", &"revive", &"victory", &"defeat"] as Array[StringName], "a dummy walking out alone is quiet")
 
 
 func test_running_makes_footstep_signals() -> void:
@@ -213,50 +213,12 @@ func test_camera_shake_kicks_then_settles() -> void:
 	assert_eq(camera.h_offset, 0.0)
 
 
-func test_the_cardboard_wall_is_flat_sheets_not_stacked_boxes() -> void:
-	var mesh: ArrayMesh = Props.cardboard_wall(Vector3(5.0, 2.0, 1.0))
-	var box: AABB = mesh.get_aabb()
-	assert_lt(box.size.z, 0.9, "thin: single sheets leaning on sticks, not 1 m thick boxes")
-	assert_almost_eq(box.size.y, 2.0, 0.6, "one sheet tall, not two stacked rows")
-	assert_lt(mesh.surface_get_array_len(0), 6000)
-
-
-func test_the_guava_prop_exists_and_the_ball_art_is_the_guava() -> void:
-	var mesh: ArrayMesh = Props.guava(0.35)
-	assert_gt(mesh.surface_get_array_len(0), 100)
-	assert_between(mesh.get_aabb().size.y, 0.6, 1.2)
-
-
 func test_every_skill_has_painted_art() -> void:
 	for i: int in RULES.weapons.size():
 		var def: WeaponDef = RULES.weapons[i]
 		assert_not_null(Icons.art(StringName("btn_" + String(def.id))), String(def.id))
-	for id: StringName in [&"guava", &"pin", &"btn_pin", &"btn_dash", &"btn_pin_return", &"btn_guava", &"btn_guava_bitten", &"gear"]:
+	for id: StringName in [&"pin", &"btn_pin", &"btn_dash", &"btn_pin_return", &"gear"]:
 		assert_not_null(Icons.art(id), String(id))
-
-
-func test_cardboard_walls_carry_kids_doodles() -> void:
-	var holder: Node3D = autofree(Node3D.new()) as Node3D
-	var material: StandardMaterial3D = StreetArt.add_wall_doodles(holder, 5.0, 2.0, 1)
-	assert_eq(holder.get_child_count(), 2, "both faces")
-	assert_not_null(material.albedo_texture)
-	assert_eq(material.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA)
-
-
-
-func test_a_hit_wall_flashes_sheds_chips_and_tears_as_it_weakens() -> void:
-	var sim: MatchSim = MatchSim.new(RULES, LAYOUT, 1)
-	var view: WallsView = autofree(WallsView.new()) as WallsView
-	add_child(view)
-	view.watch(sim)
-	sim.damage_wall(0, 30)
-	assert_gt(view.hit_time_left(0), 0.0, "flashes and wobbles")
-	var tears: StandardMaterial3D = (view.get_child(0).find_child("Tears", true, false) as MeshInstance3D).mesh.surface_get_material(0) as StandardMaterial3D
-	var light: float = tears.albedo_color.a
-	sim.damage_wall(0, 200)
-	assert_gt(tears.albedo_color.a, light, "more rips and holes as it weakens")
-	sim.damage_wall(0, 500)
-	assert_eq(view.standing_count(), sim.walls.size() - 1, "broken walls disappear")
 
 
 func test_a_moving_kid_keeps_running_between_the_30_hz_sim_steps() -> void:

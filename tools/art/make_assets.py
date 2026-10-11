@@ -657,10 +657,7 @@ def main(only=None):
     save(tex_asphalt(), TEXTURES, "asphalt")
     save(tex_pavers(), TEXTURES, "pavers")
     save(tex_alley(), TEXTURES, "alley")
-    for kind in ("sun", "house", "star", "crown", "smiley", "heart"):
-        save(tex_doodle(kind), TEXTURES, "doodle_" + kind)
     save(tex_sari_sign(), TEXTURES, "sari_sign")
-    save(tex_cardboard_tears(), TEXTURES, "cardboard_tears")
     save(tex_road_text("DAHAN-DAHAN", (255, 214, 60)), TEXTURES, "road_dahan")
     save(tex_chalk_piko(), TEXTURES, "chalk_piko")
     save(tex_chalk_preso(), TEXTURES, "chalk_preso")
