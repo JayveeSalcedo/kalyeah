@@ -400,9 +400,9 @@ func _add_details() -> void:
 		bunting_index += 1
 	# kids' chalk games on the road, the same on both halves (turned round)
 	for side: float in [1.0, -1.0]:
-		_add_decal("chalk_piko", CHALK_PIKO_SIZE, Vector3(side * 6.0, 0.0, side * 13.0))
+		_add_decal("chalk_piko", CHALK_PIKO_SIZE, Vector3(side * 9.0, 0.0, side * 10.0))
 		_add_decal("chalk_preso", CHALK_PRESO_SIZE, Vector3(-side * 2.0, 0.0, side * 9.0))
-	for spot: Vector3 in [Vector3(3.0, 0.0, 2.0), Vector3(-5.0, 0.0, -6.5), Vector3(8.5, 0.0, -14.0), Vector3(-8.0, 0.0, 12.5)]:
+	for spot: Vector3 in [Vector3(3.0, 0.0, 2.0), Vector3(-5.0, 0.0, -6.5), Vector3(8.5, 0.0, -12.0), Vector3(-6.0, 0.0, 16.0)]:
 		_add(Props.manhole(), spot)
 	var walk_x: float = half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0
 	var store_z: float = -layout.lane_length * 0.18

@@ -116,7 +116,7 @@ func test_practice_has_two_enemy_dummies_and_one_ally() -> void:
 		practice.advance(DT)
 	assert_eq(stand.position, stand_start, "one enemy stands still")
 	assert_ne(patrol.position.x, patrol_start.x, "the other walks")
-	assert_eq(ally.position, Vector2(-8.0, 15.0))
+	assert_eq(ally.position, Vector2(-10.0, 13.0))
 
 
 # ---- tilt (one-handed movement) --------------------------------------------------

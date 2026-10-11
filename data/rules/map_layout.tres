@@ -4,14 +4,14 @@
 
 [resource]
 script = ExtResource("1_layout")
-lane_length = 48.0
-lane_width = 24.0
+lane_length = 40.0
+lane_width = 30.0
 post_inset = 2.5
 base_radius = 4.5
 spawn_offset = 2.0
 jail_size = Vector2(3, 4)
 jail_inset = Vector2(2.5, 4)
-obstacles = Array[Rect2]([Rect2(-3, 15, 3, 0.7), Rect2(-6.8, 10.5, 1.4, 1.4), Rect2(3, 16.5, 2.6, 0.6), Rect2(5.5, 8.5, 2.4, 0.5), Rect2(-7, 0.8, 1.4, 1.4), Rect2(-10.6, 5, 0.7, 3)])
+obstacles = Array[Rect2]([Rect2(-3, 13, 3, 0.7), Rect2(-8.5, 9, 1.4, 1.4), Rect2(4, 15, 2.6, 0.6), Rect2(7, 7, 2.4, 0.5), Rect2(-8.5, 0.8, 1.4, 1.4), Rect2(-13.5, 4, 0.7, 3)])
 obstacle_props = Array[StringName]([&"bench", &"crates", &"sawhorse", &"no_entry", &"crates", &"bench"])
 boundary_thickness = 0.6
 overview_height = 60.0

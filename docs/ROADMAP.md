@@ -14,6 +14,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | M5 Look and feel (first pass) | Procedural low-poly street, props and kids, themed UI, vector icons, synthesised audio, MOBA HUD, camera, rigged kid animation |
 | Tag street (owner redesign) | The street-game redesign from the reference video: a 24 × 48 m barangay street with your post bottom left and theirs top right, a matching tall minimap, a few cover pieces (crates, benches, a sawhorse, a NO ENTRY board) that block both teams, Tag (always, at 0 HP) with taped boxes and rescues, captures (whole team in the enemy base, or every enemy tagged) held 5 s, first to 3; the guava, the tricycle, the breakable walls and the death delay are gone; a 40° wide-lens camera |
 | One-handed (owner) | Tilt the phone to move (no stick), weapon 1 and 2 in a row at the bottom, no dash and no pin; one-tier scoring, best of 3 / 5 / 7 picked by the host in the lobby, every point a new round; score at the top right |
+| Map 3:4 (owner) | The playing area is 30 × 40 m (3:4); the minimap is 120 × 160 px and draws the street at exactly 3:4; posts, boxes, cover and dummies re-placed |
 
 ## Next: the Kalyeah visual overhaul
 

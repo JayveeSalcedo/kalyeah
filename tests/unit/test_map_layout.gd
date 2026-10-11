@@ -4,10 +4,21 @@ const LAYOUT: MapLayout = preload("res://data/rules/map_layout.tres")
 const MAP_SCENE: PackedScene = preload("res://scenes/map/street_map.tscn")
 
 
-func test_the_street_is_twice_as_long_as_it_is_wide() -> void:
-	assert_eq(LAYOUT.lane_width, 24.0)
-	assert_eq(LAYOUT.lane_length, 48.0)
-	assert_almost_eq(LAYOUT.lane_length / LAYOUT.lane_width, 2.0, 0.001, "the same 1:2 street as the minimap")
+func test_the_playing_area_is_3_by_4() -> void:
+	assert_eq(LAYOUT.lane_width, 30.0)
+	assert_eq(LAYOUT.lane_length, 40.0)
+	assert_almost_eq(LAYOUT.lane_width / LAYOUT.lane_length, 3.0 / 4.0, 0.001, "3:4 (width:length)")
+
+
+func test_the_minimap_has_exactly_the_streets_ratio() -> void:
+	assert_almost_eq(MatchHud.MINIMAP_SIZE.x / MatchHud.MINIMAP_SIZE.y, LAYOUT.lane_width / LAYOUT.lane_length, 0.0001)
+	var minimap: LaneMinimap = autofree(LaneMinimap.new()) as LaneMinimap
+	minimap.size = MatchHud.MINIMAP_SIZE
+	minimap.setup(MatchSim.new(load("res://data/rules/game_rules.tres") as GameRules, LAYOUT, 1), 1, 0)
+	var corner: Vector2 = minimap.to_map(LAYOUT.lane_rect().position)
+	var far: Vector2 = minimap.to_map(LAYOUT.lane_rect().end)
+	var drawn: Vector2 = (far - corner).abs()
+	assert_almost_eq(drawn.x / drawn.y, 3.0 / 4.0, 0.0001, "the street drawn inside the frame is exactly 3:4")
 
 
 func test_own_post_bottom_left_enemy_post_top_right() -> void:

@@ -1,7 +1,7 @@
 class_name LaneMinimap
 extends Control
-## Tall minimap in the top left corner (docs/GDD.md "HUD"): the whole street, as
-## long as it is twice wide, seen from above with your end at the bottom. Your base
+## Minimap in the top left corner (docs/GDD.md "HUD"): the whole playing area at
+## exactly its own 3:4 shape, seen from above with your end at the bottom. Your base
 ## is the blue corner at the bottom left, theirs the red corner at the top right;
 ## the taped boxes are where tagged kids wait (yours top left, theirs bottom right).
 ## Obstacles are dark blocks, players are dots (you are white-ringed).
@@ -43,8 +43,12 @@ func to_map(world: Vector2) -> Vector2:
 	)
 
 
+## The street's rectangle inside the frame: as big as fits, at exactly the street's ratio.
 func _inner() -> Rect2:
-	return Rect2(Vector2(INSET, INSET), size - Vector2(INSET, INSET) * 2.0)
+	var room: Vector2 = size - Vector2(INSET, INSET) * 2.0
+	var ratio: float = _sim.layout.lane_width / _sim.layout.lane_length
+	var fit: Vector2 = Vector2(room.y * ratio, room.y) if room.x / room.y > ratio else Vector2(room.x, room.x / ratio)
+	return Rect2((size - fit) / 2.0, fit)
 
 
 func _draw() -> void:

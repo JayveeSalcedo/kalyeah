@@ -44,6 +44,13 @@ assets/{models,textures,audio,icons,fonts}   server/   tests/{unit,integration}
 - **Portrait (vertical) only**: Android locked to portrait; the web build shows a "rotate your phone" prompt if held in landscape. Kalyeah is a vertical MOBA by design (see `docs/PROJECT.md` section 3.8 and `docs/GDD.md` "Vertical layout").
 - Art style: **Clash of Clans design language** on a **League of Legends camera** (56° pitch, 30° vertical FOV): soft, chunky, painted-looking stylised 3D with a Filipino street theme, readable at phone size. Inspired by, never copied: no Supercell or Riot assets, names or logos. Assets are authored in Blender (`bpy` works in the cloud session). Specs: `docs/PROJECT.md` section 3.8, `docs/ART.md`, `docs/ROADMAP.md`.
 
+## Assets: advise, don't generate (owner rule)
+When an asset is needed (a prop, a character, an effect, an icon, a texture, a screen background), **do not generate it**. Say which kind it should be and why, and leave the making to the owner:
+- **Blender (3D model)** — things the camera sees from changing angles or that must sit in the 3D street with real depth and shadows (props, cover, buildings, the post).
+- **Sprite (sprite sheet)** — animated things that should keep a painted 2D look in the 3D world (the kids, poses, puffs, hit effects).
+- **2D image** — flat, static art on screen or on a surface (HUD icons, button art, posters, signs, ground decals, backgrounds, loading art).
+Keep the existing procedural/code-drawn stand-ins working until the owner's asset is added.
+
 ## Definition of done (per task)
 - Static-typed, no warnings (treat warnings as errors in project settings).
 - Unit tests for every sim rule touched (`tests/unit/test_<thing>.gd`).
