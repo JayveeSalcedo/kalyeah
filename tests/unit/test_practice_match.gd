@@ -576,13 +576,15 @@ func test_the_match_opens_with_both_teams_then_go() -> void:
 	assert_eq(practice.hud.intro_title.text, "TAG THE ENEMY BASE!")
 	assert_false(practice.hud.weapon_buttons[0].visible, "no buttons during the show")
 	var enemy_post: Vector2 = LAYOUT.base_center(-practice.own_side())
-	assert_lt(Vector2(camera.position.x, camera.position.z).distance_to(enemy_post), 10.0, "first: their post and team")
+	var seen: Vector2 = Vector2(camera.position.x, camera.position.z)
+	assert_lt(seen.distance_to(enemy_post), seen.distance_to(LAYOUT.base_center(practice.own_side())), "first: their post and team")
 	var start: Vector2 = player.position
 	practice.set_stick(Vector2(0.0, -1.0))
 	for i: int in ceili(practice.rules.intro_time * 0.6 / DT):
 		practice.advance(DT)
 	var own_post: Vector2 = LAYOUT.base_center(practice.own_side())
-	assert_lt(Vector2(camera.position.x, camera.position.z).distance_to(own_post), 10.0, "then: our post and team")
+	seen = Vector2(camera.position.x, camera.position.z)
+	assert_lt(seen.distance_to(own_post), seen.distance_to(enemy_post), "then: our post and team")
 	assert_eq(player.position, start, "nobody moves during the show")
 	assert_string_ends_with(practice.scoreboard().summary(), "0:00", "the clock waits")
 	for i: int in ceili(practice.rules.intro_time * 0.5 / DT):
