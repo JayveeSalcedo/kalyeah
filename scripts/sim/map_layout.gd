@@ -1,90 +1,97 @@
 class_name MapLayout
 extends Resource
-## Geometry of the single-lane map, in meters. Pure data + math, no nodes.
-## Lane axis is Z: +Z is the "own" side (bottom of the portrait screen), -Z the
-## enemy side. All numbers come from data/rules/map_layout.tres.
+## Geometry of the playground street, in meters. Pure data + math, no nodes.
+## The street runs along Z: +Z is the "own" end (bottom of the portrait screen),
+## -Z the enemy end. A side's post stands in its left corner as seen from that
+## end (own: bottom-left, enemy: top-right), and the box its tagged players are
+## sent to sits at the far end on the same left side (own: top-left, enemy:
+## bottom-right). The map is point-symmetric, so both teams play the same street.
+## All numbers come from data/rules/map_layout.tres.
 
 const SIDE_OWN: int = 1
 const SIDE_ENEMY: int = -1
 
+## Playable street (width along X, length along Z).
 @export var lane_length: float = 0.0
 @export var lane_width: float = 0.0
-@export var base_inset: float = 0.0
+## The post stands this far in from both edges of its corner.
+@export var post_inset: float = 0.0
+## The base is a chalk circle of this radius around the post (clipped by the street).
 @export var base_radius: float = 0.0
-@export var wall_layers: int = 0
-@export var wall_columns_per_layer: int = 0
-@export var wall_first_layer_from_base: float = 0.0
-@export var wall_layer_spacing: float = 0.0
-@export var wall_thickness: float = 0.0
-@export var wall_gap: float = 0.0
-@export var wall_hp: int = 0
+## Where a side's players start and come back to after a rescue: this far from the
+## post toward the middle of the street (along each axis).
+@export var spawn_offset: float = 0.0
+## The tagged box (a taped rectangle on the road) and its center's inset from its corner.
+@export var jail_size: Vector2 = Vector2.ZERO
+@export var jail_inset: Vector2 = Vector2.ZERO
+## Cover on the own half of the street (x, z rects); the enemy half gets the same
+## pieces turned around the center. They block walking and throws for both teams.
+@export var obstacles: Array[Rect2] = []
+## Cosmetic: what each obstacle is drawn as (bench, crates, sawhorse, sign...).
+@export var obstacle_props: Array[StringName] = []
 @export var boundary_thickness: float = 0.0
 @export var overview_height: float = 0.0
 @export var overview_size: float = 0.0
 
 
-## One breakable cardboard wall column. `rect` is in the XZ plane (x, z).
-class WallSpec extends RefCounted:
-	var rect: Rect2
-	var side: int
-	var layer: int
-	var column: int
-	var hp: int
-
-
-## Center of a side's base post in the XZ plane (x, z).
+## Center of a side's post in the XZ plane (x, z): own bottom-left, enemy top-right.
 func base_center(side: int) -> Vector2:
-	return Vector2(0.0, side * (lane_length / 2.0 - base_inset))
+	return Vector2(-side * (lane_width / 2.0 - post_inset), side * (lane_length / 2.0 - post_inset))
 
 
-## Z of the inner wall row (the one a side's electric post stands in), measured at its center.
-func inner_wall_z(side: int) -> float:
-	return side * (lane_length / 2.0 - base_inset - wall_first_layer_from_base)
+## True when `position` is inside `side`'s base circle (the other team captures there).
+func in_base(side: int, position: Vector2) -> bool:
+	return position.distance_to(base_center(side)) <= base_radius
 
 
-## Z of the back face of a side's inner wall: a player past this line (toward that
-## side's lane end) is behind the wall, in that side's yard.
-func yard_line(side: int) -> float:
-	return inner_wall_z(side) + side * wall_thickness / 2.0
-
-
-## True when `position` is behind `side`'s inner wall, in its yard (the enemy scores there).
-func in_yard(side: int, position: Vector2) -> bool:
-	return position.y * side >= absf(yard_line(side)) and absf(position.x) <= lane_width / 2.0
-
-
-## Where a side's players start and respawn: the middle of the yard behind the inner wall.
+## Where a side's players start, and where a rescued player is sent back to.
 func spawn_center(side: int) -> Vector2:
-	return Vector2(0.0, side * (absf(yard_line(side)) + lane_length / 2.0) / 2.0)
+	return base_center(side) + Vector2(side, -side) * spawn_offset
+
+
+## The box a side's tagged players are sent to: own top-left, enemy bottom-right.
+func jail_rect(side: int) -> Rect2:
+	var center: Vector2 = Vector2(
+		-side * (lane_width / 2.0 - jail_inset.x), -side * (lane_length / 2.0 - jail_inset.y)
+	)
+	return Rect2(center - jail_size / 2.0, jail_size)
+
+
+## Where the `index`-th tagged player of a side stands in its box (two rows of kids).
+func jail_slot(side: int, index: int) -> Vector2:
+	var box: Rect2 = jail_rect(side)
+	var columns: int = 2
+	var rows: int = 3
+	var column: int = index % columns
+	var row: int = (index / columns) % rows
+	return box.position + Vector2(
+		box.size.x * (column + 0.5) / columns, box.size.y * (row + 0.5) / rows
+	)
 
 
 func lane_rect() -> Rect2:
 	return Rect2(-lane_width / 2.0, -lane_length / 2.0, lane_width, lane_length)
 
 
-## 2 sides x wall_layers x wall_columns_per_layer columns. Layer 0 is nearest the base.
-func wall_columns() -> Array[WallSpec]:
-	var result: Array[WallSpec] = []
-	var column_width: float = lane_width / wall_columns_per_layer
-	for side: int in [SIDE_OWN, SIDE_ENEMY]:
-		for layer: int in wall_layers:
-			var z_center: float = side * (
-				lane_length / 2.0 - base_inset - wall_first_layer_from_base - layer * wall_layer_spacing
-			)
-			for column: int in wall_columns_per_layer:
-				var width: float = column_width - wall_gap
-				var x_center: float = -lane_width / 2.0 + column_width * (column + 0.5)
-				var spec: WallSpec = WallSpec.new()
-				spec.rect = Rect2(x_center - width / 2.0, z_center - wall_thickness / 2.0, width, wall_thickness)
-				spec.side = side
-				spec.layer = layer
-				spec.column = column
-				spec.hp = wall_hp
-				result.append(spec)
+## Every obstacle on the street: the own-half pieces plus the same pieces turned
+## around the center for the enemy half. Index i (own) pairs with i + count (enemy).
+func obstacle_rects() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	for rect: Rect2 in obstacles:
+		result.append(rect)
+	for rect: Rect2 in obstacles:
+		result.append(Rect2(-rect.end, rect.size))
 	return result
 
 
-## Left, right and the two end walls enclosing the lane.
+## The prop an obstacle is drawn as (same order as obstacle_rects()).
+func obstacle_prop(index: int) -> StringName:
+	if obstacle_props.is_empty():
+		return &"crates"
+	return obstacle_props[index % obstacles.size() % obstacle_props.size()]
+
+
+## Left, right and the two end walls enclosing the street.
 func boundary_rects() -> Array[Rect2]:
 	var t: float = boundary_thickness
 	var result: Array[Rect2] = []

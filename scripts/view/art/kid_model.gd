@@ -19,7 +19,6 @@ const HIT_COLOR: Color = Color(1.0, 0.55, 0.55)
 const STRIDE: float = 1.6
 const CAST_TIME: float = 0.38
 ## A tumble starts with the slightly falling pose, then the face-down one.
-const STUMBLE_FALL_TIME: float = 0.18
 const HIT_TIME: float = 0.28
 ## How long the knockout fall (top row) plays before the kid lies down.
 const KO_FALL_TIME: float = 0.35
@@ -51,7 +50,6 @@ var _clock: float = 0.0
 var _ghost: bool = false
 var _cast_left: float = 0.0
 var _cast_total: float = CAST_TIME
-var _stumble_age: float = 0.0
 var _hit_left: float = 0.0
 var _ko_time: float = 0.0
 var _move_blend: float = 0.0
@@ -136,7 +134,7 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	_sprite.visible = not polymorphed
 	_shadow.visible = true
 	_can.visible = polymorphed
-	set_ghost(state.death_delay)
+	set_ghost(state.tagged)
 	if polymorphed:
 		pose = "can"
 		_can.rotation.z = sin(_clock * 10.0) * 0.1 * clampf(speed, 0.0, 1.0)
@@ -149,14 +147,16 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 		if step_index != _last_step:
 			_last_step = step_index
 			footstep.emit()
-	_stumble_age = _stumble_age + delta if state.stumble_time_left > 0.0 else 0.0
 	var knocked_out: bool = state.effects.has(StatusEffects.Type.KNOCKOUT)
 	_ko_time = _ko_time + delta if knocked_out else 0.0
 	var bob: float = 0.0
 	var squash: Vector2 = Vector2.ONE
 	var anim: String = "idle"
 	_stride_flip = false
-	if knocked_out:
+	if state.tagged:
+		# waiting in the box: just standing there
+		pose = "idle"
+	elif knocked_out:
 		pose = "ko"
 		anim = "ko_stagger" if _ko_time < KO_FALL_TIME else "ko_lying"
 	elif state.effects.has(StatusEffects.Type.AIRBORNE) or state.effects.has(StatusEffects.Type.BOUNCE):
@@ -167,17 +167,6 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 		pose = "stunned"
 		anim = "stun"
 		squash = Vector2(1.0 + sin(_clock * 6.0) * 0.03, 1.0 - sin(_clock * 6.0) * 0.03)
-	elif state.dash_time_left > 0.0:
-		pose = "dash"
-		anim = "run"
-		squash = Vector2(1.18, 0.9)
-	elif state.stumble_time_left > 0.0:
-		pose = "stumble"
-		anim = "ko_stagger" if _stumble_age < STUMBLE_FALL_TIME else "down"
-	elif state.death_delay:
-		pose = "down"
-		anim = "ko_stagger"
-		squash = Vector2(1.0, 1.0 + sin(_clock * 2.5) * 0.02)
 	elif _cast_left > 0.0:
 		pose = "cast"
 		anim = "cast"
@@ -243,6 +232,14 @@ func _view_angle() -> float:
 	forward = forward.normalized()
 	var look: Vector3 = Vector3(_facing.x, 0.0, _facing.y)
 	return atan2(look.dot(right), -look.dot(forward))
+
+
+## A kid's standing sprite facing the camera, for HUD cards (falls back to FALLBACK_SET).
+static func portrait(character_id: StringName) -> Texture2D:
+	var set_id: StringName = character_id
+	if not ResourceLoader.exists(SPRITE_PATH % [set_id, "idle", "toward"]):
+		set_id = FALLBACK_SET
+	return _frame(set_id, "idle", "toward")["texture"] as Texture2D
 
 
 static func _frame(set_id: StringName, anim: String, direction: String) -> Dictionary:

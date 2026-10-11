@@ -11,11 +11,7 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 	for id: int in sim.players:
 		var p: PlayerState = sim.players[id]
 		players.append({
-			"id": id, "pos": p.position, "face": p.facing, "hp": p.hp, "alive": p.alive,
-			"dd": p.death_delay, "ddu": p.death_delay_used, "gray": p.gray_hp, "resp": p.respawn_time_left,
-			"dcd": p.dash_cooldown_left, "dt": p.dash_time_left, "st": p.stumble_time_left,
-			"bcd": p.bookmark_cooldown_left, "boost": p.boost_time_left, "mark": p.mark_active,
-			"mpos": p.mark_position, "push": p.push_time_left, "pv": p.push_velocity,
+			"id": id, "pos": p.position, "face": p.facing, "hp": p.hp, "tag": p.tagged, "tt": p.tag_time,
 			"wcd": p.weapon_cooldowns.duplicate(), "w": p.weapons.duplicate(), "fx": p.effects.snapshot(),
 		})
 	var projectiles: Array[Dictionary] = []
@@ -27,18 +23,12 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 	var shields: Array[Dictionary] = []
 	for shield: WeaponSystem.Shield in sim.weapons.shields:
 		shields.append({"id": shield.id, "c": shield.center, "al": shield.along, "hw": shield.half_width, "team": shield.team})
-	var walls: Array[int] = []
-	for wall: MapLayout.WallSpec in sim.walls:
-		walls.append(wall.hp)
-	var ball: RubberBall = sim.ball
-	var tricycle: Tricycle = sim.tricycle
 	return {
 		"t": NetProtocol.Msg.SNAPSHOT, "tick": sim.tick, "acks": acks.duplicate(),
 		"players": players, "projectiles": projectiles, "zones": zones, "shields": shields,
-		"walls": walls, "side0": sim.side_for_team(0), "phase": sim.phase, "freeze": sim.freeze_left,
-		"score": {"p": sim.score.points.duplicate(), "s": sim.score.sets.duplicate(), "n": sim.score.set_number, "w": sim.score.winner},
-		"ball": {"s": ball.state, "pos": ball.position, "h": ball.holder_id, "th": ball.thrower_id, "team": ball.team, "bl": ball.can_blink, "bt": ball.bites, "tm": ball.spawn_timer},
-		"tri": {"ph": tricycle.phase, "t": tricycle.time_left, "dir": tricycle.direction, "pos": tricycle.position},
+		"phase": sim.phase, "freeze": sim.freeze_left, "intro": sim.intro_left, "clock": sim.match_time,
+		"score": {"p": sim.score.points.duplicate(), "bo": sim.score.best_of, "w": sim.score.winner},
+		"cap": {"team": sim.capture_team, "k": sim.capture_kind, "e": sim.capture_elapsed},
 	}
 
 
@@ -54,53 +44,29 @@ static func apply(sim: MatchSim, data: Dictionary, local_id: int) -> void:
 			p.position = entry["pos"] as Vector2
 		p.facing = entry["face"] as Vector2
 		p.hp = entry["hp"] as int
-		p.alive = entry["alive"] as bool
-		p.death_delay = entry["dd"] as bool
-		p.death_delay_used = entry["ddu"] as bool
-		p.gray_hp = entry["gray"] as float
-		p.respawn_time_left = entry["resp"] as float
-		p.dash_cooldown_left = entry["dcd"] as float
-		p.dash_time_left = entry["dt"] as float
-		p.stumble_time_left = entry["st"] as float
-		p.bookmark_cooldown_left = entry["bcd"] as float
-		p.boost_time_left = entry["boost"] as float
-		p.mark_active = entry["mark"] as bool
-		p.mark_position = entry["mpos"] as Vector2
-		p.push_time_left = entry["push"] as float
-		p.push_velocity = entry["pv"] as Vector2
+		p.tagged = entry["tag"] as bool
+		p.tag_time = entry["tt"] as float
 		p.weapon_cooldowns.assign(entry["wcd"] as Array)
 		p.weapons.assign(entry["w"] as Array)
 		p.effects.restore(entry["fx"] as Dictionary)
 	_apply_weapons(sim, data)
-	_apply_walls(sim, data.get("walls", []) as Array)
-	var side0: int = data.get("side0", sim.side_for_team(0)) as int
-	if side0 != sim.side_for_team(0):
-		sim.set_team0_side(side0)
-		sim.sides_switched.emit()
+	var was_intro: bool = sim.phase == MatchSim.Phase.INTRO
 	sim.phase = data.get("phase", sim.phase) as MatchSim.Phase
+	sim.intro_left = data.get("intro", 0.0) as float
+	sim.match_time = data.get("clock", sim.match_time) as float
+	if was_intro and sim.phase == MatchSim.Phase.PLAYING:
+		sim.intro_finished.emit()
 	sim.freeze_left = data.get("freeze", 0.0) as float
 	var score: Dictionary = data.get("score", {}) as Dictionary
 	if not score.is_empty():
 		sim.score.points.assign(score["p"] as Array)
-		sim.score.sets.assign(score["s"] as Array)
-		sim.score.set_number = score["n"] as int
+		sim.score.best_of = score["bo"] as int
 		sim.score.winner = score["w"] as int
-	var ball: Dictionary = data.get("ball", {}) as Dictionary
-	if not ball.is_empty():
-		sim.ball.state = ball["s"] as RubberBall.State
-		sim.ball.position = ball["pos"] as Vector2
-		sim.ball.holder_id = ball["h"] as int
-		sim.ball.thrower_id = ball["th"] as int
-		sim.ball.team = ball["team"] as int
-		sim.ball.can_blink = ball["bl"] as bool
-		sim.ball.bites = ball.get("bt", 0) as int
-		sim.ball.spawn_timer = ball["tm"] as float
-	var tri: Dictionary = data.get("tri", {}) as Dictionary
-	if not tri.is_empty():
-		sim.tricycle.phase = tri["ph"] as Tricycle.Phase
-		sim.tricycle.time_left = tri["t"] as float
-		sim.tricycle.direction = tri["dir"] as int
-		sim.tricycle.position = tri["pos"] as Vector2
+	var capture: Dictionary = data.get("cap", {}) as Dictionary
+	if not capture.is_empty():
+		sim.capture_team = capture["team"] as int
+		sim.capture_kind = capture["k"] as MatchSim.CaptureKind
+		sim.capture_elapsed = capture["e"] as float
 
 
 static func _apply_weapons(sim: MatchSim, data: Dictionary) -> void:
@@ -132,23 +98,3 @@ static func _apply_weapons(sim: MatchSim, data: Dictionary) -> void:
 		shield.half_width = entry["hw"] as float
 		shield.team = entry["team"] as int
 		system.shields.append(shield)
-
-
-## Wall HP from the server; damage, breaks and rebuilds become the usual signals.
-static func _apply_walls(sim: MatchSim, hps: Array) -> void:
-	var rebuilt: bool = false
-	for index: int in mini(hps.size(), sim.walls.size()):
-		var wall: MapLayout.WallSpec = sim.walls[index]
-		var hp: int = hps[index] as int
-		if hp == wall.hp:
-			continue
-		var went_up: bool = hp > wall.hp
-		wall.hp = hp
-		if went_up:
-			rebuilt = true
-		else:
-			sim.wall_damaged.emit(index)
-			if hp == 0:
-				sim.wall_destroyed.emit(index)
-	if rebuilt:
-		sim.walls_rebuilt.emit()

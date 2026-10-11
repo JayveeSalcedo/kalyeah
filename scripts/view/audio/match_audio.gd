@@ -8,8 +8,6 @@ const MUSIC_DB: float = -12.0
 const SFX_DB: float = -4.0
 ## Music samples rendered per frame while it is being built (keeps frames smooth).
 const MUSIC_CHUNK: int = 4000
-## Wall hits are frequent: at most one thud per this many seconds.
-const THUD_GAP: float = 0.12
 
 var _sim: MatchSim
 var _local_team: int = 0
@@ -18,8 +16,6 @@ var _voices: Array[AudioStreamPlayer] = []
 var _next_voice: int = 0
 var _music: AudioStreamPlayer
 var _renderer: SoundBank.MusicRenderer
-var _last_thud: float = -1.0
-var _clock: float = 0.0
 ## Ids of every sound played, newest last (for tests and debugging).
 var played: Array[StringName] = []
 
@@ -37,30 +33,14 @@ func watch(sim: MatchSim, local_team: int, local_id: int = -1) -> void:
 	_music.volume_db = MUSIC_DB
 	add_child(_music)
 	sim.weapon_cast.connect(func(_id: int, weapon: StringName) -> void: play(SoundBank.cast_id(weapon), 0.06))
-	sim.player_dashed.connect(func(_id: int) -> void: play(&"dash", 0.05))
-	sim.bookmark_used.connect(func(_id: int) -> void: play(&"mark"))
 	sim.player_healed.connect(func(_id: int, _amount: int) -> void: play(&"heal"))
 	sim.effect_applied.connect(_on_effect)
-	sim.player_died.connect(func(_id: int) -> void: play(&"ko"))
-	sim.player_respawned.connect(func(id: int) -> void: if id == _local_id: play(&"respawn"))
+	sim.player_tagged.connect(func(_id: int) -> void: play(&"ko"))
+	sim.player_rescued.connect(func(id: int, by: int) -> void: if by != MatchSim.RELEASED_ALONE or id == _local_id: play(&"revive"))
 	sim.match_won.connect(func(team: int) -> void: play(&"victory" if team == _local_team else &"defeat"))
 	sim.player_damaged.connect(func(_id: int, _amount: int) -> void: play(&"hit", 0.08))
 	sim.weapons.cone_struck.connect(func(_owner: int, _def: WeaponDef, _origin: Vector2, _dir: Vector2) -> void: play(&"snip"))
-	sim.wall_damaged.connect(_on_wall_damaged)
-	sim.wall_destroyed.connect(func(_index: int) -> void: play(&"crunch"))
-	sim.point_scored.connect(func(team: int, _by: int) -> void: play(&"point" if team == _local_team else &"lose_point"))
-	sim.set_won.connect(func(_team: int) -> void: play(&"set"))
-	sim.player_death_delay_started.connect(func(_id: int) -> void: play(&"down"))
-	sim.player_revived.connect(func(_id: int, _by: int) -> void: play(&"revive"))
-	sim.ball.thrown.connect(func(_id: int) -> void: play(&"boing"))
-	sim.ball.caught.connect(func(_id: int) -> void: play(&"boing"))
-	sim.ball.picked_up.connect(func(_id: int) -> void: play(&"crunch"))
-	sim.ball.bitten.connect(func(_id: int) -> void: play(&"crunch"))
-	sim.ball.eaten.connect(func(_id: int) -> void: play(&"crunch"))
-	sim.ball.hit_enemy.connect(func(_id: int) -> void: play(&"bonk"))
-	sim.ball.wall_hit.connect(func(_index: int) -> void: play(&"crunch"))
-	sim.ball.blinked.connect(func(_id: int) -> void: play(&"dash"))
-	sim.tricycle.warning_started.connect(func(_direction: int) -> void: play(&"horn"))
+	sim.point_scored.connect(func(team: int, _how: int) -> void: play(&"point" if team == _local_team else &"lose_point"))
 
 
 ## Starts building (then playing) the music loop.
@@ -95,14 +75,7 @@ func _on_effect(_id: int, type: int) -> void:
 
 
 func _process(delta: float) -> void:
-	_clock += delta
 	if _renderer != null and _renderer.step(MUSIC_CHUNK):
 		_music.stream = _renderer.stream()
 		_renderer = null
 		_music.play()
-
-
-func _on_wall_damaged(_index: int) -> void:
-	if _clock - _last_thud >= THUD_GAP:
-		_last_thud = _clock
-		play(&"thud")

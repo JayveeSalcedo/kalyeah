@@ -6,16 +6,14 @@ extends RefCounted
 
 enum Stage { LOADING, PICKING, PLAYING }
 
-## Sim signals relayed to clients ("weapons", "ball", "tricycle" or "sim" + name).
-## Wall and side-switch signals are not relayed: clients derive them from snapshots.
+## Sim signals relayed to clients ("weapons" or "sim" + name).
+## Side-switch signals are not relayed: clients derive them from snapshots.
 const RELAYED: Dictionary[String, Array] = {
 	"sim": [
-		"player_died", "player_respawned", "player_death_delay_started", "player_revived",
-		"point_scored", "set_won", "match_won", "point_reset", "weapon_cast", "player_damaged", "player_healed", "player_dashed", "bookmark_used", "effect_applied",
+		"player_tagged", "player_rescued",
+		"point_scored", "match_won", "point_reset", "weapon_cast", "player_damaged", "player_healed", "effect_applied",
 	],
 	"weapons": ["cone_struck"],
-	"ball": ["spawned", "picked_up", "thrown", "hit_enemy", "bitten", "eaten", "caught", "passed", "dropped", "wall_hit", "blinked"],
-	"tricycle": ["warning_started", "crossing_started", "crossing_ended", "pushed"],
 }
 
 var room: RoomService.Room
@@ -42,6 +40,7 @@ func _init(server: GameServer, p_room: RoomService.Room, rules: GameRules, layou
 	_net = net
 	seed_value = p_seed
 	sim = MatchSim.new(rules, layout, p_seed)
+	sim.set_best_of(room.best_of)
 	for m: RoomService.Member in room.members:
 		sim.add_player(m.player_id, m.team)
 		_queues[m.player_id] = []
@@ -57,7 +56,7 @@ func _init(server: GameServer, p_room: RoomService.Room, rules: GameRules, layou
 ## Breaks the sim -> match signal links and the server back-reference so the
 ## match can be freed (RefCounted cycles would leak).
 func dispose() -> void:
-	var sources: Array[Object] = [sim, sim.weapons, sim.ball, sim.tricycle]
+	var sources: Array[Object] = [sim, sim.weapons]
 	for source: Object in sources:
 		for info: Dictionary in source.get_signal_list():
 			for connection: Dictionary in source.get_signal_connection_list(info["name"] as StringName):
@@ -124,6 +123,7 @@ func poll(delta: float) -> void:
 			if stage_left <= 0.0 or _everyone_in(_picked):
 				stage = Stage.PLAYING
 				room.state = RoomService.State.PLAYING
+				sim.begin_intro()
 				_broadcast(stage_message())
 		Stage.PLAYING:
 			_play(delta)
@@ -178,7 +178,7 @@ func _broadcast(message: Dictionary) -> void:
 
 
 func _relay_signals() -> void:
-	var sources: Dictionary[String, Object] = {"sim": sim, "weapons": sim.weapons, "ball": sim.ball, "tricycle": sim.tricycle}
+	var sources: Dictionary[String, Object] = {"sim": sim, "weapons": sim.weapons}
 	for target: String in RELAYED:
 		var source: Object = sources[target]
 		for signal_name: String in RELAYED[target]:

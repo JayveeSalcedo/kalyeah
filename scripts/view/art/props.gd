@@ -2,7 +2,8 @@ class_name Props
 extends RefCounted
 ## Low-poly street props built from LowPoly pieces (one material, palette colours).
 ## Inspired by Filipino streets: sari-sari store, houses with tin roofs, laundry
-## lines, an electric post covered in flyers, cardboard walls, a tricycle.
+## lines, an electric post covered in flyers, and the cover kids hide behind in the
+## street game: stacked crates, a bench, a sawhorse barricade, a NO ENTRY board.
 ## Meshes are cached per key, so the same prop is built once.
 
 static var _cache: Dictionary[String, ArrayMesh] = {}
@@ -121,22 +122,6 @@ static func hopscotch() -> ArrayMesh:
 				var size: Vector3 = Vector3(0.94, 0.01, 0.06) if horizontal else Vector3(0.06, 0.01, 0.84)
 				kit.box(c + offset, size, chalk)
 		kit.box(Vector3(0.0, 0.012, -5.35), Vector3(0.3, 0.01, 0.3), Palette.SARI_YELLOW)
-		return kit.commit())
-
-
-## The pin a kid leaves where they used the pin skill: a big red round head on a
-## silver needle stuck slanted into the ground, with a small red ring around it.
-static func push_pin() -> ArrayMesh:
-	return cached("push_pin", func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		kit.cylinder(Vector3(0.0, 0.0, 0.0), 0.62, 0.62, 0.02, 16, Palette.SARI_RED.darkened(0.15), Palette.SARI_RED)
-		kit.cylinder(Vector3(0.0, 0.0, 0.0), 0.46, 0.46, 0.03, 16, Palette.ASPHALT, Palette.ASPHALT)
-		kit.set_transform(Transform3D(Basis(Vector3.BACK, 0.25), Vector3.ZERO))
-		kit.cylinder(Vector3(0.0, 0.0, 0.0), 0.04, 0.05, 0.9, 6, Palette.JEEP_CHROME)
-		kit.cylinder(Vector3(0.0, 0.86, 0.0), 0.16, 0.2, 0.12, 10, Palette.SARI_RED.darkened(0.2))
-		kit.sphere(Vector3(0.0, 1.12, 0.0), 0.3, Palette.SARI_RED, 12, 8)
-		kit.sphere(Vector3(-0.1, 1.24, -0.12), 0.08, Palette.WHITE, 6, 4)
-		kit.reset_transform()
 		return kit.commit())
 
 
@@ -291,49 +276,106 @@ static func electric_post() -> ArrayMesh:
 		return kit.commit())
 
 
-## A cardboard wall column (bahay-bahayan): DISASSEMBLED boxes, one flat sheet
-## thick, standing like play-house walls. Two big flattened sheets lean on thin
-## wooden sticks, with fold creases, a taped seam, folded-over top flaps, a
-## torn corner and some printed marks. Single side only: nothing stacked.
-static func cardboard_wall(size: Vector3) -> ArrayMesh:
-	return cached("cardboard%.2f_%.2f_%.2f" % [size.x, size.y, size.z], func() -> ArrayMesh:
+## Cover on the street: stacked wooden fruit crates filling a `size` (x, z) footprint
+## about a metre high, slats and dark gaps on every side, the top crate a little turned.
+static func crates(size: Vector2) -> ArrayMesh:
+	return cached("crates%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
 		var kit: LowPoly = LowPoly.new()
-		var sheets: int = 2
-		var sheet_w: float = size.x / sheets
-		var thick: float = 0.07
-		for i: int in sheets:
-			var cx: float = -size.x / 2.0 + sheet_w * (float(i) + 0.5)
-			var lean: float = 0.035 if i % 2 == 0 else -0.03
-			var z_off: float = 0.06 if i % 2 == 0 else -0.05
-			kit.set_transform(Transform3D(Basis(Vector3.BACK, lean), Vector3(cx, size.y / 2.0, z_off)))
-			var face: Color = Palette.CARDBOARD if i % 2 == 0 else Palette.CARDBOARD.darkened(0.07)
-			# the flat sheet
-			kit.box(Vector3.ZERO, Vector3(sheet_w - 0.06, size.y, thick), face)
-			# creases, flap line and printing on BOTH faces (the lane sees both sides)
-			for zs: float in [-1.0, 1.0]:
-				var zf: float = zs * (thick / 2.0 + 0.004)
-				for fx: float in [-0.32, 0.31]:
-					kit.box(Vector3(fx * sheet_w, 0.0, zf), Vector3(0.05, size.y - 0.08, 0.014), face.darkened(0.28))
-				kit.box(Vector3(0.0, size.y * 0.12, zf), Vector3(sheet_w - 0.12, 0.05, 0.014), face.darkened(0.25))
-				kit.box(Vector3(0.0, -size.y / 2.0 + 0.04, zf), Vector3(sheet_w - 0.08, 0.06, 0.014), face.darkened(0.18))
-				if i == 0:
-					kit.box(Vector3(0.0, size.y * 0.3, zf * 1.2), Vector3(sheet_w * 0.6, 0.14, 0.014), Palette.JEEP_RED)
-					kit.box(Vector3(-0.22, -size.y * 0.12, zf * 1.2), Vector3(0.1, 0.5, 0.014), Palette.JEEP_BLUE)
-					kit.tri(Vector3(0.0, -size.y * 0.12 - 0.5, zf * 1.2), Vector3(-0.22, -size.y * 0.12 - 0.2, zf * 1.2), Vector3(0.22, -size.y * 0.12 - 0.2, zf * 1.2), Palette.JEEP_BLUE, Vector3(0.0, -size.y * 0.12, 0.0))
-				else:
-					kit.box(Vector3(0.1, size.y * 0.1, zf * 1.2), Vector3(sheet_w * 0.45, 0.4, 0.014), Palette.WHITE.darkened(0.1))
-					kit.box(Vector3(0.1, size.y * 0.1, zf * 1.5), Vector3(sheet_w * 0.35, 0.05, 0.014), Palette.BLACK)
-			# top flaps folded outward, one bent down
-			kit.set_transform(kit._transform * Transform3D(Basis(Vector3.RIGHT, -0.5 if i % 2 == 0 else 0.25), Vector3(0.0, size.y / 2.0 + 0.02, -0.05)))
-			kit.box(Vector3.ZERO, Vector3(sheet_w * 0.42, 0.04, 0.34), face.lightened(0.05))
-			kit.box(Vector3(sheet_w * 0.45, 0.0, 0.0), Vector3(sheet_w * 0.42, 0.04, 0.3), face.lightened(0.03))
-			kit.reset_transform()
-		# tape across the seam and along the bottom
-		kit.box(Vector3(0.0, size.y * 0.55, -0.02), Vector3(0.2, size.y * 0.6, 0.12), Palette.TAPE)
-		kit.box(Vector3(0.0, size.y * 0.06, 0.0), Vector3(size.x - 0.1, 0.1, 0.14), Palette.TAPE)
-		# the sticks holding it up
-		for x: float in [-size.x / 2.0 + 0.08, 0.0, size.x / 2.0 - 0.08]:
-			kit.box(Vector3(x, size.y * 0.45, 0.2), Vector3(0.09, size.y * 0.9, 0.09), Palette.WOOD)
+		var crate: float = 0.62
+		var across: int = maxi(1, roundi(size.x / crate))
+		var deep: int = maxi(1, roundi(size.y / crate))
+		var cell: Vector2 = Vector2(size.x / across, size.y / deep)
+		for ix: int in across:
+			for iz: int in deep:
+				var stack: int = 2 if (ix + iz) % 2 == 0 else 1
+				for level: int in stack:
+					var center: Vector3 = Vector3(
+						-size.x / 2.0 + cell.x * (ix + 0.5), 0.27 + level * 0.5, -size.y / 2.0 + cell.y * (iz + 0.5)
+					)
+					var turn: float = 0.12 if level == 1 else 0.0
+					kit.set_transform(Transform3D(Basis(Vector3.UP, turn), center))
+					var wood: Color = Palette.WOOD.lightened(0.18 if (ix + iz + level) % 2 == 0 else 0.06)
+					kit.box(Vector3.ZERO, Vector3(cell.x - 0.06, 0.5, cell.y - 0.06), wood.darkened(0.35), wood.darkened(0.3))
+					# two slats on each face over the dark inside
+					for y: float in [-0.12, 0.12]:
+						kit.box(Vector3(0.0, y, 0.0), Vector3(cell.x - 0.02, 0.13, cell.y - 0.02), wood, wood)
+					kit.box(Vector3(0.0, 0.24, 0.0), Vector3(cell.x - 0.02, 0.04, cell.y - 0.02), wood.lightened(0.08))
+		kit.reset_transform()
+		return kit.commit())
+
+
+## A long wooden street bench filling a `size` (x, z) footprint, long side along X.
+static func street_bench(size: Vector2) -> ArrayMesh:
+	return cached("sbench%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
+		var kit: LowPoly = LowPoly.new()
+		var length: float = maxf(size.x, size.y)
+		var depth: float = minf(size.x, size.y)
+		if size.y > size.x:
+			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
+		kit.box(Vector3(0.0, 0.5, 0.0), Vector3(length, 0.1, depth * 0.8), Palette.WOOD.lightened(0.1))
+		kit.box(Vector3(0.0, 0.85, -depth * 0.36), Vector3(length, 0.3, 0.08), Palette.WOOD)
+		for x: float in [-length / 2.0 + 0.2, length / 2.0 - 0.2]:
+			kit.box(Vector3(x, 0.25, 0.0), Vector3(0.1, 0.5, depth * 0.75), Palette.WOOD.darkened(0.25))
+			kit.box(Vector3(x, 0.7, -depth * 0.36), Vector3(0.1, 0.4, 0.08), Palette.WOOD.darkened(0.25))
+		kit.reset_transform()
+		return kit.commit())
+
+
+## A road barricade: a striped plank on two A-frame legs, long side along X.
+static func sawhorse(size: Vector2) -> ArrayMesh:
+	return cached("saw%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
+		var kit: LowPoly = LowPoly.new()
+		var length: float = maxf(size.x, size.y)
+		var depth: float = minf(size.x, size.y)
+		if size.y > size.x:
+			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
+		var base: Transform3D = kit._transform
+		for x: float in [-length / 2.0 + 0.25, length / 2.0 - 0.25]:
+			for lean: float in [-0.3, 0.3]:
+				kit.set_transform(base * Transform3D(Basis(Vector3.RIGHT, lean), Vector3(x, 0.5, 0.0)))
+				kit.box(Vector3.ZERO, Vector3(0.09, 1.05, 0.09), Palette.WOOD)
+		kit.set_transform(base)
+		var stripes: int = maxi(4, roundi(length / 0.4))
+		var piece: float = length / stripes
+		for i: int in stripes:
+			var color: Color = Palette.JEEP_RED if i % 2 == 0 else Palette.WHITE
+			kit.box(Vector3(-length / 2.0 + piece * (i + 0.5), 0.92, depth * 0.1), Vector3(piece, 0.24, 0.08), color)
+		kit.box(Vector3(0.0, 0.45, 0.0), Vector3(length - 0.3, 0.08, 0.06), Palette.WOOD.darkened(0.2))
+		kit.reset_transform()
+		return kit.commit())
+
+
+## A painted plywood board on short legs (the words are added by the map), long
+## side along X, facing both ways.
+static func sign_board(size: Vector2) -> ArrayMesh:
+	return cached("board%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
+		var kit: LowPoly = LowPoly.new()
+		var length: float = maxf(size.x, size.y)
+		if size.y > size.x:
+			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
+		kit.box(Vector3(0.0, 0.85, 0.0), Vector3(length, 1.1, 0.08), Palette.CARDBOARD.lightened(0.15))
+		kit.box(Vector3(0.0, 0.85, 0.0), Vector3(length + 0.06, 1.16, 0.05), Palette.CARDBOARD_DARK)
+		for x: float in [-length / 2.0 + 0.2, length / 2.0 - 0.2]:
+			kit.box(Vector3(x, 0.3, 0.12), Vector3(0.1, 0.6, 0.1), Palette.WOOD)
+			kit.box(Vector3(x, 0.03, 0.0), Vector3(0.12, 0.06, 0.5), Palette.WOOD.darkened(0.2))
+		kit.reset_transform()
+		return kit.commit())
+
+
+## A big striped market umbrella on a pole, for in front of the store.
+static func umbrella() -> ArrayMesh:
+	return cached("umbrella", func() -> ArrayMesh:
+		var kit: LowPoly = LowPoly.new()
+		kit.box(Vector3(0.0, 1.2, 0.0), Vector3(0.07, 2.4, 0.07), Palette.WHITE)
+		var colors: Array[Color] = [Palette.JEEP_RED, Palette.SARI_YELLOW, Palette.JEEP_BLUE, Palette.LEAF]
+		var sides: int = 8
+		for i: int in sides:
+			var a0: float = TAU * float(i) / sides
+			var a1: float = TAU * float(i + 1) / sides
+			var rim0: Vector3 = Vector3(cos(a0) * 1.3, 2.1, sin(a0) * 1.3)
+			var rim1: Vector3 = Vector3(cos(a1) * 1.3, 2.1, sin(a1) * 1.3)
+			kit.tri(Vector3(0.0, 2.55, 0.0), rim1, rim0, colors[i % colors.size()], Vector3(0.0, 1.0, 0.0))
+			kit.tri(Vector3(0.0, 2.5, 0.0), rim0, rim1, colors[i % colors.size()].darkened(0.3), Vector3(0.0, 3.0, 0.0))
 		return kit.commit())
 
 
@@ -369,27 +411,6 @@ static func stop_sign() -> ArrayMesh:
 		return kit.commit())
 
 
-## A traffic-light gantry over the road: a pole at each end (in the two alleys) joined by
-## a bar along Z, `span` metres between the poles, with a horizontal signal in the
-## middle whose lights face the drivers (+X and -X), not the camera.
-static func signal_gantry(span: float) -> ArrayMesh:
-	return cached("gantry_%d" % roundi(span * 10.0), func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var height: float = 4.6
-		for end: float in [-1.0, 1.0]:
-			kit.box(Vector3(0.0, height / 2.0, end * span / 2.0), Vector3(0.18, height, 0.18), Palette.POST_GREY)
-		kit.box(Vector3(0.0, height - 0.1, 0.0), Vector3(0.22, 0.22, span), Palette.POST_GREY)
-		# the horizontal signal: a housing long along Z, three lights in a row on each face
-		var body: Color = Palette.BLACK.lightened(0.12)
-		kit.box(Vector3(0.0, height - 0.75, 0.0), Vector3(0.55, 0.8, 2.6), body)
-		kit.box(Vector3(0.0, height - 0.3, 0.0), Vector3(0.7, 0.1, 2.8), Palette.BLACK)
-		var colors: Array[Color] = [Palette.JEEP_RED, Palette.SARI_YELLOW.darkened(0.3), Palette.LEAF.darkened(0.35)]
-		for face: float in [-1.0, 1.0]:
-			for i: int in 3:
-				kit.sphere(Vector3(face * 0.3, height - 0.75, (float(i) - 1.0) * 0.8), 0.27, colors[i], 8, 5)
-		return kit.commit())
-
-
 ## A parked jeepney, long axis along Z.
 static func jeepney() -> ArrayMesh:
 	return cached("jeep", func() -> ArrayMesh:
@@ -405,42 +426,6 @@ static func jeepney() -> ArrayMesh:
 				kit.set_transform(Transform3D(Basis(Vector3.BACK, PI / 2.0), Vector3(x, 0.4, z)))
 				kit.cylinder(Vector3(0.0, -0.15, 0.0), 0.4, 0.4, 0.3, 8, Palette.BLACK)
 		kit.reset_transform()
-		return kit.commit())
-
-
-## The tricycle: motorcycle plus sidecar with a roof, long axis along X (it drives along X).
-static func tricycle(length: float, width: float) -> ArrayMesh:
-	return cached("tricycle%.1f_%.1f" % [length, width], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var hw: float = width / 2.0
-		kit.box(Vector3(0.0, 0.85, -hw * 0.25), Vector3(length * 0.8, 0.9, width * 0.6), Palette.JEEP_RED, Palette.SARI_YELLOW)
-		kit.box(Vector3(0.0, 1.75, -hw * 0.25), Vector3(length * 0.85, 0.1, width * 0.7), Palette.JEEP_BLUE)
-		for x: float in [-length * 0.38, length * 0.38]:
-			kit.box(Vector3(x, 1.3, -hw * 0.25), Vector3(0.07, 0.9, 0.07), Palette.JEEP_CHROME)
-		kit.box(Vector3(0.0, 1.05, -hw * 0.25 + width * 0.31), Vector3(length * 0.6, 0.5, 0.05), Palette.WINDOW)
-		# motorcycle on the +Z side
-		kit.box(Vector3(0.0, 0.75, hw * 0.65), Vector3(length * 0.75, 0.35, 0.3), Palette.BLACK)
-		kit.box(Vector3(length * 0.3, 1.15, hw * 0.65), Vector3(0.1, 0.5, 0.6), Palette.JEEP_CHROME)
-		for wheel: Vector3 in [Vector3(-length * 0.35, 0.32, hw * 0.65), Vector3(length * 0.35, 0.32, hw * 0.65), Vector3(-length * 0.1, 0.32, -hw * 0.75)]:
-			kit.set_transform(Transform3D(Basis(Vector3.RIGHT, PI / 2.0), wheel))
-			kit.cylinder(Vector3(0.0, -0.1, 0.0), 0.32, 0.32, 0.2, 8, Palette.BLACK)
-		kit.reset_transform()
-		return kit.commit())
-
-
-## The guava (bayabas): the neutral at the centre of the lane. Round, lime-green,
-## with a pale rim, a little crown, a stem and a leaf. Heals half HP when eaten.
-static func guava(radius: float) -> ArrayMesh:
-	return cached("guava%.2f" % radius, func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		kit.sphere(Vector3.ZERO, radius, Palette.GUAVA, 12, 8)
-		kit.sphere(Vector3(-radius * 0.3, radius * 0.35, -radius * 0.55), radius * 0.38, Palette.GUAVA.lightened(0.25), 8, 5)
-		# a pale, blushing underside
-		kit.sphere(Vector3(0.0, -radius * 0.55, 0.0), radius * 0.62, Palette.GUAVA_BLUSH, 10, 4)
-		kit.cylinder(Vector3(0.0, radius * 0.92, 0.0), 0.05, 0.035, radius * 0.4, 6, Palette.WOOD)
-		kit.box(Vector3(radius * 0.38, radius * 1.18, 0.0), Vector3(radius * 0.7, 0.04, radius * 0.4), Palette.LEAF_DARK)
-		kit.box(Vector3(radius * 0.6, radius * 1.24, 0.0), Vector3(radius * 0.4, 0.04, radius * 0.3), Palette.LEAF)
-		kit.box(Vector3(0.0, -radius * 0.98, 0.0), Vector3(radius * 0.4, 0.04, radius * 0.4), Palette.WOOD.darkened(0.3))
 		return kit.commit())
 
 

@@ -23,6 +23,8 @@ func _init(rules: GameRules, layout: MapLayout, net: NetRules, seed_value: int) 
 	_net = net
 	_rng.seed = seed_value
 	rooms = RoomService.new(net, seed_value)
+	rooms.best_of_choices = rules.best_of_choices
+	rooms.default_best_of = rules.best_of
 
 
 func listen(port: int) -> Error:
@@ -108,6 +110,9 @@ func _handle(from: int, message: Dictionary) -> void:
 				_send_room(rooms.room_of_peer(from))
 		M.SET_READY:
 			if rooms.set_ready(from, message.get("ready", false) as bool):
+				_send_room(rooms.room_of_peer(from))
+		M.SET_BEST_OF:
+			if rooms.set_best_of(from, message.get("n", 0) as int):
 				_send_room(rooms.room_of_peer(from))
 		M.START:
 			if rooms.start(from):

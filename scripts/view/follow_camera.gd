@@ -1,8 +1,9 @@
 class_name FollowCamera
 extends Camera3D
-## Team-relative gameplay camera, League of Legends style (see CameraRules): a far
-## camera with a 30 degree vertical FOV at 56 degrees pitch. Own base is always at
-## the bottom of the screen; the other team's view is rotated 180 degrees. Eases
+## Team-relative gameplay camera (see CameraRules): a perspective camera above and
+## behind the hero at a fixed downward angle, framed for a portrait 9:16 phone. Own
+## base is always at the bottom of the screen; the other team's view is rotated 180
+## degrees. Eases
 ## toward its target (CameraRules.follow_rate); snaps on the first frame and when
 ## the view flips (new set).
 
@@ -44,7 +45,7 @@ func distance() -> float:
 
 ## Where the camera wants to be for a hero at `world_pos`.
 func desired_position(world_pos: Vector2, flip: bool) -> Vector3:
-	var target: Vector2 = rules.clamp_target(world_pos, layout, flip)
+	var target: Vector2 = rules.clamp_target(world_pos, layout, flip, distance())
 	return Vector3(target.x, 0.0, target.y) + rules.camera_offset(distance(), flip)
 
 
@@ -58,6 +59,14 @@ func follow(world_pos: Vector2, flip: bool, delta: float = 0.0) -> void:
 	_placed = true
 	_flip = flip
 	rotation_degrees = Vector3(-rules.pitch_degrees, rules.yaw_degrees(flip), 0.0)
+
+
+## A fixed cinematic shot (the opening show): stand at `eye` looking at `target`.
+## The next follow() snaps back to the gameplay view.
+func frame_shot(eye: Vector3, target: Vector3) -> void:
+	position = eye
+	look_at(target, Vector3.UP)
+	_placed = false
 
 
 ## Kick the camera (a hit on you, a wall breaking). `strength` ~0.1 small, 0.4 big.

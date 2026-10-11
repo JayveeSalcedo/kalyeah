@@ -127,3 +127,17 @@ func test_the_token_expires_after_60_s() -> void:
 	service.step(61.0)
 	assert_null(service.reconnect(token, 9))
 	assert_true(service.rooms.has(room.code), "the match goes on")
+
+
+func test_only_the_host_picks_best_of_3_5_or_7_in_the_lobby() -> void:
+	var service: RoomService = _service()
+	service.best_of_choices = [3, 5, 7] as Array[int]
+	service.default_best_of = 3
+	var room: RoomService.Room = service.create_room(10, "Host", 1)
+	service.join(room.code, 11, "Guest")
+	assert_eq(room.best_of, 3, "new rooms start at best of 3")
+	assert_false(service.set_best_of(11, 5), "not the guest")
+	assert_true(service.set_best_of(10, 7))
+	assert_eq(room.best_of, 7)
+	assert_false(service.set_best_of(10, 4), "only 3, 5 or 7")
+	assert_eq(service.describe(room)["best_of"], 7, "everyone in the room sees it")

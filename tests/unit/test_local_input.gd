@@ -16,16 +16,6 @@ func test_keyboard_vector_is_zero_without_keys() -> void:
 	assert_eq(LocalInput.keyboard_vector(), Vector2.ZERO)
 
 
-func test_stick_from_offset_scales_and_caps() -> void:
-	assert_eq(VirtualJoystick.stick_from_offset(Vector2(45.0, 0.0), 90.0, 0.1), Vector2(0.5, 0.0))
-	assert_eq(VirtualJoystick.stick_from_offset(Vector2(0.0, -300.0), 90.0, 0.1), Vector2(0.0, -1.0))
-
-
-func test_stick_deadzone() -> void:
-	assert_eq(VirtualJoystick.stick_from_offset(Vector2(5.0, 0.0), 90.0, 0.1), Vector2.ZERO)
-	assert_eq(VirtualJoystick.stick_from_offset(Vector2.ZERO, 90.0, 0.1), Vector2.ZERO)
-
-
 func test_keyboard_buttons_is_zero_without_keys() -> void:
 	assert_eq(LocalInput.keyboard_buttons(), 0)
 
@@ -51,32 +41,28 @@ func test_touch_button_cooldown_fraction() -> void:
 func test_holding_one_skill_button_locks_every_other_one() -> void:
 	var held: AimButton = autofree(AimButton.new()) as AimButton
 	var other: AimButton = autofree(AimButton.new()) as AimButton
-	var dash: TouchButton = autofree(TouchButton.new()) as TouchButton
+	var plain: TouchButton = autofree(TouchButton.new()) as TouchButton
 	add_child(held)
 	add_child(other)
-	add_child(dash)
+	add_child(plain)
 	assert_true(other.can_press())
 	held._begin(Vector2.ZERO)
 	assert_true(held.can_press(), "the held button itself stays usable")
 	assert_false(other.can_press(), "no second weapon")
-	assert_false(dash.can_press(), "no dash or mark either")
+	assert_false(plain.can_press(), "no other button either")
 	held._finish(false)
 	assert_true(other.can_press(), "free again after the release")
-	assert_true(dash.can_press())
+	assert_true(plain.can_press())
 
 
-func test_dash_and_mark_are_dropped_while_a_skill_is_held() -> void:
+func test_the_tilt_moves_and_adds_to_the_keyboard_and_debug_stick() -> void:
 	var input: MatchInput = MatchInput.new()
-	input.aim_started(0)
-	input.press_skill(PlayerInput.BTN_DASH)
+	input.tilt = Vector2(0.0, -1.0)
 	var built: PlayerInput = input.build(false, func(_slot: int) -> Vector2: return Vector2.ZERO, 1)
-	assert_eq(built.buttons & PlayerInput.BTN_DASH, 0, "dash ignored while holding")
-	assert_ne(built.buttons & PlayerInput.BTN_WEAPON_1, 0, "the held weapon is still sent")
-	input.aim_released(Vector2.ZERO, false, 0)
-	input.build(false, func(_slot: int) -> Vector2: return Vector2.ZERO, 2)
-	input.press_skill(PlayerInput.BTN_DASH)
-	built = input.build(false, func(_slot: int) -> Vector2: return Vector2.ZERO, 3)
-	assert_ne(built.buttons & PlayerInput.BTN_DASH, 0, "dash works again after the release")
+	assert_almost_eq(built.move.y, -1.0, 0.001, "tilt the top away: run up the screen")
+	input.build(true, func(_slot: int) -> Vector2: return Vector2.ZERO, 2)
+	built = input.build(true, func(_slot: int) -> Vector2: return Vector2.ZERO, 3)
+	assert_almost_eq(built.move.y, 1.0, 0.001, "the other team's view is turned around")
 
 
 func test_the_settings_menu_pauses_the_controls() -> void:
@@ -91,30 +77,36 @@ func test_the_settings_menu_pauses_the_controls() -> void:
 	assert_true(hud.controls_active())
 
 
-func test_the_joystick_and_skills_sit_at_the_bottom_centre() -> void:
+func test_one_handed_no_stick_and_the_two_skills_in_a_row_at_the_bottom() -> void:
 	var screen_root: Control = autofree(Control.new()) as Control
 	screen_root.size = Vector2(720.0, 1280.0)
 	add_child(screen_root)
 	var hud: MatchHud = MatchHud.new()
 	screen_root.add_child(hud)
 	hud.layout_controls()
-	var stick: Vector2 = hud.joystick.get_rect().get_center()
+	assert_false("joystick" in hud, "no movement button: tilt moves you")
+	assert_eq(hud.aim_buttons.size(), 2, "weapon 1 and weapon 2 only")
 	var screen: Vector2 = hud.get_rect().size
-	assert_almost_eq(stick.x, screen.x / 2.0, 1.0, "joystick on the centre line")
-	assert_gt(stick.y, screen.y * 0.8)
-	var xs: Array[float] = []
-	for button: Control in [hud.weapon_buttons[0], hud.weapon_buttons[1], hud.bookmark_button, hud.ball_button]:
-		var centre: Vector2 = button.get_rect().get_center()
-		assert_almost_eq(centre.distance_to(stick), MatchHud.ARC_RADIUS, 1.0, "in an arc around the joystick")
-		assert_lt(centre.y, stick.y + 1.0, "over the joystick, not under it")
-		assert_gt(button.get_rect().position.x, 0.0, "on screen")
-		assert_lt(button.get_rect().end.x, screen.x, "on screen")
-		xs.append(centre.x)
-	assert_lt(xs[0], xs[1])
-	assert_lt(xs[1], xs[2])
-	assert_lt(xs[2], xs[3])
-	assert_almost_eq(xs[0] + xs[3], screen.x, 1.0, "the fan is symmetrical")
-	assert_almost_eq(xs[1] + xs[2], screen.x, 1.0)
+	var left: Vector2 = hud.weapon_buttons[0].get_rect().get_center()
+	var right: Vector2 = hud.weapon_buttons[1].get_rect().get_center()
+	assert_almost_eq(left.y, right.y, 0.5, "in one row")
+	assert_gt(left.y, screen.y * 0.8, "at the bottom")
+	assert_lt(left.x, right.x)
+	assert_almost_eq(left.x + right.x, screen.x, 1.0, "centred")
+	for button: AimButton in hud.weapon_buttons:
+		assert_lt(button.get_rect().end.y, screen.y, "on screen")
+
+
+func test_the_score_sits_at_the_top_right() -> void:
+	var screen_root: Control = autofree(Control.new()) as Control
+	screen_root.size = Vector2(720.0, 1280.0)
+	add_child(screen_root)
+	var hud: MatchHud = MatchHud.new()
+	screen_root.add_child(hud)
+	var score: Rect2 = hud.scoreboard.get_global_rect()
+	assert_gt(score.position.x, 720.0 / 2.0, "right half")
+	assert_almost_eq(score.end.x, 720.0 - MatchHud.MARGIN, 1.0, "against the right edge")
+	assert_lt(score.position.y, 200.0, "at the top")
 
 
 func test_the_menu_has_no_handedness_switch() -> void:

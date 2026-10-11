@@ -11,10 +11,7 @@ const READY_COLOR: Color = Color(1.0, 1.0, 1.0, 0.9)
 const CANCEL_COLOR: Color = Color(1.0, 0.3, 0.3, 0.9)
 const RANGE_COLOR: Color = Color(1.0, 1.0, 1.0, 0.45)
 const BOUNCE_MARK_RADIUS: float = 0.3
-## The guava's flight lane, half width in metres (it is about 0.7 m across).
-const BALL_LANE_HALF_WIDTH: float = 0.55
 const FILL_ALPHA: float = 0.22
-const PIN_END_RADIUS: float = 0.5
 
 var _mesh: ImmediateMesh = ImmediateMesh.new()
 var _material: StandardMaterial3D = StandardMaterial3D.new()
@@ -65,19 +62,6 @@ static func outline(sim: MatchSim, caster: PlayerState, def: WeaponDef, aim: Vec
 			var along: Vector2 = facing.orthogonal() * def.width / 2.0
 			lines.append(PackedVector2Array([center - along, center + along]))
 	return lines
-
-
-## Ball throw preview: range circle plus the lane the guava flies down, drawn as a
-## band `BALL_LANE_HALF_WIDTH` either side of the throw (not just a line).
-static func ball_outline(origin: Vector2, direction: Vector2, reach: float) -> Array[PackedVector2Array]:
-	var lines: Array[PackedVector2Array] = [circle(origin, reach)]
-	lines.append(lane(origin, direction, reach, BALL_LANE_HALF_WIDTH))
-	return lines
-
-
-## Pin dash preview: a small circle where the dash ends, `length` metres away.
-static func pin_outline(origin: Vector2, direction: Vector2, length: float) -> Array[PackedVector2Array]:
-	return [circle(origin + direction.normalized() * length, PIN_END_RADIUS)]
 
 
 ## A closed rectangle from `origin` along `direction` for `length`, `half_width` either side.

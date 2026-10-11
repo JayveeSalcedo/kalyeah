@@ -9,31 +9,17 @@ var position: Vector2 = Vector2.ZERO
 ## Last non-zero move direction.
 var facing: Vector2 = Vector2.ZERO
 var hp: int = 0
-var alive: bool = true
+## At 0 HP a player is tagged: they wait in their team's box until a teammate
+## steps in to rescue them (hp stays 0 meanwhile).
+var tagged: bool = false
+## Seconds spent in the box this time.
+var tag_time: float = 0.0
 var radius: float = 0.0
-## Where this player (re)spawns.
+## Where this player starts, and comes back to after a rescue (next to the post).
 var spawn_position: Vector2 = Vector2.ZERO
-var respawn_time_left: float = 0.0
 
-var dash_time_left: float = 0.0
-var dash_direction: Vector2 = Vector2.ZERO
-var stumble_time_left: float = 0.0
 ## Rooted by a heavy attack's cast animation (light attacks never root).
 var cast_lock_left: float = 0.0
-var dash_cooldown_left: float = 0.0
-
-var bookmark_cooldown_left: float = 0.0
-var boost_time_left: float = 0.0
-var mark_active: bool = false
-var mark_position: Vector2 = Vector2.ZERO
-
-## Death delay: at 0 HP the player keeps walking on draining "gray HP" (hp stays 0).
-var death_delay: bool = false
-var gray_hp: float = 0.0
-## Set when the delay has been used; cleared on respawn (once per respawn).
-var death_delay_used: bool = false
-## Training dummies never get a death delay.
-var death_delay_allowed: bool = true
 
 ## Cosmetic only (CharacterDef id).
 var character_id: StringName = &""
@@ -49,29 +35,8 @@ var previous_buttons: int = 0
 var aim_lock: Array[Vector2] = [Vector2.ZERO, Vector2.ZERO]
 var aim_target: Array[int] = [-1, -1]
 var effects: StatusEffects = StatusEffects.new()
-## Seconds since the ball button was last freshly pressed (catch window, D2).
-var ball_press_age: float = 1.0e9
-## Ball throw aim: -1 = not aiming; the auto-aim is locked at the press like weapons.
-## The pin (dash): time its button has been held while aiming (-1 = not aiming).
-var pin_aim_hold: float = -1.0
-var ball_aim_hold: float = -1.0
-var ball_aim_lock: Vector2 = Vector2.ZERO
-## Knockback (tricycle): moved by `push_velocity` until `push_time_left` runs out.
-var push_velocity: Vector2 = Vector2.ZERO
-var push_time_left: float = 0.0
-## Time spent standing in the enemy base zone (scores at GameRules.base_capture_time).
-var base_time: float = 0.0
 
 
-## Bookmark can be used: off cooldown and not still out on a mark (its cooldown
-## only starts once the player is back at the mark).
-func bookmark_ready() -> bool:
-	return bookmark_cooldown_left <= 0.0 and not mark_active
-
-
-## Alive, not in death delay, and not mid-dash or stumbling: free to use skills.
+## Not tagged and not under a status that stops casting: free to use weapons.
 func can_act() -> bool:
-	return (
-		alive and not death_delay and dash_time_left <= 0.0 and stumble_time_left <= 0.0
-		and effects.can_cast()
-	)
+	return not tagged and effects.can_cast()

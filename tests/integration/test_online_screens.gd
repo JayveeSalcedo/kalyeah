@@ -115,6 +115,10 @@ func test_online_match_screen_picks_then_plays_against_the_server() -> void:
 	assert_true(_until(func() -> bool: return not views[0].is_picking() and not views[1].is_picking()), "both playing")
 	assert_false(views[0].hud.hurt_button.visible, "no practice buttons online")
 	var server_sim: MatchSim = server.matches.values()[0].sim
+	assert_eq(server_sim.phase, MatchSim.Phase.INTRO, "the opening show plays first online too")
+	server_sim.intro_left = 0.0
+	_pump(0.2)
+	assert_eq(server_sim.phase, MatchSim.Phase.PLAYING)
 	var me: int = views[0].local_id
 	assert_eq(server_sim.players[me].weapons, [&"bato_light", &"lata"] as Array[StringName])
 	var start: Vector2 = server_sim.players[me].position

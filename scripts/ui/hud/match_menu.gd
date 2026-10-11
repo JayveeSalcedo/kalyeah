@@ -1,26 +1,33 @@
 class_name MatchMenu
 extends Control
 ## The in-match settings modal: a see-through navy card with a gold frame and a
-## title plate, a close button, the practice test buttons and Resume / Exit. Built in code.
+## title plate, a close button, the tilt controls (re-centre, sensitivity), the
+## practice test buttons and Resume / Exit. Built in code.
 
 signal closed
 signal exit_pressed
 signal hurt_pressed
-signal tricycle_pressed
-signal enemy_walls_toggled(removed: bool)
+signal recenter_pressed
+## The player picked tilt sensitivity step `index` (TiltRules.sensitivity_steps).
+signal sensitivity_changed(index: int)
+
+const SENSITIVITY_NAMES: Array[String] = ["Low", "Medium", "High"]
 
 const BACKDROP: Color = Color(0.02, 0.02, 0.06, 0.32)
 const GOLD: Color = Color(1.0, 0.8, 0.32)
 const GOLD_DARK: Color = Color(0.62, 0.4, 0.1)
 const INK: Color = Color(0.1, 0.06, 0.06)
-const CARD_SIZE: Vector2 = Vector2(440.0, 480.0)
+const CARD_SIZE: Vector2 = Vector2(440.0, 600.0)
 ## The card is a little see-through, so the street shows behind it.
 const CARD_ALPHA: float = 0.9
 const BUTTON_HEIGHT: float = 62.0
 
 var hurt_button: Button
-var tricycle_button: Button
-var walls_button: Button
+var recenter_button: Button
+var sensitivity_button: Button
+
+var _sensitivity: int = 0
+var _sensitivity_count: int = 1
 
 var _test_title: Label
 
@@ -44,14 +51,15 @@ func _ready() -> void:
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	card.add_child(column)
+	_section(column, "TILT")
+	recenter_button = _button("Re-center tilt", "blue", column)
+	recenter_button.pressed.connect(recenter_pressed.emit)
+	sensitivity_button = _button("Sensitivity: Medium", "blue", column)
+	sensitivity_button.pressed.connect(func() -> void:
+		sensitivity_changed.emit((_sensitivity + 1) % _sensitivity_count))
 	_test_title = _section(column, "PRACTICE")
 	hurt_button = _button("-30 HP (test)", "blue", column)
 	hurt_button.pressed.connect(hurt_pressed.emit)
-	tricycle_button = _button("Call the tricycle (test)", "blue", column)
-	tricycle_button.pressed.connect(tricycle_pressed.emit)
-	walls_button = _button("Enemy walls: ON", "grey", column)
-	walls_button.toggle_mode = true
-	walls_button.toggled.connect(_on_walls_toggled)
 	var spacer: Control = Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(spacer)
@@ -65,19 +73,22 @@ func _ready() -> void:
 
 
 func open() -> void:
-	_test_title.visible = hurt_button.visible or tricycle_button.visible or walls_button.visible
+	_test_title.visible = hurt_button.visible
 	visible = true
+
+
+## Shows sensitivity step `index` of `count` on its button.
+func show_sensitivity(index: int, count: int) -> void:
+	_sensitivity = index
+	_sensitivity_count = maxi(count, 1)
+	var label: String = SENSITIVITY_NAMES[index] if index < SENSITIVITY_NAMES.size() else str(index + 1)
+	sensitivity_button.text = "Sensitivity: %s" % label
 
 
 func close() -> void:
 	if visible:
 		visible = false
 		closed.emit()
-
-
-func _on_walls_toggled(removed: bool) -> void:
-	walls_button.text = "Enemy walls: OFF" if removed else "Enemy walls: ON"
-	enemy_walls_toggled.emit(removed)
 
 
 func _on_backdrop_input(event: InputEvent) -> void:

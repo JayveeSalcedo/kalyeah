@@ -41,79 +41,50 @@ func test_push_out_when_center_is_inside() -> void:
 	assert_almost_eq(result.y, -0.5, 0.0001)
 
 
-func test_player_stops_at_the_enemy_wall() -> void:
+## The first own-half obstacle (a bench) and a spot just below it.
+func _cover() -> Rect2:
+	return LAYOUT.obstacle_rects()[0]
+
+
+func test_player_stops_at_an_obstacle() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, 0.0)
-	_run(sim, 1, Vector2(0.0, -1.0), 200)
-	assert_almost_eq(p.position.y, _wall_face(MapLayout.SIDE_ENEMY, 1) + p.radius, 0.05)
+	p.position = Vector2(_cover().get_center().x, _cover().end.y + 2.0)
+	_run(sim, 1, Vector2(0.0, -1.0), 60)
+	assert_almost_eq(p.position.y, _cover().end.y + p.radius, 0.05)
 
 
-func test_a_team_walks_straight_through_its_own_walls() -> void:
+func test_obstacles_block_both_teams_the_same() -> void:
+	for team: int in [0, 1]:
+		var sim: MatchSim = _sim()
+		var p: PlayerState = sim.add_player(1, team)
+		p.position = Vector2(_cover().get_center().x, _cover().position.y - 2.0)
+		_run(sim, 1, Vector2(0.0, 1.0), 60)
+		assert_almost_eq(p.position.y, _cover().position.y - p.radius, 0.05, "team %d held back" % team)
+
+
+func test_player_slides_along_an_obstacle() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
-	_run(sim, 1, Vector2(0.0, -1.0), 450)
-	# from the own base, through both own layers, to the enemy wall's near face
-	assert_almost_eq(p.position.y, _wall_face(MapLayout.SIDE_ENEMY, 1) + p.radius, 0.05)
+	var start: Vector2 = Vector2(_cover().get_center().x, _cover().end.y + 0.5)
+	p.position = start
+	_run(sim, 1, Vector2(1.0, -1.0), 10)
+	assert_almost_eq(p.position.y, _cover().end.y + p.radius, 0.05, "held back by the bench")
+	assert_gt(p.position.x, start.x + 0.5, "but slid sideways along it")
 
 
-func test_the_other_team_is_blocked_by_that_teams_walls_and_passes_its_own() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 1)
-	_run(sim, 1, Vector2(0.0, 1.0), 450)
-	# team 1 passes its own layers and stops at team 0's wall face
-	assert_almost_eq(p.position.y, _wall_face(MapLayout.SIDE_OWN, 1) - p.radius, 0.05)
-
-
-func test_player_cannot_leave_the_lane_sideways() -> void:
+func test_player_cannot_leave_the_street_sideways() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
+	p.position = Vector2(0.0, -3.0)
 	_run(sim, 1, Vector2(1.0, 0.0), 300)
 	assert_almost_eq(p.position.x, LAYOUT.lane_width / 2.0 - p.radius, 0.05)
 	_run(sim, 1, Vector2(-1.0, 0.0), 600)
 	assert_almost_eq(p.position.x, -LAYOUT.lane_width / 2.0 + p.radius, 0.05)
 
 
-func test_player_cannot_leave_through_the_end_wall() -> void:
+func test_player_cannot_leave_through_the_end() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	_run(sim, 1, Vector2(0.0, 1.0), 300)
 	assert_almost_eq(p.position.y, LAYOUT.lane_length / 2.0 - p.radius, 0.05)
-
-
-func test_player_slides_along_an_enemy_wall() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, 0.0)
-	_run(sim, 1, Vector2(1.0, -1.0), 200)
-	assert_almost_eq(p.position.y, _wall_face(MapLayout.SIDE_ENEMY, 1) + p.radius, 0.05, "held back by the wall")
-	assert_gt(p.position.x, 1.0, "but slid sideways along it")
-
-
-func test_gaps_between_enemy_columns_are_too_narrow_to_pass() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	# the gap between the left and center column of the enemy layer nearest mid
-	var gap_x: float = -LAYOUT.lane_width / 2.0 + LAYOUT.lane_width / 3.0
-	p.position = Vector2(gap_x, _wall_face(MapLayout.SIDE_ENEMY, 1) + 1.0)
-	_run(sim, 1, Vector2(0.0, -1.0), 200)
-	assert_gt(p.position.y, _wall_face(MapLayout.SIDE_ENEMY, 1) - LAYOUT.wall_thickness, "did not squeeze through")
-
-
-func test_destroyed_enemy_column_opens_its_slot() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(0.0, 0.0)
-	# walls are ordered side, layer, column: index 10 = enemy side, layer nearest mid, center
-	sim.walls[10].hp = 0
-	_run(sim, 1, Vector2(0.0, -1.0), 320)
-	# now stopped by the enemy layer behind it
-	assert_almost_eq(p.position.y, _wall_face(MapLayout.SIDE_ENEMY, 0) + p.radius, 0.05)
-
-
-## Face toward mid of a wall layer on `side` (layer 1 = the one nearest mid).
-func _wall_face(side: int, layer: int) -> float:
-	for spec: MapLayout.WallSpec in LAYOUT.wall_columns():
-		if spec.side == side and spec.layer == layer:
-			return spec.rect.end.y if side == MapLayout.SIDE_ENEMY else spec.rect.position.y
-	return 0.0

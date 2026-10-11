@@ -143,7 +143,7 @@ func test_cooldown_blocks_recasting() -> void:
 	assert_eq(enemy.hp, 72)
 
 
-func test_cannot_cast_while_stunned_polymorphed_or_in_the_death_delay() -> void:
+func test_cannot_cast_while_stunned_polymorphed_or_tagged() -> void:
 	var sim: MatchSim = _sim()
 	var caster: PlayerState = _caster(sim, &"bato_light")
 	var enemy: PlayerState = _target(sim, 2, Vector2(0.0, -5.0))
@@ -156,20 +156,16 @@ func test_cannot_cast_while_stunned_polymorphed_or_in_the_death_delay() -> void:
 	assert_eq(caster.weapon_cooldowns[0], 0.0)
 	_wait(sim, 1.0)
 	sim.damage(CASTER, 100)
-	assert_true(caster.death_delay)
+	assert_true(caster.tagged)
 	_cast(sim, 0)
 	_wait(sim, 1.0)
 	assert_eq(enemy.hp, 100)
 
 
-func test_stun_stops_movement_and_cancels_a_dash() -> void:
+func test_stun_stops_movement() -> void:
 	var sim: MatchSim = _sim()
 	var caster: PlayerState = _caster(sim, &"bato_light")
-	sim.set_input(CASTER, PlayerInput.create(Vector2(0.0, -1.0), Vector2.ZERO, PlayerInput.BTN_DASH, 0))
-	sim.step(DT)
-	assert_gt(caster.dash_time_left, 0.0)
 	sim.apply_effect(CASTER, T.STUN, 1.0, 0.0)
-	assert_eq(caster.dash_time_left, 0.0)
 	var at: Vector2 = caster.position
 	for i: int in 20:
 		sim.set_input(CASTER, PlayerInput.create(Vector2(0.0, -1.0), Vector2.ZERO, 0, sim.tick))
@@ -188,17 +184,17 @@ func test_slow_and_polymorph_reduce_walking_speed() -> void:
 	assert_almost_eq(caster.position.x - start.x, 3.0, 0.05)
 
 
-func test_players_in_the_death_delay_are_not_hit() -> void:
+func test_tagged_players_are_not_hit() -> void:
 	var sim: MatchSim = _sim()
-	_caster(sim, &"gunting_heavy")
+	var caster: PlayerState = _caster(sim, &"gunting_heavy")
 	var enemy: PlayerState = sim.add_player(2, 1)
-	enemy.position = Vector2(0.0, -2.0)
 	sim.damage(2, 100)
-	assert_true(enemy.death_delay)
+	assert_true(enemy.tagged)
+	caster.position = enemy.position + Vector2(0.0, 2.0)
+	watch_signals(sim)
 	_cast(sim, 0, Vector2(0.0, -1.0))
 	_wait(sim, 1.0)
-	assert_true(enemy.death_delay)
-	assert_eq(enemy.gray_hp, 50.0)
+	assert_signal_not_emitted(sim, "player_damaged")
 
 
 # ---- shapes --------------------------------------------------------------------
@@ -390,28 +386,26 @@ func test_trumpo_passes_through_and_launches_once_each() -> void:
 	assert_eq(beyond.hp, 100, "stops at 8 m")
 
 
-func test_enemy_walls_stop_projectiles_own_walls_do_not() -> void:
-	var sim: MatchSim = _sim()
-	var middle_z: float = LAYOUT.base_center(MapLayout.SIDE_OWN).y - LAYOUT.wall_layer_spacing
-	_caster(sim, &"bato_light", &"papel_shield", Vector2(0.0, -(middle_z - 5.5)))
-	var behind_enemy_wall: PlayerState = _target(sim, 2, Vector2(0.0, -(middle_z + 1.2)))
-	_cast(sim, 0)
-	_wait(sim, 1.0)
-	assert_eq(behind_enemy_wall.hp, 100, "the enemy's middle cardboard wall blocks the rock")
-	var other: MatchSim = _sim()
-	_caster(other, &"bato_light", &"papel_shield", Vector2(0.0, middle_z + 3.0))
-	var past_own_wall: PlayerState = _target(other, 2, Vector2(0.0, middle_z - 2.5))
-	_cast(other, 0)
-	_wait(other, 1.0)
-	assert_eq(past_own_wall.hp, 86, "the rock flies through our own middle wall")
+func test_obstacles_stop_projectiles_for_both_teams() -> void:
+	var cover: Rect2 = LAYOUT.obstacle_rects()[0]
+	var x: float = cover.get_center().x
+	for team: int in [0, 1]:
+		var sim: MatchSim = _sim()
+		var caster: PlayerState = sim.add_player(CASTER, team)
+		caster.position = Vector2(x, cover.end.y + 3.0)
+		sim.set_loadout(CASTER, &"bato_light", &"papel_shield")
+		var hidden: PlayerState = sim.add_dummy(2, 1 - team, Vector2(x, cover.position.y - 1.0), DummyBrain.standing())
+		_cast(sim, 0)
+		_wait(sim, 1.0)
+		assert_eq(hidden.hp, 100, "hiding behind the bench works for team %d" % team)
 
 
-# ---- respawn swap ----------------------------------------------------------------
+# ---- box swap ----------------------------------------------------------------
 
-func test_swap_only_while_dead_and_kept_weapons_keep_their_cooldown() -> void:
+func test_swap_only_while_tagged_and_kept_weapons_keep_their_cooldown() -> void:
 	var sim: MatchSim = _sim()
 	var caster: PlayerState = _caster(sim, &"bato_heavy", &"lata")
-	assert_false(sim.swap_loadout(CASTER, &"jacks", &"bola"), "not while alive")
+	assert_false(sim.swap_loadout(CASTER, &"jacks", &"bola"), "not while free")
 	caster.weapon_cooldowns = [5.0, 3.0] as Array[float]
 	sim.kill(CASTER)
 	assert_true(sim.swap_loadout(CASTER, &"jacks", &"bato_heavy"))
@@ -496,20 +490,12 @@ func test_a_stun_while_aiming_drops_the_aim() -> void:
 	assert_eq(caster.weapon_cooldowns[0], 0.0, "press again after the stun")
 
 
-func test_targeted_bato_with_no_enemy_hits_the_nearest_enemy_wall() -> void:
+func test_targeted_bato_with_no_enemy_is_not_thrown() -> void:
 	var sim: MatchSim = _sim()
-	var face: float = 0.0
-	for spec: MapLayout.WallSpec in LAYOUT.wall_columns():
-		if spec.side == MapLayout.SIDE_ENEMY and spec.layer == LAYOUT.wall_layers - 1:
-			face = spec.rect.end.y
-	var caster: PlayerState = _caster(sim, &"bato_light", &"papel_shield", Vector2(0.0, face + 3.0))
+	var caster: PlayerState = _caster(sim, &"bato_light")
 	_cast(sim, 0)
 	_wait(sim, 1.0)
-	assert_gt(caster.weapon_cooldowns[0], 0.0, "thrown at the wall")
-	var damaged: int = 0
-	for wall: MapLayout.WallSpec in sim.walls:
-		damaged += LAYOUT.wall_hp - wall.hp
-	assert_eq(damaged, 14, "the wall takes the rock's damage")
+	assert_eq(caster.weapon_cooldowns[0], 0.0, "nothing to throw at: no cooldown spent")
 
 
 # ---- casting while moving ----------------------------------------------------------
