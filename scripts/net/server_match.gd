@@ -123,6 +123,7 @@ func poll(delta: float) -> void:
 			if stage_left <= 0.0 or _everyone_in(_picked):
 				stage = Stage.PLAYING
 				room.state = RoomService.State.PLAYING
+				sim.begin_intro()
 				_broadcast(stage_message())
 		Stage.PLAYING:
 			_play(delta)

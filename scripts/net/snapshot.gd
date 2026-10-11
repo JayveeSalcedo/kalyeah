@@ -26,7 +26,7 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 	return {
 		"t": NetProtocol.Msg.SNAPSHOT, "tick": sim.tick, "acks": acks.duplicate(),
 		"players": players, "projectiles": projectiles, "zones": zones, "shields": shields,
-		"phase": sim.phase, "freeze": sim.freeze_left,
+		"phase": sim.phase, "freeze": sim.freeze_left, "intro": sim.intro_left, "clock": sim.match_time,
 		"score": {"p": sim.score.points.duplicate(), "bo": sim.score.best_of, "w": sim.score.winner},
 		"cap": {"team": sim.capture_team, "k": sim.capture_kind, "e": sim.capture_elapsed},
 	}
@@ -50,7 +50,12 @@ static func apply(sim: MatchSim, data: Dictionary, local_id: int) -> void:
 		p.weapons.assign(entry["w"] as Array)
 		p.effects.restore(entry["fx"] as Dictionary)
 	_apply_weapons(sim, data)
+	var was_intro: bool = sim.phase == MatchSim.Phase.INTRO
 	sim.phase = data.get("phase", sim.phase) as MatchSim.Phase
+	sim.intro_left = data.get("intro", 0.0) as float
+	sim.match_time = data.get("clock", sim.match_time) as float
+	if was_intro and sim.phase == MatchSim.Phase.PLAYING:
+		sim.intro_finished.emit()
 	sim.freeze_left = data.get("freeze", 0.0) as float
 	var score: Dictionary = data.get("score", {}) as Dictionary
 	if not score.is_empty():

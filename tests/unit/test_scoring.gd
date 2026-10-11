@@ -214,3 +214,25 @@ func test_a_team_of_training_dummies_never_scores() -> void:
 	sim.kill(1)
 	_wait(sim, RULES.capture_time + 0.5)
 	assert_eq(sim.score.points, [0, 0] as Array[int], "practice: being tagged gives the dummies no point")
+
+
+func test_the_intro_holds_everyone_then_the_clock_runs_only_in_play() -> void:
+	var sim: MatchSim = _sim()
+	var me: PlayerState = sim.add_player(1, 0)
+	sim.begin_intro()
+	watch_signals(sim)
+	var start: Vector2 = me.position
+	for i: int in ceili((RULES.intro_time - 0.2) / DT):
+		sim.set_input(1, PlayerInput.create(Vector2(1.0, 0.0), Vector2.ZERO, 0, sim.tick))
+		sim.step(DT)
+	assert_eq(me.position, start, "nobody moves in the intro")
+	assert_eq(sim.match_time, 0.0)
+	_wait(sim, 0.4)
+	assert_eq(sim.phase, MatchSim.Phase.PLAYING)
+	assert_signal_emitted(sim, "intro_finished")
+	_wait(sim, 2.0)
+	assert_between(sim.match_time, 2.0, 2.5, "counts up during play")
+	_score(sim, me)
+	var at: float = sim.match_time
+	_wait(sim, 1.0)
+	assert_eq(sim.match_time, at, "stops during the freeze")

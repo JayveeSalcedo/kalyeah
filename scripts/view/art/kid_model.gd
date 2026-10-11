@@ -234,6 +234,14 @@ func _view_angle() -> float:
 	return atan2(look.dot(right), -look.dot(forward))
 
 
+## A kid's standing sprite facing the camera, for HUD cards (falls back to FALLBACK_SET).
+static func portrait(character_id: StringName) -> Texture2D:
+	var set_id: StringName = character_id
+	if not ResourceLoader.exists(SPRITE_PATH % [set_id, "idle", "toward"]):
+		set_id = FALLBACK_SET
+	return _frame(set_id, "idle", "toward")["texture"] as Texture2D
+
+
 static func _frame(set_id: StringName, anim: String, direction: String) -> Dictionary:
 	var path: String = SPRITE_PATH % [set_id, anim, direction]
 	if not _frames.has(path):

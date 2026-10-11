@@ -14,6 +14,8 @@ signal point_scored(team: int, how: int)
 signal match_won(team: int)
 ## The freeze is over: everyone is back at their post at full HP.
 signal point_reset
+## The opening show is over: play starts now ("GO!").
+signal intro_finished
 ## A status effect landed on a player (stun, slow, polymorph...).
 signal effect_applied(id: int, type: int)
 ## A player regained HP (the heal skill).
@@ -25,7 +27,8 @@ signal player_damaged(id: int, amount: int)
 
 const RELEASED_ALONE: int = -1
 
-enum Phase { PLAYING, POINT_FREEZE, MATCH_OVER }
+## INTRO: the opening show of both teams at their posts; nothing moves.
+enum Phase { PLAYING, POINT_FREEZE, MATCH_OVER, INTRO }
 ## How a team is scoring: everyone in the enemy base, or every enemy in the box.
 enum CaptureKind { NONE = -1, BASE = 0, ALL_TAGGED = 1 }
 
@@ -49,6 +52,10 @@ var capture_elapsed: float = 0.0
 var phase: Phase = Phase.PLAYING
 ## Seconds left in the freeze after a point.
 var freeze_left: float = 0.0
+## Seconds left of the opening show (Phase.INTRO).
+var intro_left: float = 0.0
+## The match clock: seconds of play so far (counts up; stops in freezes and the intro).
+var match_time: float = 0.0
 
 var _inputs: Dictionary[int, PlayerInput] = {}
 var _brains: Dictionary[int, DummyBrain] = {}
@@ -252,8 +259,23 @@ func kill(id: int) -> void:
 		_tag(players[id])
 
 
+## Starts the opening show: both teams stand at their posts for
+## `rules.intro_time`, then play starts. Call once, before the first step.
+func begin_intro() -> void:
+	phase = Phase.INTRO
+	intro_left = rules.intro_time
+
+
 func step(dt: float) -> void:
 	if phase == Phase.MATCH_OVER:
+		tick += 1
+		return
+	if phase == Phase.INTRO:
+		intro_left -= dt
+		if intro_left <= 0.0:
+			intro_left = 0.0
+			phase = Phase.PLAYING
+			intro_finished.emit()
 		tick += 1
 		return
 	if phase == Phase.POINT_FREEZE:
@@ -272,6 +294,7 @@ func step(dt: float) -> void:
 			_step_tagged(state, input, dt)
 		else:
 			_step_free(state, input, dt)
+	match_time += dt
 	weapons.step(self, dt)
 	_check_rescues()
 	_check_captures(dt)

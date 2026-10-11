@@ -102,7 +102,11 @@ Copied from the reference video (owner): one street. **The playing area is 3:4 (
 - **Feed:** *TAGGED!* and *RESCUED!* lines slide in under the minimap with the kid's name (blue for your team, red for theirs) and fade after 2.6 s; at most three show.
 - **Capture countdown:** while a capture runs, big text in the middle says *HOLD THE BASE! 4* (or *ALL TAGGED! 4*) for your team and *DEFEND YOUR BASE! 4* (or *ALL OF YOU TAGGED! 4*) against you.
 - **Controls:** one-handed, no stick (see Controls): weapon 1 and weapon 2 side by side in a row at the bottom centre, no handedness setting. Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green).
-- **Score (owner): top right.** Your points (blue, left) and theirs (red) with the match length between ("BO5"); who is tagged sits under it.
+- **Score card (owner): top right.** Your points (blue, left) and theirs (red) with the **match clock** between them, counting up from 0:00 like the video (it stops during the opening show and the freezes after points). Nothing under it.
+- **Tagged view (owner):** while you wait in the box, a grey band covers the bottom of the screen with "TAGGED!", a row of up to five **2:3 cards** (everyone else in the match, teammates first: portrait, name, TAGGED when they are) and Change weapons. The camera follows a free teammate first (the one who can rescue you); tap any card to follow that player. When you are rescued the camera **snaps straight back** to you at your post.
+
+## Opening show (owner, like the video)
+Before the first round (6 s, `intro_time`; the server runs it too, nobody moves and the clock waits): the camera first shows the **enemy post with their team** in the red base, then **your post with your team** in the blue base, with "TAG THE ENEMY BASE! / BEST OF 3 - FIRST TO 2 POINTS WINS" along the bottom. Then the game camera takes over and **GO!** pops up.
 
 ## Scoring (one tier: best of 3, 5 or 7)
 - **A point** is won by either capture, held for **5 s** (`capture_time`):

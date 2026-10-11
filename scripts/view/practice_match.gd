@@ -17,6 +17,15 @@ const AIRBORNE_LIFT: float = 1.0
 const WEAPON_SLOTS: int = 2
 ## How often the tilt hint checks the sensor (s).
 const TILT_HINT_INTERVAL: float = 0.5
+## The opening show: the first part shows the enemy post, the rest yours.
+const INTRO_SPLIT: float = 0.45
+## Camera path of each shot (m): from close and low to further and higher.
+const INTRO_NEAR: float = 9.0
+const INTRO_FAR: float = 13.0
+const INTRO_LOW: float = 4.5
+const INTRO_HIGH: float = 7.5
+const INTRO_SIDE: float = 2.5
+const INTRO_POST_TOP: float = 3.5
 const TILT_TAP_TEXT: String = "Tap the screen to turn on tilt, then tilt the phone to run"
 const TILT_DENIED_TEXT: String = "Tilt is blocked: allow Motion & Orientation for this site in Safari settings, then reload"
 const RECONNECT_INTERVAL: float = 2.0
@@ -41,6 +50,10 @@ var tilt: TiltInput
 ## Where tilt readings come from; tests swap in their own.
 var read_tilt: Callable = TiltInput.read_device
 var _tilt_hint_left: float = 0.0
+## While you are tagged: the player the camera follows (-1 = yourself).
+var watch_id: int = -1
+## Next camera update jumps straight to its target (after a rescue).
+var _snap_camera: bool = false
 
 var _accumulator: float = 0.0
 var _views: Dictionary[int, KidModel] = {}
@@ -169,6 +182,14 @@ func is_picking() -> bool:
 	return _pick_screen.is_open() or _opening_pick
 
 
+## Tests: jump past the opening show straight into play.
+func skip_intro() -> void:
+	if sim.phase == MatchSim.Phase.INTRO:
+		sim.intro_left = 0.0
+		sim.phase = MatchSim.Phase.PLAYING
+		sim.intro_finished.emit()
+
+
 ## Ends the open pick now (auto-fills empty slots), e.g. for tests or on a rescue.
 func finish_pick() -> void:
 	_pick_screen.force_finish()
@@ -247,6 +268,7 @@ func _connect_hud() -> void:
 	hud.hurt_button.pressed.connect(hurt_local.bind(DEBUG_DAMAGE))
 	hud.hurt_button.visible = not online
 	hud.again_pressed.connect(_on_again_pressed)
+	hud.watch_requested.connect(func(id: int) -> void: watch_id = id)
 	hud.swap_pressed.connect(open_swap)
 	hud.exit_pressed.connect(_on_exit_pressed)
 
@@ -258,6 +280,12 @@ func _connect_sim() -> void:
 	sim.point_scored.connect(_on_point_scored)
 	sim.match_won.connect(_on_match_won)
 	sim.point_reset.connect(func() -> void: tilt.recenter())
+	sim.point_reset.connect(func() -> void:
+		watch_id = -1
+		_snap_camera = true)
+	sim.intro_finished.connect(func() -> void:
+		_snap_camera = true
+		show_banner("GO!"))
 	sim.player_tagged.connect(_on_player_tagged)
 	sim.player_rescued.connect(_on_player_rescued)
 
@@ -330,6 +358,7 @@ func _on_pick_confirmed(picks: Array[StringName]) -> void:
 			return
 	_opening_pick = false
 	tilt.recenter()
+	sim.begin_intro()
 	_set_controls_active(true)
 	_sync_views(0.0)
 
@@ -417,19 +446,60 @@ func _set_tilt_sensitivity(index: int) -> void:
 	hud.menu.show_sensitivity(_tilt_sensitivity_index(), tilt_rules.sensitivity_steps.size())
 
 
+# ---- opening show and watching others -----------------------------------------------
+
+## While tagged the camera first follows a free teammate (the one who can rescue
+## you), else the first card.
+func _first_watch_id() -> int:
+	var ids: Array[int] = TaggedPanel.cards_for(sim, sim.players[local_id])
+	for id: int in ids:
+		if sim.players[id].team == local_team and not sim.players[id].tagged:
+			return id
+	return ids[0] if not ids.is_empty() else -1
+
+
+## The opening show, like the street-game video: first the enemy post with their
+## team in the red base, then your post with your team in the blue base, with the
+## goal along the bottom; then the game camera and GO!.
+func _play_intro_shot() -> void:
+	var length: float = maxf(rules.intro_time, 0.001)
+	var t: float = clampf(1.0 - sim.intro_left / length, 0.0, 1.0)
+	var side: int = -own_side() if t < INTRO_SPLIT else own_side()
+	var u: float = t / INTRO_SPLIT if t < INTRO_SPLIT else (t - INTRO_SPLIT) / (1.0 - INTRO_SPLIT)
+	var post: Vector2 = layout.base_center(side)
+	var to_field: Vector2 = -post.normalized()
+	var across: Vector2 = to_field.orthogonal()
+	var ground: Vector3 = Vector3(post.x, 0.0, post.y)
+	var out: Vector3 = Vector3(to_field.x, 0.0, to_field.y)
+	var eye: Vector3 = ground + out * lerpf(INTRO_NEAR, INTRO_FAR, u) + Vector3(across.x, 0.0, across.y) * INTRO_SIDE + Vector3.UP * lerpf(INTRO_LOW, INTRO_HIGH, u)
+	# from the bandana at the top of the post, down to the kids standing round it
+	var look: Vector3 = ground + Vector3.UP * lerpf(INTRO_POST_TOP, 0.8, minf(u * 1.6, 1.0)) + out * lerpf(0.5, 2.0, u)
+	_camera.frame_shot(eye, look)
+	var best_of: int = sim.score.best_of
+	hud.show_intro("TAG THE ENEMY BASE!", "BEST OF %d  -  FIRST TO %d POINTS WINS" % [best_of, sim.score.points_to_win()])
+
+
 # ---- per-frame views -----------------------------------------------------------------
 
 func _sync_views(delta: float) -> void:
 	for id: int in sim.players:
 		_sync_actor(sim.players[id], delta)
 	var player: PlayerState = sim.players[local_id]
-	hud.sync_player(sim, player, _pick_screen.visible)
+	hud.sync_player(sim, player, watch_id, _pick_screen.visible)
 	_sync_aim(player)
 	_fx.sync(sim, delta)
 	hud.overhead.tick(delta)
 	hud.minimap.queue_redraw()
 	hud.sync_score(sim, local_team, delta)
-	_camera.follow(player.position, _flip(), delta)
+	if sim.phase == MatchSim.Phase.INTRO:
+		_play_intro_shot()
+		return
+	hud.show_intro("")
+	var target: Vector2 = player.position
+	if player.tagged and sim.players.has(watch_id):
+		target = sim.players[watch_id].position
+	_camera.follow(target, _flip(), 0.0 if _snap_camera else delta)
+	_snap_camera = false
 
 
 func _sync_actor(state: PlayerState, delta: float) -> void:
@@ -477,6 +547,7 @@ func _on_player_tagged(id: int) -> void:
 	hud.feed(MatchHud.Feed.TAGGED, sim.players[id].team == local_team, _name_of(id))
 	if id == local_id:
 		_camera.shake(0.25)
+		watch_id = _first_watch_id()
 
 
 func _on_player_rescued(id: int, by_id: int) -> void:
@@ -484,6 +555,9 @@ func _on_player_rescued(id: int, by_id: int) -> void:
 		hud.feed(MatchHud.Feed.RESCUED, sim.players[id].team == local_team, _name_of(id))
 	if id == local_id:
 		tilt.recenter()
+		# back to your own view at your post at once, no slow pan from the teammate
+		watch_id = -1
+		_snap_camera = true
 		if _pick_screen.visible:
 			_pick_screen.force_finish()
 

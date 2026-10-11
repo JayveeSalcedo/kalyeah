@@ -52,8 +52,12 @@ const BUNTING_HEIGHT: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
 const PAVER_TILE: float = 2.4
-## The play area is one flat, dark grey cement slab (owner): no tiles, no texture.
+## The play area is one flat, dark grey cement slab (owner): no repeating tiles.
 const CEMENT: Color = Color(0.3, 0.3, 0.31)
+## Optional realistic cement art (owner-made 2D image, see docs/ART.md): when this
+## file exists it is laid ONCE over the whole play area (stretched, never tiled).
+const CEMENT_ART: String = "res://assets/textures/cement.png"
+const CEMENT_LIFT: float = 0.004
 const SIDEWALK_TINT: Color = Color(0.8, 0.76, 0.7)
 ## Paving around the whole map, so the street never ends in sky.
 const OUTER_MARGIN: float = 40.0
@@ -185,10 +189,11 @@ func _street() -> ArrayMesh:
 	return kit.commit()
 
 
-## Pavers on the sidewalks and paving all around (the street itself stays plain cement).
+## The cement art if there is one, pavers on the sidewalks and paving all around.
 func _add_ground_textures() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
+	_add_cement_art()
 	for side: float in [-1.0, 1.0]:
 		var walk: MeshInstance3D = StreetArt.ground("pavers", Vector2(SIDEWALK_WIDTH, length), PAVER_TILE, SIDEWALK_TINT)
 		walk.position = Vector3(side * (half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0), CURB_HEIGHT - 0.015, 0.0)
@@ -196,6 +201,22 @@ func _add_ground_textures() -> void:
 	var outer: MeshInstance3D = StreetArt.ground("pavers", Vector2(layout.lane_width + OUTER_MARGIN * 2.0, length + OUTER_MARGIN * 2.0), PAVER_TILE, OUTER_TINT)
 	outer.position = Vector3(0.0, OUTER_DROP, 0.0)
 	_geometry.add_child(outer)
+
+
+## Lays the owner's cement image once across the play area (no tiling), if present.
+func _add_cement_art() -> void:
+	if not ResourceLoader.exists(CEMENT_ART):
+		return
+	var plane: PlaneMesh = PlaneMesh.new()
+	plane.size = Vector2(layout.lane_width, layout.lane_length)
+	var material: StandardMaterial3D = StreetArt.material("cement", Vector2.ONE)
+	plane.material = material
+	var art: MeshInstance3D = MeshInstance3D.new()
+	art.name = "CementArt"
+	art.mesh = plane
+	art.position.y = CEMENT_LIFT
+	art.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_geometry.add_child(art)
 
 
 ## The cover piece `index` (MapLayout.obstacle_rects order), drawn as its prop.

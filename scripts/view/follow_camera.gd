@@ -61,6 +61,14 @@ func follow(world_pos: Vector2, flip: bool, delta: float = 0.0) -> void:
 	rotation_degrees = Vector3(-rules.pitch_degrees, rules.yaw_degrees(flip), 0.0)
 
 
+## A fixed cinematic shot (the opening show): stand at `eye` looking at `target`.
+## The next follow() snaps back to the gameplay view.
+func frame_shot(eye: Vector3, target: Vector3) -> void:
+	position = eye
+	look_at(target, Vector3.UP)
+	_placed = false
+
+
 ## Kick the camera (a hit on you, a wall breaking). `strength` ~0.1 small, 0.4 big.
 func shake(strength: float) -> void:
 	_shake = maxf(_shake, strength)

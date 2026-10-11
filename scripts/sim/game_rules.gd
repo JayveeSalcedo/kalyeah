@@ -28,6 +28,8 @@ extends Resource
 ## Scoring: a capture (the whole team in the enemy base, or every enemy tagged) has
 ## to hold this long to win the point.
 @export var capture_time: float = 0.0
+## The opening show before the first round (both teams at their posts, then GO!).
+@export var intro_time: float = 0.0
 ## Freeze after a point before everyone is reset to their posts.
 @export var point_freeze_time: float = 0.0
 ## The match is best of this many points (practice, and the lobby's default).

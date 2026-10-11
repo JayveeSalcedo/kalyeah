@@ -9,6 +9,7 @@ const DT: float = 1.0 / 30.0
 func _practice() -> PracticeMatch:
 	var practice: PracticeMatch = _picking()
 	practice.finish_pick()
+	practice.skip_intro()
 	return practice
 
 
@@ -452,7 +453,6 @@ func test_scoring_shows_a_banner_and_updates_the_scoreboard() -> void:
 	_score_point(practice)
 	assert_string_starts_with(practice.scoreboard().summary(), "YOU 1 - 0 THEM")
 	assert_eq(practice.banner_text(), "SCORED!  1-0")
-	assert_string_contains(practice.hud.info_label.text, "Next round in")
 	_finish_freeze(practice)
 	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
 	assert_eq(player.position, player.spawn_position, "back at base")
@@ -554,13 +554,79 @@ func test_a_spinner_and_countdown_show_while_holding_the_enemy_base() -> void:
 	assert_string_ends_with(practice.hud.capture_label.text, "5")
 
 
-func test_the_top_right_shows_who_is_tagged() -> void:
+func test_the_score_card_shows_a_match_clock_counting_up() -> void:
 	var practice: PracticeMatch = _practice()
+	assert_string_ends_with(practice.scoreboard().summary(), "0:00")
+	for i: int in 30 * 65 + 6:
+		practice.advance(DT)
+	assert_string_ends_with(practice.scoreboard().summary(), "1:05")
+	assert_null(practice.hud.get("info_label"), "no counter pill under the score card")
+
+
+# ---- the opening show (like the video) --------------------------------------------
+
+func test_the_match_opens_with_both_teams_then_go() -> void:
+	var practice: PracticeMatch = _picking()
+	practice.finish_pick()
+	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
+	var camera: FollowCamera = practice.get_node("%FollowCamera") as FollowCamera
+	assert_eq(practice.sim.phase, MatchSim.Phase.INTRO)
 	practice.advance(DT)
-	assert_string_contains(practice.hud.info_label.text, "you 0/2")
-	practice.sim.kill(PracticeMatch.ENEMY_STAND_ID)
+	assert_true(practice.hud.intro_bar.visible)
+	assert_eq(practice.hud.intro_title.text, "TAG THE ENEMY BASE!")
+	assert_false(practice.hud.weapon_buttons[0].visible, "no buttons during the show")
+	var enemy_post: Vector2 = LAYOUT.base_center(-practice.own_side())
+	assert_lt(Vector2(camera.position.x, camera.position.z).distance_to(enemy_post), 10.0, "first: their post and team")
+	var start: Vector2 = player.position
+	practice.set_stick(Vector2(0.0, -1.0))
+	for i: int in ceili(practice.rules.intro_time * 0.6 / DT):
+		practice.advance(DT)
+	var own_post: Vector2 = LAYOUT.base_center(practice.own_side())
+	assert_lt(Vector2(camera.position.x, camera.position.z).distance_to(own_post), 10.0, "then: our post and team")
+	assert_eq(player.position, start, "nobody moves during the show")
+	assert_string_ends_with(practice.scoreboard().summary(), "0:00", "the clock waits")
+	for i: int in ceili(practice.rules.intro_time * 0.5 / DT):
+		practice.advance(DT)
+	assert_eq(practice.sim.phase, MatchSim.Phase.PLAYING)
+	assert_eq(practice.banner_text(), "GO!")
+	assert_false(practice.hud.intro_bar.visible)
+	assert_true(practice.hud.weapon_buttons[0].visible)
+
+
+# ---- watching others while tagged -------------------------------------------------
+
+func test_tagged_shows_a_grey_band_with_2_by_3_cards_of_everyone_else() -> void:
+	var practice: PracticeMatch = _practice()
+	practice.hurt_local(100)
 	practice.advance(DT)
-	assert_string_contains(practice.hud.info_label.text, "them 1/2")
+	var panel: TaggedPanel = practice.hud.tagged_panel
+	assert_true(panel.visible)
+	assert_eq(panel.card_ids.size(), 3, "practice: the ally and the two enemy dummies")
+	assert_eq(panel.card_ids[0], PracticeMatch.ALLY_ID, "teammates first")
+	assert_almost_eq(TaggedPanel.CARD_SIZE.x / TaggedPanel.CARD_SIZE.y, 2.0 / 3.0, 0.001)
+	assert_eq(TaggedPanel.MAX_CARDS, 5, "room for everyone else in a 3v3")
+
+
+func test_tagged_camera_follows_the_watched_player_then_snaps_back_on_rescue() -> void:
+	var practice: PracticeMatch = _practice()
+	var camera: FollowCamera = practice.get_node("%FollowCamera") as FollowCamera
+	practice.hurt_local(100)
+	assert_eq(practice.watch_id, PracticeMatch.ALLY_ID, "first the free teammate coming for you")
+	practice.hud.tagged_panel.press_card(1)
+	assert_eq(practice.watch_id, practice.hud.tagged_panel.card_ids[1], "tap a card to watch that player")
+	var enemy: PlayerState = practice.sim.players[practice.watch_id]
+	for i: int in 30:
+		practice.advance(DT)
+	assert_true(camera.position.is_equal_approx(camera.desired_position(enemy.position, false)) or camera.position.distance_to(camera.desired_position(enemy.position, false)) < 0.5, "following them")
+	practice.hud.tagged_panel.press_card(0)
+	for i: int in 30 * 15:
+		practice.advance(DT)
+		if not practice.sim.players[PracticeMatch.LOCAL_ID].tagged:
+			break
+	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
+	assert_false(player.tagged)
+	assert_eq(practice.watch_id, -1)
+	assert_true(camera.position.is_equal_approx(camera.desired_position(player.position, false)), "snapped straight back to you at your post")
 
 
 func test_the_hero_sits_near_the_lower_centre_of_a_portrait_screen() -> void:

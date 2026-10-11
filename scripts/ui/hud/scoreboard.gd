@@ -1,7 +1,7 @@
 class_name Scoreboard
 extends Control
 ## Top-right scoreboard pill: your team's points (blue) and theirs (red), with the
-## match length in the middle ("BO5" = best of 5). One tier: points only.
+## match clock in the middle counting up ("2:45"), like the street-game video.
 ## Team-relative: you are always on the left.
 
 const OWN: Color = Color(0.2, 0.5, 1.0)
@@ -14,20 +14,28 @@ const SMALL_FONT: int = 17
 var mine: int = 0
 var theirs: int = 0
 var best_of: int = 3
+## Whole seconds of play shown on the clock.
+var seconds: int = 0
 
 
-func show_score(score: MatchScore, my_team: int) -> void:
-	var values: Array[int] = [score.points[my_team], score.points[1 - my_team], score.best_of]
-	if values != [mine, theirs, best_of]:
+func show_score(score: MatchScore, my_team: int, match_time: float) -> void:
+	var values: Array[int] = [score.points[my_team], score.points[1 - my_team], score.best_of, floori(match_time)]
+	if values != [mine, theirs, best_of, seconds]:
 		mine = values[0]
 		theirs = values[1]
 		best_of = values[2]
+		seconds = values[3]
 		queue_redraw()
+
+
+## The match clock as m:ss.
+func clock_text() -> String:
+	return "%d:%02d" % [seconds / 60, seconds % 60]
 
 
 ## Plain-text version (tests, accessibility).
 func summary() -> String:
-	return "YOU %d - %d THEM   Best of %d" % [mine, theirs, best_of]
+	return "YOU %d - %d THEM   %s" % [mine, theirs, clock_text()]
 
 
 func _draw() -> void:
@@ -41,7 +49,7 @@ func _draw() -> void:
 	_round_rect(Rect2(w - 6.0 - box * 1.25, 6.0, box * 1.25, box), ENEMY, 12.0)
 	_center_text(font, str(mine), Vector2(6.0 + box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
 	_center_text(font, str(theirs), Vector2(w - 6.0 - box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
-	_center_text(font, "BO%d" % best_of, Vector2(w / 2.0, h / 2.0), SMALL_FONT + 4, RIM)
+	_center_text(font, clock_text(), Vector2(w / 2.0, h / 2.0), SMALL_FONT + 6, Color.WHITE)
 
 
 func _round_rect(rect: Rect2, color: Color, radius: float) -> void:

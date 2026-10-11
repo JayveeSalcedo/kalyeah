@@ -107,7 +107,6 @@ func test_the_score_sits_at_the_top_right() -> void:
 	assert_gt(score.position.x, 720.0 / 2.0, "right half")
 	assert_almost_eq(score.end.x, 720.0 - MatchHud.MARGIN, 1.0, "against the right edge")
 	assert_lt(score.position.y, 200.0, "at the top")
-	assert_gt(hud.info_label.get_global_rect().position.y, score.end.y - 1.0, "who is tagged sits under it")
 
 
 func test_the_menu_has_no_handedness_switch() -> void:

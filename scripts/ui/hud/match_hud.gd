@@ -6,12 +6,14 @@ extends Control
 ## the capture countdown, the settings menu, and the controls. One-handed: there
 ## is no stick (tilting the phone moves you, see TiltInput); weapon 1 and weapon 2
 ## sit side by side in a row at the bottom centre, with a tilt hint over them when
-## tilt is not on yet. The score is at the top right, who is tagged under it.
+## tilt is not on yet. The score card (points and the match clock) is at the top right.
 ## The match screen feeds it sim state through `sync_player()` and `sync_score()`.
 
 signal swap_pressed
 signal again_pressed
 signal hurt_pressed
+## A card in the tagged panel was tapped: follow player `id`.
+signal watch_requested(id: int)
 signal exit_pressed
 
 enum Feed { TAGGED, RESCUED }
@@ -23,7 +25,6 @@ const MARGIN: float = 14.0
 const MINIMAP_SIZE: Vector2 = Vector2(120.0, 160.0)
 const GEAR_SIZE: float = 64.0
 const SCORE_SIZE: Vector2 = Vector2(210.0, 64.0)
-const INFO_SIZE: Vector2 = Vector2(150.0, 58.0)
 const FEED_TIME: float = 2.6
 const FEED_SIZE: Vector2 = Vector2(250.0, 46.0)
 const FEED_MAX: int = 3
@@ -45,13 +46,16 @@ const CANCEL_SIZE: Vector2 = Vector2(110.0, 100.0)
 var overhead: OverheadHud
 var top: Control
 var scoreboard: Scoreboard
-var info_label: Label
 var minimap: LaneMinimap
 var weapon_buttons: Array[AimButton] = []
 ## Weapon 1, weapon 2 (the order MatchInput uses).
 var aim_buttons: Array[AimButton] = []
 var cancel_zone: Control
 var tagged_panel: TaggedPanel
+## The opening show's banner along the bottom ("TAG THE ENEMY BASE!").
+var intro_bar: Control
+var intro_title: Label
+var intro_sub: Label
 var swap_button: Button
 var hurt_button: Button
 var again_button: Button
@@ -113,11 +117,14 @@ func banner_text() -> String:
 
 
 ## Buttons, labels and cooldowns for the local player.
-func sync_player(sim: MatchSim, player: PlayerState, pick_open: bool) -> void:
-	tagged_panel.sync(player, pick_open)
+## `watched` is the player the camera follows while you are tagged.
+func sync_player(sim: MatchSim, player: PlayerState, watched: int, pick_open: bool) -> void:
+	tagged_panel.sync(sim, player, watched, pick_open)
 	# while you wait in the box the controls are hidden so the card sits alone at the bottom
+	# no buttons while you wait in the box or during the opening show
+	var playing: bool = not player.tagged and sim.phase != MatchSim.Phase.INTRO
 	for button: AimButton in weapon_buttons:
-		button.visible = not player.tagged
+		button.visible = playing
 	# disabled while on cooldown too: no pressing or precasting until ready
 	var weapons_off: bool = player.tagged or not player.effects.can_cast()
 	for slot: int in weapon_buttons.size():
@@ -136,22 +143,9 @@ func sync_player(sim: MatchSim, player: PlayerState, pick_open: bool) -> void:
 		button.set_cooldown(player.weapon_cooldowns[slot], def.cooldown)
 
 
-## Top row: score, who is tagged; the capture countdown; banners and the feed fade out.
+## Top row: the score card; the capture countdown; banners and the feed fade out.
 func sync_score(sim: MatchSim, local_team: int, delta: float) -> void:
-	scoreboard.show_score(sim.score, local_team)
-	var tagged: Array[int] = [0, 0]
-	var counts: Array[int] = [0, 0]
-	for id: int in sim.players:
-		var state: PlayerState = sim.players[id]
-		counts[state.team] += 1
-		if state.tagged:
-			tagged[state.team] += 1
-	var info: PackedStringArray = PackedStringArray()
-	info.append("Tagged  you %d/%d" % [tagged[local_team], counts[local_team]])
-	info.append("them %d/%d" % [tagged[1 - local_team], counts[1 - local_team]])
-	if sim.phase == MatchSim.Phase.POINT_FREEZE:
-		info = PackedStringArray(["Next round in %d" % ceili(sim.freeze_left)])
-	info_label.text = "\n".join(info)
+	scoreboard.show_score(sim.score, local_team, sim.match_time)
 	_sync_capture(sim, local_team)
 	again_button.visible = sim.phase == MatchSim.Phase.MATCH_OVER
 	if sim.phase != MatchSim.Phase.MATCH_OVER and _banner_left > 0.0:
@@ -258,6 +252,8 @@ func _build() -> void:
 	add_child(tagged_panel)
 	swap_button = tagged_panel.swap_button
 	tagged_panel.swap_pressed.connect(swap_pressed.emit)
+	tagged_panel.watch_requested.connect(watch_requested.emit)
+	_build_intro_bar()
 	# last, so it draws over the skill buttons
 	menu = MatchMenu.new()
 	add_child(menu)
@@ -306,20 +302,43 @@ func _build_top_row() -> void:
 	feed_box.add_theme_constant_override("separation", 6)
 	feed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(feed_box)
-	# right: the score, and who is tagged under it
+	# right: the score card (points and the match clock)
 	scoreboard = Scoreboard.new()
 	_place(scoreboard, Vector4(1, 0, 1, 0), Vector4(-MARGIN - SCORE_SIZE.x, TOP_ROW_Y, -MARGIN, TOP_ROW_Y + SCORE_SIZE.y))
 	scoreboard.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(scoreboard)
-	info_label = Label.new()
-	var info_top: float = TOP_ROW_Y + SCORE_SIZE.y + 4.0
-	_place(info_label, Vector4(1, 0, 1, 0), Vector4(-MARGIN - INFO_SIZE.x, info_top, -MARGIN, info_top + INFO_SIZE.y))
-	info_label.theme_type_variation = &"HudPill"
-	info_label.add_theme_font_size_override("font_size", 17)
-	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(info_label)
+
+
+## The opening show's banner: a dark band at the bottom with the goal in gold.
+func _build_intro_bar() -> void:
+	intro_bar = ColorRect.new()
+	(intro_bar as ColorRect).color = Color(0.05, 0.04, 0.08, 0.72)
+	_place(intro_bar, Vector4(0, 1, 1, 1), Vector4(0, -260, 0, -120))
+	intro_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	intro_bar.visible = false
+	add_child(intro_bar)
+	intro_title = Label.new()
+	_place(intro_title, Vector4(0, 0, 1, 0), Vector4(0, 18, 0, 78))
+	intro_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	intro_title.add_theme_font_size_override("font_size", 46)
+	intro_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
+	intro_title.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
+	intro_title.add_theme_constant_override("outline_size", 10)
+	intro_bar.add_child(intro_title)
+	intro_sub = Label.new()
+	_place(intro_sub, Vector4(0, 0, 1, 0), Vector4(0, 80, 0, 120))
+	intro_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	intro_sub.add_theme_font_size_override("font_size", 26)
+	intro_sub.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
+	intro_sub.add_theme_constant_override("outline_size", 6)
+	intro_bar.add_child(intro_sub)
+
+
+## Shows the opening show's banner (`title`, `subtitle`), or hides it with "".
+func show_intro(title: String, subtitle: String = "") -> void:
+	intro_bar.visible = not title.is_empty()
+	intro_title.text = title
+	intro_sub.text = subtitle
 
 
 ## Open or close the settings menu; the controls ignore touches while it is open.
