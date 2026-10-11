@@ -11,7 +11,7 @@ enum Stage { LOADING, PICKING, PLAYING }
 const RELAYED: Dictionary[String, Array] = {
 	"sim": [
 		"player_tagged", "player_rescued",
-		"point_scored", "set_won", "match_won", "point_reset", "weapon_cast", "player_damaged", "player_healed", "player_dashed", "bookmark_used", "effect_applied",
+		"point_scored", "match_won", "point_reset", "weapon_cast", "player_damaged", "player_healed", "effect_applied",
 	],
 	"weapons": ["cone_struck"],
 }
@@ -40,6 +40,7 @@ func _init(server: GameServer, p_room: RoomService.Room, rules: GameRules, layou
 	_net = net
 	seed_value = p_seed
 	sim = MatchSim.new(rules, layout, p_seed)
+	sim.set_best_of(room.best_of)
 	for m: RoomService.Member in room.members:
 		sim.add_player(m.player_id, m.team)
 		_queues[m.player_id] = []

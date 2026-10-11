@@ -648,7 +648,7 @@ def tex_cardboard_tears():
 
 def main(only=None):
     random.seed(1)
-    icons = {"guava": icon_guava, "pin": icon_pin, "gear": icon_gear}
+    icons = {"guava": icon_guava, "gear": icon_gear}
     for name, make in icons.items():
         if only is None or name in only:
             save(make(), ICONS, name)

@@ -14,21 +14,21 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 - Lighting: one sun with soft shadows, 2x MSAA, saturation grading, a light distance haze.
 
 ### Characters (current)
-- `scripts/view/art/kid_model.gd` (`KidModel`): the kids are **pre-rendered sprites** (like Clash of Clans): one pose per state in 5 directions (toward, toward-right, right, away-right, away; the left side is mirrored) from `assets/sprites/<kid>/<pose>_<dir>.png`, cut from generated sheets by `tools/sprites/slice_sheets.py` (magenta keyed out). Poses: idle, run, cast, stun (stars; used for every hard status), down (face down: the stumble after a dash), ko_stagger (delayed death and the start of a knockout), ko_lying (after a knockout fall). Motion is added in code (run bounce, breathing, hit tint, dash stretch). Kids without their own sheets use Junjun's. No team colour on the kid: the health bar tells teams apart.
+- `scripts/view/art/kid_model.gd` (`KidModel`): the kids are **pre-rendered sprites** (like Clash of Clans): one pose per state in 5 directions (toward, toward-right, right, away-right, away; the left side is mirrored) from `assets/sprites/<kid>/<pose>_<dir>.png`, cut from generated sheets by `tools/sprites/slice_sheets.py` (magenta keyed out). Poses: idle, run, cast, stun (stars; used for every hard status), down (face down), ko_stagger (the start of a knockout), ko_lying (after a knockout fall). Motion is added in code (run bounce, breathing, hit tint). Kids without their own sheets use Junjun's. No team colour on the kid: the health bar tells teams apart.
 - All six share one height and proportion; the hitbox is always `GameRules.player_radius`. Outfits, hair and skin tones (varied across the roster) come from `CharacterDef` (`data/characters/*.tres`). A team bandana, armband and ground ring show the team.
 - Written with respect (PROJECT 3.2): identity through clothes and style only.
 
 ## HUD and UI
 - Theme (`scripts/ui/kalyeah_theme.gd`, `KalyeahTheme`): chunky rounded buttons with a dark rim and drop shadow, outlined text, cream text fields, merged into the engine default theme at startup.
-- Icons (`scripts/ui/icons.gd`): **painted PNGs** in `assets/icons/` for the 12 weapons, Dash, Bookmark, the title guava, the settings gear and the round button face (gold rim, navy face), all drawn with Pillow by `tools/art/make_assets.py` (4x supersampled, chunky dark outline, gradient, highlight, drop shadow). The old vector drawings remain as a fallback.
-- HUD (`scripts/ui/hud/`, built in code by `MatchHud`): over each hero a health bar, an *italic* status above it ("Stunned") and a Dash and a Mark cooldown bar under it (no names); damage and heal numbers; the scoreboard pill with set pips; the lane minimap. Spec in `docs/GDD.md` "HUD". The skill buttons are art only with an ATK / CC / BLK tag.
+- Icons (`scripts/ui/icons.gd`): **painted PNGs** in `assets/icons/` for the weapons, the title guava, the settings gear and the round button face (gold rim, navy face), all drawn with Pillow by `tools/art/make_assets.py` (4x supersampled, chunky dark outline, gradient, highlight, drop shadow). The old vector drawings remain as a fallback.
+- HUD (`scripts/ui/hud/`, built in code by `MatchHud`): over each hero a health bar, an *italic* status above it ("Stunned") (no names); heal numbers; the scoreboard pill at the top right (points and "BO5"); the street minimap. Spec in `docs/GDD.md` "HUD". The skill buttons are art only with an ATK / CC / BLK tag.
 - The title screen shows a live 3D street with three kids.
 - Banners pop in, the camera shakes on hits and wall breaks, buttons click.
 
 ## Street textures (Pillow)
 - `tools/art/make_assets.py` also paints `assets/textures/`: warm asphalt and concrete pavers (tiling), the SARI-SARI STORE sign, three barangay posters, the DAHAN-DAHAN road paint and chalk piko and tumbang preso marks.
 - `scripts/view/art/street_art.gd` (`StreetArt`) puts them in the world: textured ground planes, doodles on both faces of every wall (darkened with the wall's damage), billboard signs and posters, ground decals that turn to read the right way up for the viewer's side.
-- Rerun: `python3 tools/art/make_assets.py` (all) or `python3 tools/art/make_assets.py guava dash` (only those icons). Textures used in 3D are imported with mipmaps.
+- Rerun: `python3 tools/art/make_assets.py` (all) or `python3 tools/art/make_assets.py guava gear` (only those icons). Textures used in 3D are imported with mipmaps.
 
 ## Cinematic morning and depth (after the sanga Tokhang intro frames)
 - Lighting (`StreetMap.make_environment` and `_light_scene`): **cinematic morning**: a low golden sun (30 degrees up) throwing long soft shadows, a cool blue fill light from the other side and a soft lavender ambient so shadows stay blue against the warm light, a gentle bloom on the highlights and a golden morning mist into the distance. All numbers are constants at the top of `street_map.gd`.

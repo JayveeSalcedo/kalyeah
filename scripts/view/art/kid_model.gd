@@ -19,7 +19,6 @@ const HIT_COLOR: Color = Color(1.0, 0.55, 0.55)
 const STRIDE: float = 1.6
 const CAST_TIME: float = 0.38
 ## A tumble starts with the slightly falling pose, then the face-down one.
-const STUMBLE_FALL_TIME: float = 0.18
 const HIT_TIME: float = 0.28
 ## How long the knockout fall (top row) plays before the kid lies down.
 const KO_FALL_TIME: float = 0.35
@@ -51,7 +50,6 @@ var _clock: float = 0.0
 var _ghost: bool = false
 var _cast_left: float = 0.0
 var _cast_total: float = CAST_TIME
-var _stumble_age: float = 0.0
 var _hit_left: float = 0.0
 var _ko_time: float = 0.0
 var _move_blend: float = 0.0
@@ -149,7 +147,6 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 		if step_index != _last_step:
 			_last_step = step_index
 			footstep.emit()
-	_stumble_age = _stumble_age + delta if state.stumble_time_left > 0.0 else 0.0
 	var knocked_out: bool = state.effects.has(StatusEffects.Type.KNOCKOUT)
 	_ko_time = _ko_time + delta if knocked_out else 0.0
 	var bob: float = 0.0
@@ -170,13 +167,6 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 		pose = "stunned"
 		anim = "stun"
 		squash = Vector2(1.0 + sin(_clock * 6.0) * 0.03, 1.0 - sin(_clock * 6.0) * 0.03)
-	elif state.dash_time_left > 0.0:
-		pose = "dash"
-		anim = "run"
-		squash = Vector2(1.18, 0.9)
-	elif state.stumble_time_left > 0.0:
-		pose = "stumble"
-		anim = "ko_stagger" if _stumble_age < STUMBLE_FALL_TIME else "down"
 	elif _cast_left > 0.0:
 		pose = "cast"
 		anim = "cast"

@@ -1,7 +1,7 @@
 class_name TouchButton
 extends Control
 ## Round skill button that reads raw touches, so it works while another finger
-## holds the joystick (emulated mouse input only follows the first finger).
+## is on the screen (emulated mouse input only follows the first finger).
 ## Also reacts to the real mouse; ignores mouse events emulated from touch.
 
 signal pressed

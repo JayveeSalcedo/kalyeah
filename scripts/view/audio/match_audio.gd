@@ -33,8 +33,6 @@ func watch(sim: MatchSim, local_team: int, local_id: int = -1) -> void:
 	_music.volume_db = MUSIC_DB
 	add_child(_music)
 	sim.weapon_cast.connect(func(_id: int, weapon: StringName) -> void: play(SoundBank.cast_id(weapon), 0.06))
-	sim.player_dashed.connect(func(_id: int) -> void: play(&"dash", 0.05))
-	sim.bookmark_used.connect(func(_id: int) -> void: play(&"mark"))
 	sim.player_healed.connect(func(_id: int, _amount: int) -> void: play(&"heal"))
 	sim.effect_applied.connect(_on_effect)
 	sim.player_tagged.connect(func(_id: int) -> void: play(&"ko"))
@@ -43,7 +41,6 @@ func watch(sim: MatchSim, local_team: int, local_id: int = -1) -> void:
 	sim.player_damaged.connect(func(_id: int, _amount: int) -> void: play(&"hit", 0.08))
 	sim.weapons.cone_struck.connect(func(_owner: int, _def: WeaponDef, _origin: Vector2, _dir: Vector2) -> void: play(&"snip"))
 	sim.point_scored.connect(func(team: int, _how: int) -> void: play(&"point" if team == _local_team else &"lose_point"))
-	sim.set_won.connect(func(_team: int) -> void: play(&"set"))
 
 
 ## Starts building (then playing) the music loop.

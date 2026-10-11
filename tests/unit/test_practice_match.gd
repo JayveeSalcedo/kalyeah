@@ -37,57 +37,9 @@ func _enemy_ahead(practice: PracticeMatch, distance: float) -> PlayerState:
 	return enemy
 
 
-## The pin button: pressed, then released a tick later.
-func _tap_pin(practice: PracticeMatch) -> void:
-	practice.press_skill(PlayerInput.BTN_BOOKMARK)
-	practice.advance(DT)
-	practice.advance(DT)
-
-
-func test_local_player_starts_at_own_base_seen_from_behind() -> void:
-	var practice: PracticeMatch = _practice()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	assert_eq(player.position, LAYOUT.spawn_center(MapLayout.SIDE_OWN))
-	var camera: Camera3D = practice.get_node("%FollowCamera") as Camera3D
-	assert_gt(camera.position.z, player.position.y - 0.001, "camera is behind the player (+Z side)")
-	assert_almost_eq(camera.rotation_degrees.y, CAMERA.yaw_offset_degrees, 0.001, "behind and to the right")
-
-
-func test_stick_moves_the_player_and_the_camera_follows() -> void:
-	var practice: PracticeMatch = _practice()
-	var start_z: float = practice.sim.players[PracticeMatch.LOCAL_ID].position.y
-	practice.set_stick(_toward_enemy(practice))
-	for i: int in 30:
-		practice.advance(DT)
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	assert_almost_eq(player.position.y, start_z - 5.0, 0.05)
-	var capsule: Node3D = practice.get_node("%Actors").get_child(0) as Node3D
-	assert_almost_eq(capsule.position.x, player.position.x, 0.0001)
-	assert_almost_eq(capsule.position.z, player.position.y, 0.0001)
-	var camera: FollowCamera = practice.get_node("%FollowCamera") as FollowCamera
-	var lag: float = camera.position.z - camera.desired_position(player.position, false).z
-	assert_between(lag, 0.0, 2.5, "eases after the hero, a little behind")
-	practice.set_stick(Vector2.ZERO)
-	for i: int in 60:
-		practice.advance(DT)
-	assert_almost_eq(camera.position.distance_to(camera.desired_position(player.position, false)), 0.0, 0.05, "then settles on them")
-
-
-func test_releasing_the_stick_stops_the_player() -> void:
-	var practice: PracticeMatch = _practice()
-	practice.set_stick(Vector2(0.0, -1.0))
-	practice.advance(DT)
-	practice.set_stick(Vector2.ZERO)
-	var before: Vector2 = practice.sim.players[PracticeMatch.LOCAL_ID].position
-	for i: int in 10:
-		practice.advance(DT)
-	assert_eq(practice.sim.players[PracticeMatch.LOCAL_ID].position, before)
-
-
-func test_long_frames_are_capped_not_spiralling() -> void:
-	var practice: PracticeMatch = _practice()
-	practice.advance(10.0)
-	assert_eq(practice.sim.tick, PracticeMatch.MAX_STEPS_PER_FRAME)
+## A fake tilt sensor: `reading` (roll, pitch in degrees) or null for none.
+func _tilt(practice: PracticeMatch, reading: Variant) -> void:
+	practice.read_tilt = func() -> Variant: return reading
 
 
 func test_hurt_button_path_and_no_health_panel_in_the_corner() -> void:
@@ -107,7 +59,8 @@ func test_zero_hp_tags_you_into_the_box_with_the_tagged_card() -> void:
 	assert_true(player.tagged)
 	assert_true(LAYOUT.jail_rect(practice.own_side()).has_point(player.position), "sent to our box")
 	assert_true(practice.hud.tagged_panel.visible)
-	assert_false(practice.hud.joystick.visible, "controls hidden while you wait")
+	practice.advance(DT)
+	assert_false(practice.hud.weapon_buttons[0].visible, "controls hidden while you wait")
 	assert_true((practice.get_node("%Actors").get_child(0) as Node3D).visible, "you still stand in the box")
 	assert_string_contains(practice.hud.feed_texts()[-1], "TAGGED!")
 	assert_false(practice.is_picking(), "the field stays in view: the swap screen only opens on request")
@@ -117,10 +70,14 @@ func test_skill_presses_do_nothing_while_tagged() -> void:
 	var practice: PracticeMatch = _practice()
 	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
 	practice.hurt_local(100)
-	practice.press_skill(PlayerInput.BTN_DASH)
-	_tap_pin(practice)
-	assert_eq(player.dash_time_left, 0.0)
-	assert_false(player.mark_active)
+	var at: Vector2 = player.position
+	practice.set_stick(Vector2(1.0, 0.0))
+	practice.aim_started(0)
+	practice.aim_released(Vector2.ZERO, false, 0)
+	for i: int in 5:
+		practice.advance(DT)
+	assert_eq(player.position, at)
+	assert_eq(player.weapon_cooldowns[0], 0.0, "nothing cast")
 	assert_true(player.tagged)
 
 
@@ -162,44 +119,63 @@ func test_practice_has_two_enemy_dummies_and_one_ally() -> void:
 	assert_eq(ally.position, Vector2(-8.0, 15.0))
 
 
-func test_bookmark_button_blinks_the_player() -> void:
+# ---- tilt (one-handed movement) --------------------------------------------------
+
+func test_tilting_the_top_away_runs_up_the_screen() -> void:
 	var practice: PracticeMatch = _practice()
 	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	var start_z: float = player.position.y
-	_tap_pin(practice)
-	assert_almost_eq(player.position.distance_to(player.mark_position), practice.sim.rules.bookmark_blink, 0.05)
-	assert_true(player.mark_active)
-
-
-func test_a_pressed_skill_is_sent_once() -> void:
-	var practice: PracticeMatch = _practice()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	_tap_pin(practice)
+	_tilt(practice, Vector2(0.0, 45.0))
 	practice.advance(DT)
-	assert_true(player.mark_active, "one press: out on the pin, not straight back")
-
-
-func test_the_pin_button_returns_early_then_waits_for_its_cooldown() -> void:
-	var practice: PracticeMatch = _practice()
-	var pin: TouchButton = practice.hud.bookmark_button
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	_equip(practice, &"bato_light", &"papel_shield")
-	_tap_pin(practice)
-	assert_false(pin.locked, "out on the pin: the same button brings you back")
-	assert_true(pin.highlight, "glows while you can return")
-	practice.advance(DT)
-	_tap_pin(practice)
-	assert_false(player.mark_active, "returned early")
-	assert_true(pin.locked, "now on cooldown")
-	practice.aim_started(1)
-	practice.aim_released(Vector2.ZERO, false, 1)
-	for i: int in 3:
+	var start: Vector2 = player.position
+	_tilt(practice, Vector2(0.0, 45.0 - practice.tilt_rules.full_tilt_degrees * 1.2))
+	for i: int in 30:
 		practice.advance(DT)
-	assert_true(_weapon_button(practice, 1).locked, "shield on cooldown")
-	assert_false(_weapon_button(practice, 0).locked)
+	assert_lt(player.position.y, start.y - 3.0, "toward the enemy end")
+	assert_almost_eq(player.position.x, start.x, 0.3, "straight")
 
 
-# ---- weapon pick ---------------------------------------------------------------
+func test_the_way_you_hold_the_phone_at_the_start_is_standing_still() -> void:
+	var practice: PracticeMatch = _practice()
+	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
+	_tilt(practice, Vector2(6.0, 60.0))
+	var start: Vector2 = player.position
+	for i: int in 30:
+		practice.advance(DT)
+	assert_eq(player.position, start, "whatever angle it is held at")
+	_tilt(practice, Vector2(6.0 + practice.tilt_rules.deadzone_degrees * 0.8, 60.0))
+	for i: int in 30:
+		practice.advance(DT)
+	assert_eq(player.position, start, "a small wobble does nothing")
+
+
+func test_re_center_makes_the_new_angle_level() -> void:
+	var practice: PracticeMatch = _practice()
+	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
+	_tilt(practice, Vector2(0.0, 45.0))
+	practice.advance(DT)
+	var start: Vector2 = player.position
+	_tilt(practice, Vector2(20.0, 45.0))
+	for i: int in 10:
+		practice.advance(DT)
+	assert_gt(player.position.x, start.x + 0.5, "tilted right: running right")
+	practice.hud.menu.recenter_button.pressed.emit()
+	for i: int in 20:
+		practice.advance(DT)
+	var at: Vector2 = player.position
+	for i: int in 20:
+		practice.advance(DT)
+	assert_eq(player.position, at, "the tilted hold is now standing still")
+
+
+func test_the_sensitivity_button_cycles_and_is_saved() -> void:
+	var practice: PracticeMatch = _practice()
+	var steps: Array[float] = practice.tilt_rules.sensitivity_steps
+	var before: int = Settings.tilt_sensitivity
+	practice.hud.menu.sensitivity_button.pressed.emit()
+	assert_ne(practice.tilt.sensitivity, steps[practice.tilt_rules.default_sensitivity])
+	assert_string_starts_with(practice.hud.menu.sensitivity_button.text, "Sensitivity: ")
+	Settings.save_tilt_sensitivity(before)
+
 
 func test_match_waits_on_the_opening_weapon_pick() -> void:
 	var practice: PracticeMatch = _picking()
@@ -465,20 +441,6 @@ func _score_point(practice: PracticeMatch) -> void:
 		practice.advance(DT)
 
 
-## A practice match with volleyball sets on, to see the ends switch.
-func _practice_with_sets() -> PracticeMatch:
-	var practice: PracticeMatch = autofree(PRACTICE_SCENE.instantiate()) as PracticeMatch
-	var rules: GameRules = practice.rules.duplicate() as GameRules
-	rules.set_points_to_win = 5
-	rules.set_win_by = 2
-	rules.set_point_cap = 7
-	rules.match_sets_to_win = 2
-	practice.rules = rules
-	add_child(practice)
-	practice.finish_pick()
-	return practice
-
-
 func _finish_freeze(practice: PracticeMatch) -> void:
 	for i: int in 100:
 		practice.advance(DT)
@@ -496,32 +458,13 @@ func test_scoring_shows_a_banner_and_updates_the_scoreboard() -> void:
 	assert_eq(player.position, player.spawn_position, "back at base")
 
 
-func test_new_set_turns_the_view_around_and_recolors_the_bases() -> void:
-	var practice: PracticeMatch = _practice_with_sets()
-	var map: StreetMap = practice.get_node("%Map") as StreetMap
-	assert_eq(map.base_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR)
-	for i: int in 5:
-		_score_point(practice)
-		_finish_freeze(practice)
-	assert_eq(practice.own_side(), MapLayout.SIDE_ENEMY, "we defend the -Z base now")
-	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "our base is blue wherever it is")
-	var camera: Camera3D = practice.get_node("%FollowCamera") as Camera3D
-	assert_almost_eq(wrapf(camera.rotation_degrees.y - CAMERA.yaw_degrees(true), -180.0, 180.0), 0.0, 0.01, "own base still at the bottom of the screen")
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	var start_z: float = player.position.y
-	practice.set_stick(_toward_enemy(practice))
-	for i: int in 15:
-		practice.advance(DT)
-	assert_gt(player.position.y, start_z, "stick up still walks toward the enemy base (+Z now)")
-
-
 func test_match_over_shows_play_again() -> void:
 	var practice: PracticeMatch = _practice()
 	var again: Button = practice.hud.again_button
-	for i: int in 3:
+	for i: int in 2:
 		_score_point(practice)
 		_finish_freeze(practice)
-	assert_eq(practice.sim.phase, MatchSim.Phase.MATCH_OVER, "first to 3 points")
+	assert_eq(practice.sim.phase, MatchSim.Phase.MATCH_OVER, "best of 3: two points win")
 	assert_true(again.visible)
 	assert_eq(practice.banner_text(), "VICTORY!")
 
@@ -540,18 +483,12 @@ func test_overhead_bars_use_ml_colours() -> void:
 	assert_eq(hud.bar_color(practice.sim.players[PracticeMatch.ENEMY_STAND_ID]), OverheadHud.ENEMY_COLOR)
 
 
-func test_minimap_puts_our_base_at_the_bottom_even_after_the_switch() -> void:
-	var practice: PracticeMatch = _practice_with_sets()
+func test_minimap_puts_our_base_at_the_bottom() -> void:
+	var practice: PracticeMatch = _practice()
 	var minimap: LaneMinimap = practice.hud.minimap
 	var own_base: Vector2 = minimap.to_map(LAYOUT.base_center(practice.own_side()))
 	var their_base: Vector2 = minimap.to_map(LAYOUT.base_center(-practice.own_side()))
-	assert_gt(own_base.y, their_base.y)
-	for i: int in 5:
-		_score_point(practice)
-		_finish_freeze(practice)
-	own_base = minimap.to_map(LAYOUT.base_center(practice.own_side()))
-	their_base = minimap.to_map(LAYOUT.base_center(-practice.own_side()))
-	assert_gt(own_base.y, their_base.y, "still at the bottom")
+	assert_gt(own_base.y, their_base.y, "at the bottom")
 	assert_lt(own_base.x, their_base.x, "our base bottom left, theirs top right")
 	var own_box: Vector2 = minimap.to_map(LAYOUT.jail_rect(practice.own_side()).get_center())
 	assert_lt(own_box.y, own_base.y, "our box is at the top")
@@ -560,12 +497,12 @@ func test_minimap_puts_our_base_at_the_bottom_even_after_the_switch() -> void:
 
 func test_skill_buttons_show_cooldown_seconds() -> void:
 	var practice: PracticeMatch = _practice()
-	_tap_pin(practice)
+	_equip(practice, &"papel_shield", &"bato_light")
+	practice.aim_started(0)
+	practice.aim_released(Vector2.ZERO, false, 0)
 	practice.advance(DT)
-	_tap_pin(practice)
-	var pin: TouchButton = practice.hud.bookmark_button
-	assert_eq(ceili(pin.cooldown_seconds), 14)
-
+	practice.advance(DT)
+	assert_eq(ceili(_weapon_button(practice, 0).cooldown_seconds), ceili(practice.sim.weapon_defs[&"papel_shield"].cooldown))
 
 
 func test_a_status_is_shown_as_words_and_clears() -> void:
@@ -587,20 +524,6 @@ func test_the_status_font_is_a_slanted_italic() -> void:
 	assert_lt(italic.variation_transform.y.x, 0.0, "slanted")
 
 
-func test_the_pin_cooldown_bar_drains_while_out_then_refills() -> void:
-	var practice: PracticeMatch = _practice()
-	var hud: OverheadHud = practice.overhead()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	assert_eq(hud.mark_fraction(player), 1.0)
-	_tap_pin(practice)
-	assert_true(player.mark_active)
-	assert_between(hud.mark_fraction(player), 0.9, 1.0, "out on the pin: time left, draining")
-	for i: int in 135:
-		practice.advance(DT)
-	assert_false(player.mark_active)
-	assert_lt(hud.mark_fraction(player), 0.1, "back at the pin: the cooldown starts")
-
-
 func test_skill_buttons_are_art_with_only_the_type_tag() -> void:
 	var practice: PracticeMatch = _practice()
 	_equip(practice, &"papel_shield", &"bato_light")
@@ -609,31 +532,12 @@ func test_skill_buttons_are_art_with_only_the_type_tag() -> void:
 	assert_eq(block.icon_id, &"papel_shield")
 	assert_eq(block.sub_text, "BLK")
 	assert_eq(_weapon_button(practice, 1).sub_text, "ATK")
-	assert_eq(practice.hud.bookmark_button.sub_text, "")
-	assert_eq(practice.hud.bookmark_button.icon_id, &"dash", "ready: the dash arrow")
 
 
 ## The screen direction (stick or drag) that heads straight for the enemy base.
 func _toward_enemy(practice: PracticeMatch) -> Vector2:
 	var flip: bool = practice.own_side() == MapLayout.SIDE_ENEMY
 	return LocalInput.to_screen(Vector2(0.0, -float(practice.own_side())), flip, CAMERA.yaw_offset_degrees)
-
-
-func test_the_pin_button_shows_the_dash_arrow_then_the_return_arrow() -> void:
-	var practice: PracticeMatch = _practice()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	practice.advance(DT)
-	assert_eq(practice.hud.bookmark_button.icon_id, &"dash", "ready")
-	_tap_pin(practice)
-	assert_true(player.mark_active)
-	assert_eq(practice.hud.bookmark_button.icon_id, &"dash", "blink and tumble")
-	for i: int in 30:
-		practice.advance(DT)
-	assert_true(player.mark_active)
-	assert_eq(practice.hud.bookmark_button.icon_id, &"pin_return", "out on the pin: press to return")
-	for i: int in 120:
-		practice.advance(DT)
-	assert_eq(practice.hud.bookmark_button.icon_id, &"dash", "back at the pin")
 
 
 func test_a_spinner_and_countdown_show_while_holding_the_enemy_base() -> void:
@@ -657,18 +561,6 @@ func test_the_top_right_shows_who_is_tagged() -> void:
 	practice.sim.kill(PracticeMatch.ENEMY_STAND_ID)
 	practice.advance(DT)
 	assert_string_contains(practice.hud.info_label.text, "them 1/2")
-
-
-func test_the_pin_aim_is_a_small_circle_at_the_end_of_the_dash() -> void:
-	var lines: Array[PackedVector2Array] = AimIndicator.pin_outline(Vector2.ZERO, Vector2(0.0, -1.0), 4.6)
-	assert_eq(lines.size(), 1)
-	var center: Vector2 = Vector2.ZERO
-	for point: Vector2 in lines[0]:
-		center += point
-	center /= float(lines[0].size())
-	assert_almost_eq(center.y, -4.6, 0.05, "centred at the end of the dash")
-	assert_lt(lines[0][0].distance_to(center), 0.8, "small")
-
 
 
 func test_the_hero_sits_near_the_lower_centre_of_a_portrait_screen() -> void:

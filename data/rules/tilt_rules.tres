@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TiltRules" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/input/tilt_rules.gd" id="1_tilt"]
+
+[resource]
+script = ExtResource("1_tilt")
+deadzone_degrees = 3.5
+full_tilt_degrees = 15.0
+smoothing_rate = 10.0
+sensitivity_steps = Array[float]([0.75, 1.0, 1.3])
+default_sensitivity = 1

@@ -10,7 +10,7 @@ All numbers live in `res://data/` resources, never hardcoded. Units: meters, sec
 | Server tick | 30 Hz; snapshots to clients at 20 Hz |
 | Weapon pick time | 10 s (match start); unpicked slots auto-fill with random weapons |
 | Tag | No deaths: at 0 HP you are **tagged** and wait in your team's box until a teammate rescues you (see Tag); weapons can be swapped any number of times while you wait (D13) |
-| Basic attack | **None.** There is no basic attack: players only use the weapons they picked plus the two default skills (owner decision) |
+| Basic attack | **None.** There is no basic attack: players only use the two weapons they picked (owner decision). There are no default skills either: Takbo (dash) and the pin were removed (owner) |
 
 ## Characters (cosmetic, randomized)
 - Roster (`data/characters/*.tres`, `CharacterDef`): `junjun` boy, `ligaya` girl, `migo` gay boy, `toni` lesbian girl, `popoy` chubby boy, `inday` dark-skinned girl. Outfits in `docs/PROJECT.md` §3.2.
@@ -26,17 +26,17 @@ The match is the Filipino street game of tagging the enemy base, like the refere
 - **Rescue:** a free teammate who steps into the box sets **everyone** waiting there free (data toggle `rescue_frees_all`; off = one per touch). Rescued players go straight back to **their post** at full HP (cooldowns keep running). A *RESCUED!* line shows.
 - Numbers and toggles in `data/rules/game_rules.tres` (`rescue_frees_all`, `dummy_release_time`); box size and place in `data/rules/map_layout.tres` (`jail_size`, `jail_inset`).
 
-## Default skills
-| Skill | Effect | CD |
-|---|---|---|
-| Takbo (Dash) | 5 m dash over 0.2 s, then 0.4 s stumble (can't move/cast) | 8 s |
-| Pin (Bookmark; replaces Dash on the HUD) | Leaves a pin (red round head) where you stand, dashes 4.6 m (`bookmark_blink`) **the way you face on a tap, or the way you drag** (an aimed skill: press, drag to choose the direction, release; the preview is a band the length of the dash), tumbles 0.45 s (can't move/cast), then after 4 s snaps back to the pin. **Press again to return early.** | 14 s, **starting when you are back at the pin** |
+## Controls (one-handed, owner)
+The game is played with **one hand**: there is no movement stick and no dash.
+- **Tilt to move.** Tilting the phone moves your kid, measured from the way you hold it when the match starts: tip the top away to run up the screen, toward you to run down, sideways to run sideways. It is tuned to be gentle, not twitchy: tilts under **3.5°** do nothing (a still hand stands still), speed grows with the tilt and is full at **15°**, and the movement eases in and out (`smoothing_rate`) so hand shake does not jitter. Numbers in `data/rules/tilt_rules.tres`.
+- The settings menu has **Re-center tilt** (your current hold becomes "standing still") and **Sensitivity: Low / Medium / High** (x0.75 / 1 / 1.3, saved on the phone). The tilt also re-centres at the start of the match, after every point and when you are rescued.
+- **iPhone:** Safari asks for permission to use motion; the first tap on the screen asks. Until tilt works, a line over the skill row says "Tap the screen to turn on tilt"; if it was refused, it says how to allow it in Safari settings. **Android:** the phone's gravity sensor, no permission needed.
+- Keyboard and mouse still work for testing on a computer (WASD / arrows to move, Q / E to aim and cast).
+- **Skills:** weapon 1 and weapon 2 sit side by side in a row at the bottom centre, big enough for the thumb.
 
-**One skill at a time (owner):** while one skill button is held (aiming), no other skill button can be pressed or cast; the pin is ignored until the release.
+**One skill at a time (owner):** while one weapon button is held (aiming), the other can't be pressed or cast until the release.
 
-**No precasting (owner):** a skill or weapon on cooldown is disabled. Its button is dimmed and ignores presses, and holding a key or button through the cooldown does nothing when the cooldown ends; it needs a fresh press. Bookmark can't be used again while you are still out on a mark, and its cooldown only starts after the return (or when you die out on a mark).
-
-Dash and Bookmark blink stop at obstacles and the street edges. Being tagged cancels active dash/stumble/bookmark effects; cooldowns keep running in the box.
+**No precasting (owner):** a weapon on cooldown is disabled. Its button is dimmed and ignores presses, and holding a key or button through the cooldown does nothing when the cooldown ends; it needs a fresh press.
 
 ## Weapons
 Status effects: `STUN` (no move/cast), `SLOW(x%)`, `AIRBORNE` (stun + vertical anim, no knockback), `POLYMORPH` (can: no cast, 50% speed), `BOUNCE` (short airborne), `KNOCKOUT` (downed, no actions).
@@ -81,14 +81,14 @@ Two copies of the same weapon cannot be equipped; two weapons of the same *type*
 Copied from the reference video (owner): one street, twice as long as it is wide, the same shape as the minimap.
 - **Posts and bases:** each team's electric post stands in a corner, 2.5 m in from both edges (`post_inset`): from your point of view **your post is bottom left, theirs top right**. The **base** is a chalk circle of 4.5 m round the post (`base_radius`), cut off by the street edges, tinted blue (yours) or red (theirs). Players start next to their post and come back there after a rescue (`spawn_offset`).
 - **Boxes:** each team's tagged box is a 3 × 4 m taped rectangle (`jail_size`) at the far end, on the same side as its post (yours top left, theirs bottom right; `jail_inset`).
-- **Cover (owner: fewer, and they are not objectives):** a handful of street things kids hide behind — stacked crates, long benches, a striped sawhorse, a NO ENTRY board. Six pieces on each half, the same pieces turned round on the other half so both teams play the same street. They block walking, dashes and throws **for both teams** and can't be broken. Listed in `data/rules/map_layout.tres` (`obstacles`, drawn as `obstacle_props`).
+- **Cover (owner: fewer, and they are not objectives):** a handful of street things kids hide behind — stacked crates, long benches, a striped sawhorse, a NO ENTRY board. Six pieces on each half, the same pieces turned round on the other half so both teams play the same street. They block walking and throws **for both teams** and can't be broken. Listed in `data/rules/map_layout.tres` (`obstacles`, drawn as `obstacle_props`).
 - The street edges (curbs) and both ends (sawhorse barricades) block everyone. Outside: gutters, sidewalks, house fronts, a sari-sari store with an umbrella, power poles with wires along and across the street, bunting, chalk piko and tumbang preso on the road, manholes; the street goes on past both ends to more houses. The look is in `docs/ART.md`.
 - There are no breakable walls, no cross street, no guava and no tricycle any more (owner).
 
 ## Vertical layout (portrait game)
 - The street runs **along the screen's long axis**: your end at the bottom, the enemy end at the top. The server/sim map is orientation-agnostic (lane axis = Z); only the camera and UI know about portrait.
 - Camera (data, tunable in `data/rules/camera_rules.tres`), **copied from League of Legends** (owner):
-  - **Portrait 9:16 mobile camera (owner, like the reference video):** a perspective camera above and behind the hero (straight behind, yaw 0) at a **fixed 40° downward angle** with a wide **60° vertical field of view**, so you see far up the street. The distance is derived so about **15 m** is visible across the screen at the aim point on any phone shape (about 23 m away, 15 m up on 720x1280); the camera scrolls sideways to show the rest of the 24 m street. The hero is held a bit below the middle of the screen (62% of the height from the top). The reference video is landscape; Kalyeah stays portrait (binding), so this is the same angle and lens on a tall screen. The joystick, drag-aim and keyboard follow the screen: pushing up moves toward the top of the screen. All numbers live in `data/rules/camera_rules.tres` (`pitch_degrees`, `vfov_degrees`, `visible_width`, `player_screen_y`, `top_safe_y`, `end_margin`, `edge_margin`, `follow_rate`).
+  - **Portrait 9:16 mobile camera (owner, like the reference video):** a perspective camera above and behind the hero (straight behind, yaw 0) at a **fixed 40° downward angle** with a wide **60° vertical field of view**, so you see far up the street. The distance is derived so about **15 m** is visible across the screen at the aim point on any phone shape (about 23 m away, 15 m up on 720x1280); the camera scrolls sideways to show the rest of the 24 m street. The hero is held a bit below the middle of the screen (62% of the height from the top). The reference video is landscape; Kalyeah stays portrait (binding), so this is the same angle and lens on a tall screen. Tilt, drag-aim and keyboard follow the screen: up is toward the top of the screen. All numbers live in `data/rules/camera_rules.tres` (`pitch_degrees`, `vfov_degrees`, `visible_width`, `player_screen_y`, `top_safe_y`, `end_margin`, `edge_margin`, `follow_rate`).
   - **Smooth tracking with map bounds:** the camera eases after the hero (7/s). It stops scrolling when its view reaches an edge of the map: at your own end the bottom of the screen stops 2 m past the lane end (`end_margin`); at the enemy end the far end stops just under the HUD (`top_safe_y` = 20% of the height), so the hero stays in sight. From there the hero walks toward the screen edge instead of the camera moving. Sideways it follows the hero until the street edge is 1 m from the screen edge (`edge_margin`).
   - The minimap shows the whole street.
   - Team-relative: both teams see their own base at the bottom (the view flips for the other team).
@@ -96,23 +96,24 @@ Copied from the reference video (owner): one street, twice as long as it is wide
 - Ranges and speeds stay as specified; balance is re-checked in M6 with real play on phones.
 
 ## HUD
-- **Over each hero:** a segmented health bar (green you, blue ally, red enemy). **No names.** A status (*Stunned*, *Tagged*, ...) is shown in *italic* above the bar. Under the bar, one thin bar: the **pin** cooldown. **No damage numbers**; heals pop a green +N. While a team holds the enemy base, a **spinner** over each of its kids fills as the 5 s run out.
-- **Skill buttons:** art only (weapon icons, the pin), the weapon's type as a small tag (ATK, CC or BLK), a cooldown number, a ready flash. Buttons on cooldown are disabled.
+- **Over each hero:** a segmented health bar (green you, blue ally, red enemy). **No names.** A status (*Stunned*, *Tagged*, ...) is shown in *italic* above the bar. **No damage numbers**; heals pop a green +N. While a team holds the enemy base, a **spinner** over each of its kids fills as the 5 s run out.
+- **Skill buttons:** art only (weapon icons), the weapon's type as a small tag (ATK, CC or BLK), a cooldown number, a ready flash. Buttons on cooldown are disabled.
 - **Top:** a **tall minimap** (1:2, gold frame) at the top left showing the whole street with your end at the bottom: your base the blue corner bottom left, theirs the red corner top right, the two taped boxes (yours top left, theirs bottom right), the cover as dark blocks and every player as a dot (you white-ringed, tagged kids darker). The settings button sits beside it, top aligned. The score is in the centre (your points blue on the left, theirs red, "TO 3" between). Top right: who is tagged ("Tagged you 1/3, them 0/3"). The settings button opens a see-through menu: the practice test button, Resume, Exit match. There is no health panel in the corner.
 - **Feed:** *TAGGED!* and *RESCUED!* lines slide in under the minimap with the kid's name (blue for your team, red for theirs) and fade after 2.6 s; at most three show.
 - **Capture countdown:** while a capture runs, big text in the middle says *HOLD THE BASE! 4* (or *ALL TAGGED! 4*) for your team and *DEFEND YOUR BASE! 4* (or *ALL OF YOU TAGGED! 4*) against you.
-- **Controls:** fixed at the bottom centre, no handedness setting: the joystick sits on the centre line and the three skills fan out in a symmetrical arc over it: weapon 1, weapon 2 (straight over the stick), the pin (left to right). Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green). The pin button shows the pin, the blue dash arrow during the blink and the pin-with-return-arrow while the kid is out on the pin.
-- The pin bar shows your own and everyone else's pin (it fills as it recharges; it turns gold and drains while the kid is out on the pin).
+- **Controls:** one-handed, no stick (see Controls): weapon 1 and weapon 2 side by side in a row at the bottom centre, no handedness setting. Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green).
+- **Score (owner): top right.** Your points (blue, left) and theirs (red) with the match length between ("BO5"); who is tagged sits under it.
 
-## Scoring (first to 3, like the street game)
+## Scoring (one tier: best of 3, 5 or 7)
 - **A point** is won by either capture, held for **5 s** (`capture_time`):
   - **Base capture:** every player of your team is free and standing in the enemy base. The countdown starts when the last one steps in and restarts if anyone steps out or gets tagged (so a tagged teammate has to be rescued first).
   - **All tagged:** every player of the other team is waiting in their box. The countdown starts when the last one is tagged and restarts if one is rescued.
-- After a point: 3 s freeze (nothing moves), then everyone is back at their post at full HP, out of the boxes, with cooldowns, status effects and weapon objects cleared. "SCORED! 1-0" (or "THEY SCORED") shows.
-- **Match:** the first team to **3 points** wins (`set_points_to_win` 3, `set_win_by` 1, `set_point_cap` 3, `match_sets_to_win` 1). The old volleyball sets still work as data: with more sets, the teams switch ends each set. After the last point the game stops and shows the result. Numbers in `data/rules/game_rules.tres` (`capture_time`, `point_freeze_time`, `set_*`, `match_sets_to_win`).
+- **Every point is a new round (owner):** 3 s freeze (nothing moves), then everyone is back at their own post at full HP, out of the boxes, with cooldowns, status effects and weapon objects cleared. "SCORED! 1-0" (or "THEY SCORED") shows.
+- **Match (owner):** one tier, points only: no sets and no switching ends. The match is **best of 3, 5 or 7 points**, picked by the **host in the lobby** (everyone in the room sees the choice): the first team to win a majority (2, 3 or 4 points) wins. Practice is best of 3. After the last point the game stops and shows the result. Numbers in `data/rules/game_rules.tres` (`capture_time`, `point_freeze_time`, `best_of`, `best_of_choices`).
 - Training dummies never count for a capture: in practice you score alone even though the ally dummy stays home, and the dummy team can't score.
 
 ## Lobby rules
+- The host picks **Best of 3 / 5 / 7** in the room (default 3); only the host can change it, only before the start.
 - Modes: 1v1, 2v2, 3v3. Passcode: 6 chars, A–Z/2–9, no ambiguous chars.
 - Start allowed when: every present player is Ready AND one team has N players AND the other has ≥ N−1 (N=1 requires both).
 - Host leaves in lobby → next player becomes host. Player disconnect in match → slot stays, 60 s to reconnect.
@@ -135,9 +136,10 @@ Copied from the reference video (owner): one street, twice as long as it is wide
 ## Open decisions (defaults are implemented; change if the designer says so)
 - **D1** ~~Basic attack~~ **Decided: no basic attack** (owner). See D10.
 - **D2 / D3 / D4 / D5 / D11** Retired: the guava, the tricycle and the breakable walls are gone (owner).
-- **D7** Bookmark "then return to mark": default = the player is moved back to the mark when the 4 s speed boost ends (data toggle `bookmark_returns` in `data/rules/game_rules.tres`).
+- **D7** Retired with the pin (owner removed dash and the pin).
+- **D17** Tilt numbers were not given by the owner: dead zone 3.5°, full speed at 15°, smoothing 10/s, sensitivity steps 0.75 / 1 / 1.3 (`data/rules/tilt_rules.tres`). Android tilt directions are not tested on a real phone yet.
 - **D8 / D9** Retired with the death delay (replaced by Tag).
-- **D16** Tag defaults not given by the owner: one teammate in the box rescues **everyone** in it (`rescue_frees_all`, off = one per touch); rescued players keep their cooldowns; the tagged can't move inside the box; the capture counts **every** player of the team (so rescue first). Each capture wins **one point, first to 3 wins** (like the video), not the whole match at once (set `set_points_to_win` / `set_point_cap` to 1 for that). Confirm or change.
+- **D16** Tag defaults not given by the owner: one teammate in the box rescues **everyone** in it (`rescue_frees_all`, off = one per touch); rescued players keep their cooldowns; the tagged can't move inside the box; the capture counts **every** player of the team (so rescue first). Each capture wins one point; the match is best of 3, 5 or 7 (owner). Confirm or change.
 - **D10** With no basic attack, a loadout of only non-damaging weapons (e.g. `papel_trap` + `papel_shield`) deals no damage. Default: allowed; consider requiring at least one damaging weapon at pick time.
 - **D12** Unarmed papel trap lifetime (not in the brief): default 20 s.
 - **D13** ~~Respawn weapon swap~~ **Decided (owner): swap with no limit while waiting.** Now: while tagged (in the box) you can change weapons as often as you like. The **Change weapons** button on the tagged card opens the swap screen with your current weapons pre-picked (it no longer opens by itself, so you can watch your team come for you); every full pair applies at once; **Done** closes it. It closes when you are rescued. No swapping while free. A weapon kept across a swap keeps its cooldown.

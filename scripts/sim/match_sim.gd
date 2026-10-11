@@ -11,15 +11,9 @@ signal player_rescued(id: int, by_id: int)
 
 ## A team scored (`how` is a CaptureKind). A freeze follows.
 signal point_scored(team: int, how: int)
-signal set_won(team: int)
 signal match_won(team: int)
 ## The freeze is over: everyone is back at their post at full HP.
 signal point_reset
-## New set: the teams swapped ends.
-signal sides_switched
-## Dash / Bookmark used (sounds and effects).
-signal player_dashed(id: int)
-signal bookmark_used(id: int)
 ## A status effect landed on a player (stun, slow, polymorph...).
 signal effect_applied(id: int, type: int)
 ## A player regained HP (the heal skill).
@@ -61,8 +55,6 @@ var _brains: Dictionary[int, DummyBrain] = {}
 var _team_counts: Dictionary[int, int] = {}
 var _blocking: Array[Rect2] = []
 ## Which side team 0 defends this set (teams switch bases every set).
-var _team0_side: int = MapLayout.SIDE_OWN
-var _new_set_pending: bool = false
 
 
 func _init(p_rules: GameRules, p_layout: MapLayout, seed_value: int) -> void:
@@ -74,27 +66,23 @@ func _init(p_rules: GameRules, p_layout: MapLayout, seed_value: int) -> void:
 	_blocking.append_array(obstacles)
 	for def: WeaponDef in rules.weapons:
 		weapon_defs[def.id] = def
-	score = MatchScore.new(rules)
+	score = MatchScore.new(rules.best_of)
 
 
-## Team 0 starts on the own (+Z) end, team 1 on the enemy (-Z) end; they swap
-## every set.
+## Team 0 plays from the own (+Z) end, team 1 from the enemy (-Z) end.
 func side_for_team(team: int) -> int:
-	return _team0_side if team == 0 else -_team0_side
+	return MapLayout.SIDE_OWN if team == 0 else MapLayout.SIDE_ENEMY
 
 
-## Network mirror only: the server says which base team 0 defends now.
-func set_team0_side(side: int) -> void:
-	if side == _team0_side:
-		return
-	_team0_side = side
-	for id: int in players:
-		var spawn: Vector2 = players[id].spawn_position
-		players[id].spawn_position = -spawn
+## Best of `count` points (one of `rules.best_of_choices`; anything else is ignored).
+## Set before play starts: it restarts the score.
+func set_best_of(count: int) -> void:
+	if count in rules.best_of_choices:
+		score = MatchScore.new(count)
 
 
 ## Client-side prediction: runs only the movement part of a tick for one player
-## (walking and dash travel; obstacles and speed modifiers included). Skills,
+## (walking; obstacles and speed modifiers included). Skills,
 ## weapons and everything else stay server-side.
 func predict_move(id: int, input: PlayerInput, dt: float) -> void:
 	var state: PlayerState = players.get(id) as PlayerState
@@ -132,7 +120,6 @@ func set_loadout(id: int, first: StringName, second: StringName) -> bool:
 	state.weapons = [first, second]
 	state.weapon_cooldowns = [0.0, 0.0]
 	state.aim_hold = [-1.0, -1.0]
-	state.pin_aim_hold = -1.0
 	return true
 
 
@@ -206,7 +193,7 @@ func nearest_enemy(caster: PlayerState, max_range: float) -> PlayerState:
 	return best
 
 
-## Status effect from a weapon. Hard CC also cancels a dash in progress.
+## Status effect from a weapon.
 func apply_effect(id: int, type: StatusEffects.Type, duration: float, magnitude: float) -> void:
 	if not players.has(id) or not is_targetable(players[id]):
 		return
@@ -215,8 +202,6 @@ func apply_effect(id: int, type: StatusEffects.Type, duration: float, magnitude:
 	state.effects.apply(type, duration, magnitude)
 	if fresh:
 		effect_applied.emit(id, type)
-	if state.effects.is_hard_cc(type):
-		state.dash_time_left = 0.0
 
 
 ## A training dummy: a normal player on `team` placed at `position`, driven by `brain`.
@@ -296,23 +281,11 @@ func step(dt: float) -> void:
 func _tick_cooldowns(state: PlayerState, dt: float) -> void:
 	for slot: int in state.weapon_cooldowns.size():
 		state.weapon_cooldowns[slot] = maxf(0.0, state.weapon_cooldowns[slot] - dt)
-	state.dash_cooldown_left = maxf(0.0, state.dash_cooldown_left - dt)
-	state.bookmark_cooldown_left = maxf(0.0, state.bookmark_cooldown_left - dt)
 
 
 func _step_free(state: PlayerState, input: PlayerInput, dt: float) -> void:
 	state.effects.step(dt)
 	_tick_cooldowns(state, dt)
-	_tick_boost(state, dt)
-	# Skills fire on a fresh press only: holding a key through a cooldown does not
-	# queue a cast for the moment it ends (no precasting).
-	var previous: int = state.previous_buttons
-	var just_pressed: int = input.buttons & ~previous if input != null else 0
-	if input != null:
-		_handle_pin_button(state, input, previous, dt)
-	if input != null and state.can_act():
-		if just_pressed & PlayerInput.BTN_DASH and state.dash_cooldown_left <= 0.0:
-			_start_dash(state, input)
 	if input != null:
 		_handle_weapon_buttons(state, input, dt)
 	_move(state, input, dt)
@@ -373,16 +346,10 @@ func _rescue(state: PlayerState, by_id: int) -> void:
 	player_rescued.emit(state.id, by_id)
 
 
-## Dash, stumble, bookmark, status effects and weapon aiming end on a tag or rescue.
+## Status effects, cast locks and weapon aiming end on a tag or rescue.
 ## Cooldowns keep running.
 func _clear_actions(state: PlayerState) -> void:
-	state.dash_time_left = 0.0
-	state.stumble_time_left = 0.0
 	state.cast_lock_left = 0.0
-	state.boost_time_left = 0.0
-	if state.mark_active:
-		state.bookmark_cooldown_left = rules.bookmark_cooldown
-	state.mark_active = false
 	state.effects.clear()
 	state.aim_hold = [-1.0, -1.0]
 
@@ -458,91 +425,7 @@ func _try_fire(state: PlayerState, slot: int, stick: Vector2, hold_seconds: floa
 		weapon_cast.emit(state.id, def.id)
 
 
-func _start_dash(state: PlayerState, input: PlayerInput) -> void:
-	var direction: Vector2 = state.facing
-	if input.move.length_squared() > 0.0:
-		direction = input.move.normalized()
-	state.dash_direction = direction
-	state.facing = direction
-	state.dash_time_left = rules.dash_duration
-	state.dash_cooldown_left = rules.dash_cooldown
-	player_dashed.emit(state.id)
-
-
-## The pin button works like an aimed skill: press while it is ready and you aim
-## (drag to choose the direction), release to dash; a tap dashes the way the player
-## faces. Pressing while out on the pin brings you back at once, even mid-tumble.
-func _handle_pin_button(state: PlayerState, input: PlayerInput, previous: int, dt: float) -> void:
-	var held: bool = input.is_pressed(PlayerInput.BTN_BOOKMARK)
-	var was_held: bool = (previous & PlayerInput.BTN_BOOKMARK) != 0
-	if held and not was_held:
-		if state.mark_active:
-			_return_to_mark(state)
-			state.pin_aim_hold = -1.0
-		elif state.can_act() and state.bookmark_ready():
-			state.pin_aim_hold = 0.0
-		else:
-			state.pin_aim_hold = -1.0
-	elif held and state.pin_aim_hold >= 0.0:
-		state.pin_aim_hold = -1.0 if not state.can_act() else state.pin_aim_hold + dt
-	elif not held and was_held and state.pin_aim_hold >= 0.0:
-		state.pin_aim_hold = -1.0
-		if not input.is_pressed(PlayerInput.BTN_AIM_CANCEL) and state.can_act() and state.bookmark_ready():
-			_use_bookmark(state, input.aim)
-
-
-## The direction a pin dash would take now: the drag past the deadzone, otherwise
-## the way the player faces.
-func resolved_pin_aim(state: PlayerState, stick: Vector2) -> Vector2:
-	if stick.length() >= rules.aim_deadzone:
-		return stick.normalized()
-	return state.facing
-
-
-## The pin (Bookmark): stick a pin where you stand, dash a short way in `aim` (or
-## the facing), tumble, and after `bookmark_boost_duration` snap back to the pin.
-func _use_bookmark(state: PlayerState, aim: Vector2 = Vector2.ZERO) -> void:
-	var direction: Vector2 = resolved_pin_aim(state, aim)
-	state.facing = direction
-	state.mark_position = state.position
-	state.mark_active = true
-	state.boost_time_left = rules.bookmark_boost_duration
-	_move_by(state, direction * rules.bookmark_blink)
-	state.stumble_time_left = rules.bookmark_tumble
-	bookmark_used.emit(state.id)
-
-
-## Back to the pin (early, or when the timer runs out); the cooldown starts now.
-func _return_to_mark(state: PlayerState) -> void:
-	if state.mark_active and rules.bookmark_returns:
-		state.position = state.mark_position
-	state.mark_active = false
-	state.boost_time_left = 0.0
-	state.stumble_time_left = 0.0
-	# the cooldown only starts once the player is back at the pin
-	state.bookmark_cooldown_left = rules.bookmark_cooldown
-
-
-func _tick_boost(state: PlayerState, dt: float) -> void:
-	if state.boost_time_left <= 0.0:
-		return
-	state.boost_time_left -= dt
-	if state.boost_time_left <= 0.0:
-		_return_to_mark(state)
-
-
 func _move(state: PlayerState, input: PlayerInput, dt: float) -> void:
-	if state.dash_time_left > 0.0:
-		var active: float = minf(dt, state.dash_time_left)
-		_move_by(state, state.dash_direction * (rules.dash_distance / rules.dash_duration) * active)
-		state.dash_time_left -= dt
-		if state.dash_time_left <= 0.0:
-			state.dash_time_left = 0.0
-			state.stumble_time_left = rules.dash_stumble
-		return
-	if state.stumble_time_left > 0.0:
-		state.stumble_time_left = maxf(0.0, state.stumble_time_left - dt)
-		return
 	if state.cast_lock_left > 0.0:
 		# a heavy attack's cast animation: aiming was free while moving, but now stand still
 		state.cast_lock_left = maxf(0.0, state.cast_lock_left - dt)
@@ -553,14 +436,12 @@ func _move(state: PlayerState, input: PlayerInput, dt: float) -> void:
 	if move.length_squared() > 0.0:
 		state.facing = move.normalized()
 	var speed: float = rules.move_speed
-	if state.boost_time_left > 0.0:
-		speed *= 1.0 + rules.bookmark_speed_bonus
 	speed *= state.effects.speed_multiplier(rules.polymorph_speed_scale)
 	_move_by(state, move * speed * dt)
 
 
 ## Moves by `delta` in sub-steps no longer than the player's radius so fast
-## moves (dash, blink) can never tunnel through an obstacle.
+## moves can never tunnel through an obstacle.
 func _move_by(state: PlayerState, delta: Vector2) -> void:
 	var length: float = delta.length()
 	if length <= 0.0:
@@ -664,24 +545,13 @@ func _score_point(team: int, how: CaptureKind) -> void:
 	point_scored.emit(team, how)
 	if result == MatchScore.Result.MATCH:
 		phase = Phase.MATCH_OVER
-		set_won.emit(team)
 		match_won.emit(team)
 		return
-	if result == MatchScore.Result.SET:
-		_new_set_pending = true
-		set_won.emit(team)
 	phase = Phase.POINT_FREEZE
 	freeze_left = rules.point_freeze_time
 
 
 func _end_freeze() -> void:
-	if _new_set_pending:
-		_new_set_pending = false
-		_team0_side = -_team0_side
-		for id: int in players:
-			var spawn: Vector2 = players[id].spawn_position
-			players[id].spawn_position = -spawn
-		sides_switched.emit()
 	_reset_round()
 	phase = Phase.PLAYING
 	point_reset.emit()
@@ -707,8 +577,6 @@ func _reset_round() -> void:
 		state.hp = rules.player_max_hp
 		state.tagged = false
 		state.tag_time = 0.0
-		state.dash_cooldown_left = 0.0
-		state.bookmark_cooldown_left = 0.0
 		for slot: int in state.weapon_cooldowns.size():
 			state.weapon_cooldowns[slot] = 0.0
 		if was_tagged:

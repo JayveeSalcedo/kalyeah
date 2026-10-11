@@ -28,6 +28,8 @@ class Room extends RefCounted:
 	var code: String
 	var team_size: int
 	var host_player_id: int
+	## The match is best of this many points (the host picks it in the lobby).
+	var best_of: int = 0
 	var state: State = State.LOBBY
 	var members: Array[Member] = []
 
@@ -46,6 +48,9 @@ class Room extends RefCounted:
 
 
 var rooms: Dictionary[String, Room] = {}
+## What a host may pick, and what a new room starts with (GameRules.best_of*).
+var best_of_choices: Array[int] = [3]
+var default_best_of: int = 3
 
 var _rules: NetRules
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -86,6 +91,7 @@ func create_room(peer_id: int, player_name: String, team_size: int) -> Room:
 	var room: Room = Room.new()
 	room.code = _new_code()
 	room.team_size = team_size
+	room.best_of = default_best_of
 	rooms[room.code] = room
 	var host: Member = _add_member(room, peer_id, player_name)
 	room.host_player_id = host.player_id
@@ -142,6 +148,18 @@ func can_start(room: Room) -> bool:
 	if n == 1:
 		return a == 1 and b == 1
 	return (a == n and b >= n - 1) or (b == n and a >= n - 1)
+
+
+## Host only, in the lobby: best of 3, 5 or 7 (one of `best_of_choices`).
+func set_best_of(peer_id: int, count: int) -> bool:
+	var room: Room = room_of_peer(peer_id)
+	var m: Member = member_of_peer(peer_id)
+	if m == null or m.player_id != room.host_player_id or room.state != State.LOBBY:
+		return false
+	if not count in best_of_choices:
+		return false
+	room.best_of = count
+	return true
 
 
 ## Host only. The room moves to LOADING.
@@ -226,7 +244,7 @@ func describe(room: Room) -> Dictionary:
 			"ready": m.ready, "connected": m.connected,
 		})
 	return {
-		"code": room.code, "team_size": room.team_size, "host": room.host_player_id,
+		"code": room.code, "team_size": room.team_size, "host": room.host_player_id, "best_of": room.best_of,
 		"state": room.state, "members": members, "can_start": can_start(room),
 	}
 

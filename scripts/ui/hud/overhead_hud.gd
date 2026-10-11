@@ -2,13 +2,11 @@ class_name OverheadHud
 extends Control
 ## MOBA-style overhead display drawn in screen space over each hero, like League
 ## of Legends: a segmented health bar (green you, blue ally, red enemy), a status
-## in *italic* above it ("Stunned", "Tagged"), and one thin bar under it: the pin's
-## cooldown. No names and no damage numbers (heals still pop a green "+N"). While a
+## in *italic* above it ("Stunned", "Tagged"). No names and no damage numbers (heals still pop a green "+N"). While a
 ## team holds the enemy base, a spinner fills over its kids' heads. Reads the sim
 ## and projects through the match camera.
 
 const BAR_SIZE: Vector2 = Vector2(92.0, 13.0)
-const COOLDOWN_HEIGHT: float = 5.0
 const HEAD_HEIGHT: float = 3.9
 const SEGMENT_HP: int = 20
 const POPUP_TIME: float = 0.9
@@ -22,8 +20,6 @@ const SELF_COLOR: Color = Color(0.35, 0.95, 0.35)
 const ALLY_COLOR: Color = Color(0.35, 0.65, 1.0)
 const ENEMY_COLOR: Color = Color(1.0, 0.3, 0.3)
 const STATUS_COLOR: Color = Color(1.0, 0.86, 0.3)
-const COOLDOWN_COLOR: Color = Color(0.3, 0.68, 1.0)
-const COOLDOWN_ACTIVE_COLOR: Color = Color(1.0, 0.82, 0.25)
 const DAMAGE_COLOR: Color = Color(1.0, 0.95, 0.85)
 const HEAL_COLOR: Color = Color(0.55, 1.0, 0.45)
 ## The spinner above a hero holding the enemy base.
@@ -65,20 +61,6 @@ func _status_text(state: PlayerState) -> String:
 	if state.tagged:
 		words.insert(0, "Tagged")
 	return " · ".join(words)
-
-
-## Mark: while you are out on the mark, the bonus time left (1 -> 0, gold);
-## afterwards the recharge as 0..1 (1 = ready, blue).
-func mark_fraction(state: PlayerState) -> float:
-	if state.mark_active:
-		return clampf(state.boost_time_left / _sim.rules.bookmark_boost_duration, 0.0, 1.0)
-	return _ready_fraction(state.bookmark_cooldown_left, _sim.rules.bookmark_cooldown)
-
-
-func _ready_fraction(left: float, total: float) -> float:
-	if total <= 0.0 or left <= 0.0:
-		return 1.0
-	return clampf(1.0 - left / total, 0.0, 1.0)
 
 
 func popup_count() -> int:
@@ -142,7 +124,6 @@ func _draw_hero(state: PlayerState, head: Vector2) -> void:
 	for i: int in range(1, segments):
 		var x: float = rect.position.x + rect.size.x * float(i) / float(segments)
 		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), BACK, 1.5)
-	_draw_cooldowns(state, rect)
 	var status: String = _status_text(state)
 	var lift: float = 0.0
 	if not status.is_empty():
@@ -160,18 +141,6 @@ func _draw_spinner(center: Vector2, progress: float) -> void:
 	var spin: float = float(Time.get_ticks_msec()) / 1000.0 * SPINNER_SPEED
 	draw_arc(center, SPINNER_RADIUS, spin, spin + TAU * 0.28, 12, Color(1.0, 1.0, 1.0, 0.9), 4.0)
 	draw_arc(center, SPINNER_RADIUS - 6.0, -PI / 2.0, -PI / 2.0 + TAU * clampf(progress, 0.0, 1.0), 24, SPINNER_COLOR, 4.0)
-
-
-## One thin bar under the health: the pin (gold while you are out on it).
-func _draw_cooldowns(state: PlayerState, health: Rect2) -> void:
-	var top: float = health.end.y + 4.0
-	var color: Color = COOLDOWN_ACTIVE_COLOR if state.mark_active else COOLDOWN_COLOR
-	_cooldown_bar(Rect2(health.position.x, top, health.size.x, COOLDOWN_HEIGHT), mark_fraction(state), color)
-
-
-func _cooldown_bar(rect: Rect2, fraction: float, color: Color) -> void:
-	draw_rect(rect.grow(1.5), BACK)
-	draw_rect(Rect2(rect.position, Vector2(rect.size.x * fraction, rect.size.y)), color if fraction < 1.0 else color.lightened(0.25))
 
 
 func _draw_popup(popup: Dictionary) -> void:

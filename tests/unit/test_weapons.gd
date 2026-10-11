@@ -162,14 +162,10 @@ func test_cannot_cast_while_stunned_polymorphed_or_tagged() -> void:
 	assert_eq(enemy.hp, 100)
 
 
-func test_stun_stops_movement_and_cancels_a_dash() -> void:
+func test_stun_stops_movement() -> void:
 	var sim: MatchSim = _sim()
 	var caster: PlayerState = _caster(sim, &"bato_light")
-	sim.set_input(CASTER, PlayerInput.create(Vector2(0.0, -1.0), Vector2.ZERO, PlayerInput.BTN_DASH, 0))
-	sim.step(DT)
-	assert_gt(caster.dash_time_left, 0.0)
 	sim.apply_effect(CASTER, T.STUN, 1.0, 0.0)
-	assert_eq(caster.dash_time_left, 0.0)
 	var at: Vector2 = caster.position
 	for i: int in 20:
 		sim.set_input(CASTER, PlayerInput.create(Vector2(0.0, -1.0), Vector2.ZERO, 0, sim.tick))

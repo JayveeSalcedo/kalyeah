@@ -12,9 +12,6 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 		var p: PlayerState = sim.players[id]
 		players.append({
 			"id": id, "pos": p.position, "face": p.facing, "hp": p.hp, "tag": p.tagged, "tt": p.tag_time,
-			"dcd": p.dash_cooldown_left, "dt": p.dash_time_left, "st": p.stumble_time_left,
-			"bcd": p.bookmark_cooldown_left, "boost": p.boost_time_left, "mark": p.mark_active,
-			"mpos": p.mark_position,
 			"wcd": p.weapon_cooldowns.duplicate(), "w": p.weapons.duplicate(), "fx": p.effects.snapshot(),
 		})
 	var projectiles: Array[Dictionary] = []
@@ -29,8 +26,8 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 	return {
 		"t": NetProtocol.Msg.SNAPSHOT, "tick": sim.tick, "acks": acks.duplicate(),
 		"players": players, "projectiles": projectiles, "zones": zones, "shields": shields,
-		"side0": sim.side_for_team(0), "phase": sim.phase, "freeze": sim.freeze_left,
-		"score": {"p": sim.score.points.duplicate(), "s": sim.score.sets.duplicate(), "n": sim.score.set_number, "w": sim.score.winner},
+		"phase": sim.phase, "freeze": sim.freeze_left,
+		"score": {"p": sim.score.points.duplicate(), "bo": sim.score.best_of, "w": sim.score.winner},
 		"cap": {"team": sim.capture_team, "k": sim.capture_kind, "e": sim.capture_elapsed},
 	}
 
@@ -49,28 +46,16 @@ static func apply(sim: MatchSim, data: Dictionary, local_id: int) -> void:
 		p.hp = entry["hp"] as int
 		p.tagged = entry["tag"] as bool
 		p.tag_time = entry["tt"] as float
-		p.dash_cooldown_left = entry["dcd"] as float
-		p.dash_time_left = entry["dt"] as float
-		p.stumble_time_left = entry["st"] as float
-		p.bookmark_cooldown_left = entry["bcd"] as float
-		p.boost_time_left = entry["boost"] as float
-		p.mark_active = entry["mark"] as bool
-		p.mark_position = entry["mpos"] as Vector2
 		p.weapon_cooldowns.assign(entry["wcd"] as Array)
 		p.weapons.assign(entry["w"] as Array)
 		p.effects.restore(entry["fx"] as Dictionary)
 	_apply_weapons(sim, data)
-	var side0: int = data.get("side0", sim.side_for_team(0)) as int
-	if side0 != sim.side_for_team(0):
-		sim.set_team0_side(side0)
-		sim.sides_switched.emit()
 	sim.phase = data.get("phase", sim.phase) as MatchSim.Phase
 	sim.freeze_left = data.get("freeze", 0.0) as float
 	var score: Dictionary = data.get("score", {}) as Dictionary
 	if not score.is_empty():
 		sim.score.points.assign(score["p"] as Array)
-		sim.score.sets.assign(score["s"] as Array)
-		sim.score.set_number = score["n"] as int
+		sim.score.best_of = score["bo"] as int
 		sim.score.winner = score["w"] as int
 	var capture: Dictionary = data.get("cap", {}) as Dictionary
 	if not capture.is_empty():

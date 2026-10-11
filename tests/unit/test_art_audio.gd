@@ -117,13 +117,6 @@ func test_each_state_shows_its_own_sprite() -> void:
 	state = PlayerState.new()
 	state.tagged = true
 	assert_eq(_animation_after(kid, state), "idle", "tagged kids stand in the box")
-	state = PlayerState.new()
-	state.stumble_time_left = 0.5
-	assert_eq(_animation_after(kid, state), "ko_stagger", "a tumble starts with the slightly falling pose")
-	assert_eq(kid.pose, "stumble")
-	for i: int in 6:
-		kid.animate(0.05, 0.0, state)
-	assert_eq(kid.current_animation(), "down", "then the face-down pose")
 
 
 func test_a_knockout_falls_then_lies() -> void:
@@ -181,13 +174,11 @@ func test_match_audio_has_sounds_for_casts_heals_effects_and_the_result() -> voi
 	sim.player_healed.emit(1, 50)
 	sim.effect_applied.emit(2, StatusEffects.Type.STUN)
 	sim.effect_applied.emit(2, StatusEffects.Type.POLYMORPH)
-	sim.player_dashed.emit(1)
-	sim.bookmark_used.emit(1)
 	sim.player_rescued.emit(1, MatchSim.RELEASED_ALONE)
 	sim.player_rescued.emit(2, MatchSim.RELEASED_ALONE)
 	sim.match_won.emit(0)
 	sim.match_won.emit(1)
-	assert_eq(audio.played, [&"cast_lata", &"heal", &"stun", &"poof", &"dash", &"mark", &"revive", &"victory", &"defeat"] as Array[StringName], "a dummy walking out alone is quiet")
+	assert_eq(audio.played, [&"cast_lata", &"heal", &"stun", &"poof", &"revive", &"victory", &"defeat"] as Array[StringName], "a dummy walking out alone is quiet")
 
 
 func test_running_makes_footstep_signals() -> void:
@@ -217,7 +208,7 @@ func test_every_skill_has_painted_art() -> void:
 	for i: int in RULES.weapons.size():
 		var def: WeaponDef = RULES.weapons[i]
 		assert_not_null(Icons.art(StringName("btn_" + String(def.id))), String(def.id))
-	for id: StringName in [&"pin", &"btn_pin", &"btn_dash", &"btn_pin_return", &"gear"]:
+	for id: StringName in [&"gear"]:
 		assert_not_null(Icons.art(id), String(id))
 
 

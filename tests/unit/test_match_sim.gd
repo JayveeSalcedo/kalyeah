@@ -136,10 +136,9 @@ func test_rng_is_seeded_and_differs_between_seeds() -> void:
 
 func test_player_input_button_bits() -> void:
 	var input: PlayerInput = PlayerInput.create(
-		Vector2.ZERO, Vector2.ZERO, PlayerInput.BTN_DASH | PlayerInput.BTN_WEAPON_2, 3
+		Vector2.ZERO, Vector2.ZERO, PlayerInput.BTN_WEAPON_1 | PlayerInput.BTN_WEAPON_2, 3
 	)
-	assert_true(input.is_pressed(PlayerInput.BTN_DASH))
+	assert_true(input.is_pressed(PlayerInput.BTN_WEAPON_1))
 	assert_true(input.is_pressed(PlayerInput.BTN_WEAPON_2))
-	assert_false(input.is_pressed(PlayerInput.BTN_WEAPON_1))
-	assert_false(input.is_pressed(PlayerInput.BTN_BOOKMARK))
+	assert_false(input.is_pressed(PlayerInput.BTN_AIM_CANCEL))
 	assert_eq(input.tick, 3)

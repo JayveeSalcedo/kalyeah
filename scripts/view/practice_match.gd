@@ -15,7 +15,10 @@ const ALLY_ID: int = 4
 const MAX_STEPS_PER_FRAME: int = 8
 const AIRBORNE_LIFT: float = 1.0
 const WEAPON_SLOTS: int = 2
-const PIN_SLOT: int = 2
+## How often the tilt hint checks the sensor (s).
+const TILT_HINT_INTERVAL: float = 0.5
+const TILT_TAP_TEXT: String = "Tap the screen to turn on tilt, then tilt the phone to run"
+const TILT_DENIED_TEXT: String = "Tilt is blocked: allow Motion & Orientation for this site in Safari settings, then reload"
 const RECONNECT_INTERVAL: float = 2.0
 ## Practice-only debug button to test getting tagged without an enemy that fights back.
 const DEBUG_DAMAGE: int = 30
@@ -23,6 +26,8 @@ const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 
 @export var rules: GameRules
 @export var layout: MapLayout
+## One-handed movement: tilting the phone (see TiltInput).
+@export var tilt_rules: TiltRules
 ## Online match: driven by Net.client (set `client` before adding to the tree to
 ## use another one, e.g. in tests).
 @export var online: bool = false
@@ -32,10 +37,13 @@ var client: GameClient
 var local_id: int = LOCAL_ID
 var local_team: int = LOCAL_TEAM
 var input: MatchInput = MatchInput.new()
+var tilt: TiltInput
+## Where tilt readings come from; tests swap in their own.
+var read_tilt: Callable = TiltInput.read_device
+var _tilt_hint_left: float = 0.0
 
 var _accumulator: float = 0.0
 var _views: Dictionary[int, KidModel] = {}
-var _pins: Dictionary[int, MeshInstance3D] = {}
 var _characters: Dictionary[StringName, CharacterDef] = {}
 ## The opening pick pauses the match; the box swap does not.
 var _opening_pick: bool = false
@@ -68,6 +76,8 @@ func _ready() -> void:
 	_views[local_id].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
 	_map.set_own_side(own_side())
 	_map.show_back_button(false)
+	tilt = TiltInput.new(tilt_rules)
+	tilt.sensitivity = tilt_rules.sensitivity_steps[_tilt_sensitivity_index()]
 	_setup_hud()
 	_connect_hud()
 	_connect_sim()
@@ -98,8 +108,14 @@ func _exit_tree() -> void:
 
 # ---- public API (used by tests and the HUD) ---------------------------------------
 
+## Tests (and debugging): push the movement stick directly, on top of the tilt.
 func set_stick(value: Vector2) -> void:
 	input.set_stick(value)
+
+
+## The way the phone is held now counts as level (standing still).
+func recenter_tilt() -> void:
+	tilt.recenter()
 
 
 ## A skill button was pressed; it is sent with the next sim tick.
@@ -107,7 +123,7 @@ func press_skill(button_bit: int) -> void:
 	input.press_skill(button_bit)
 
 
-## A weapon (or pin) button started aiming.
+## A weapon button started aiming.
 func aim_started(slot: int) -> void:
 	input.aim_started(slot)
 
@@ -168,6 +184,7 @@ func open_swap() -> void:
 ## Runs as many fixed sim ticks as `delta` allows, then updates the visuals.
 func advance(delta: float) -> void:
 	_pick_screen.tick(delta)
+	_update_tilt(delta)
 	if online:
 		client.interpolate()
 		_try_reconnect(delta)
@@ -221,7 +238,9 @@ func _setup_hud() -> void:
 
 
 func _connect_hud() -> void:
-	hud.joystick.changed.connect(set_stick)
+	hud.menu.recenter_pressed.connect(recenter_tilt)
+	hud.menu.sensitivity_changed.connect(_set_tilt_sensitivity)
+	hud.menu.show_sensitivity(_tilt_sensitivity_index(), tilt_rules.sensitivity_steps.size())
 	for slot: int in hud.aim_buttons.size():
 		hud.aim_buttons[slot].aim_started.connect(aim_started.bind(slot))
 		hud.aim_buttons[slot].aim_released.connect(aim_released.bind(slot))
@@ -237,9 +256,8 @@ func _connect_sim() -> void:
 	sim.weapon_cast.connect(func(id: int, weapon: StringName) -> void: _views[id].play_cast(sim.weapon_defs[weapon].cast_lock))
 	sim.player_damaged.connect(func(id: int, _amount: int) -> void: _views[id].play_hit())
 	sim.point_scored.connect(_on_point_scored)
-	sim.set_won.connect(_on_set_won)
 	sim.match_won.connect(_on_match_won)
-	sim.sides_switched.connect(_on_sides_switched)
+	sim.point_reset.connect(func() -> void: tilt.recenter())
 	sim.player_tagged.connect(_on_player_tagged)
 	sim.player_rescued.connect(_on_player_rescued)
 
@@ -268,7 +286,7 @@ func _screen_to_world(screen_aim: Vector2) -> Vector2:
 func _mouse_aim(slot: int) -> Vector2:
 	var player: PlayerState = sim.players[local_id]
 	var viewport: Viewport = get_viewport()
-	if viewport == null or (slot < PIN_SLOT and slot >= player.weapons.size()):
+	if viewport == null or slot >= player.weapons.size():
 		return Vector2.ZERO
 	var mouse: Vector2 = viewport.get_mouse_position()
 	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(mouse), _camera.project_ray_normal(mouse))
@@ -276,10 +294,8 @@ func _mouse_aim(slot: int) -> Vector2:
 		return Vector2.ZERO
 	var point: Vector3 = hit as Vector3
 	var offset: Vector2 = Vector2(point.x, point.z) - player.position
-	var reach: float = rules.bookmark_blink
-	if slot != PIN_SLOT:
-		var def: WeaponDef = sim.weapon_defs[player.weapons[slot]]
-		reach = def.max_range if def.max_range > 0.0 else 1.0
+	var def: WeaponDef = sim.weapon_defs[player.weapons[slot]]
+	var reach: float = def.max_range if def.max_range > 0.0 else 1.0
 	return (offset / reach).limit_length(1.0)
 
 
@@ -313,6 +329,7 @@ func _on_pick_confirmed(picks: Array[StringName]) -> void:
 			show_banner("Waiting for the other players...")
 			return
 	_opening_pick = false
+	tilt.recenter()
 	_set_controls_active(true)
 	_sync_views(0.0)
 
@@ -340,6 +357,7 @@ func _on_stage_changed(stage: String) -> void:
 		return
 	_pick_screen.dismiss()
 	_opening_pick = false
+	tilt.recenter()
 	_set_controls_active(true)
 
 
@@ -366,18 +384,51 @@ func _try_reconnect(delta: float) -> void:
 		client.connect_to(url)
 
 
+# ---- tilt ----------------------------------------------------------------------------
+
+## Reads the phone's tilt into the movement stick and keeps the hint over the
+## skill row up to date (tap to turn tilt on / blocked).
+func _update_tilt(delta: float) -> void:
+	input.tilt = tilt.update(read_tilt.call(), delta)
+	_tilt_hint_left -= delta
+	if _tilt_hint_left > 0.0:
+		return
+	_tilt_hint_left = TILT_HINT_INTERVAL
+	var text: String = ""
+	match TiltInput.device_status():
+		TiltInput.Status.WAITING:
+			if DisplayServer.is_touchscreen_available():
+				text = TILT_TAP_TEXT
+		TiltInput.Status.DENIED:
+			text = TILT_DENIED_TEXT
+	hud.show_tilt_hint(text)
+
+
+func _tilt_sensitivity_index() -> int:
+	var count: int = tilt_rules.sensitivity_steps.size()
+	if Settings.tilt_sensitivity >= 0 and Settings.tilt_sensitivity < count:
+		return Settings.tilt_sensitivity
+	return tilt_rules.default_sensitivity
+
+
+func _set_tilt_sensitivity(index: int) -> void:
+	Settings.save_tilt_sensitivity(index)
+	tilt.sensitivity = tilt_rules.sensitivity_steps[_tilt_sensitivity_index()]
+	hud.menu.show_sensitivity(_tilt_sensitivity_index(), tilt_rules.sensitivity_steps.size())
+
+
 # ---- per-frame views -----------------------------------------------------------------
 
 func _sync_views(delta: float) -> void:
 	for id: int in sim.players:
 		_sync_actor(sim.players[id], delta)
 	var player: PlayerState = sim.players[local_id]
-	hud.sync_player(sim, rules, player, local_id, _pick_screen.visible)
+	hud.sync_player(sim, player, _pick_screen.visible)
 	_sync_aim(player)
 	_fx.sync(sim, delta)
 	hud.overhead.tick(delta)
 	hud.minimap.queue_redraw()
-	hud.sync_score(sim, rules, local_team, delta)
+	hud.sync_score(sim, local_team, delta)
 	_camera.follow(player.position, _flip(), delta)
 
 
@@ -387,9 +438,6 @@ func _sync_actor(state: PlayerState, delta: float) -> void:
 	view.position = Vector3(state.position.x, lift, state.position.y)
 	view.face(state.facing)
 	view.animate(delta, minf(view.ground_speed(state.position, delta), 20.0), state)
-	var pin: MeshInstance3D = _pins[state.id]
-	pin.visible = not state.tagged and state.mark_active
-	pin.position = Vector3(state.mark_position.x, 0.0, state.mark_position.y)
 
 
 ## Aim preview for whichever slot is held (touch or keyboard).
@@ -408,13 +456,6 @@ func _sync_aim(player: PlayerState) -> void:
 			cancelled = input.key_cancel[slot]
 		else:
 			continue
-		if slot == PIN_SLOT:
-			if not player.bookmark_ready():
-				continue
-			var dash_direction: Vector2 = sim.resolved_pin_aim(player, stick)
-			_aim_indicator.show_lines(AimIndicator.pin_outline(player.position, dash_direction, rules.bookmark_blink), cancelled, false, 0)
-			any_aiming = true
-			break
 		if slot >= player.weapons.size():
 			continue
 		if player.aim_hold[slot] < 0.0 and not sim.weapon_ready(player, slot):
@@ -441,8 +482,10 @@ func _on_player_tagged(id: int) -> void:
 func _on_player_rescued(id: int, by_id: int) -> void:
 	if by_id != MatchSim.RELEASED_ALONE:
 		hud.feed(MatchHud.Feed.RESCUED, sim.players[id].team == local_team, _name_of(id))
-	if id == local_id and _pick_screen.visible:
-		_pick_screen.force_finish()
+	if id == local_id:
+		tilt.recenter()
+		if _pick_screen.visible:
+			_pick_screen.force_finish()
 
 
 func _name_of(id: int) -> String:
@@ -459,16 +502,8 @@ func _on_point_scored(team: int, _how: int) -> void:
 	show_banner("SCORED!  %d-%d" % [mine, theirs] if team == local_team else "THEY SCORED  %d-%d" % [mine, theirs])
 
 
-func _on_set_won(team: int) -> void:
-	show_banner("SET WON!\nSwitching sides" if team == local_team else "SET LOST\nSwitching sides")
-
-
 func _on_match_won(team: int) -> void:
 	show_banner("VICTORY!" if team == local_team else "DEFEAT")
-
-
-func _on_sides_switched() -> void:
-	_map.set_own_side(own_side())
 
 
 func _on_again_pressed() -> void:
@@ -504,14 +539,6 @@ func _make_actor_view(state: PlayerState) -> void:
 	view.setup(character, team_color, rules.player_radius)
 	_actors.add_child(view)
 	_views[state.id] = view
-	# the pin skill's pin, stuck where the kid used it
-	var pin: MeshInstance3D = MeshInstance3D.new()
-	pin.name = "Pin%d" % state.id
-	pin.mesh = Props.push_pin()
-	pin.visible = false
-	LowPoly.add_outline(pin, 0.02)
-	_actors.get_parent().add_child(pin)
-	_pins[state.id] = pin
 
 
 ## Settings menu > Exit match: online, give the room slot back first.

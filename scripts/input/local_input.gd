@@ -18,11 +18,8 @@ static func keyboard_vector() -> Vector2:
 	return Vector2(x, y).limit_length(1.0)
 
 
-## Q = weapon 1, E = weapon 2, Space or F = the pin (held to aim with the mouse,
-## released to cast; a tap dashes the way you face).
+## Q = weapon 1, E = weapon 2 (held to aim with the mouse, released to cast).
 static func weapon_key_held(slot: int) -> bool:
-	if slot == 2:
-		return Input.is_physical_key_pressed(KEY_SPACE) or Input.is_physical_key_pressed(KEY_F)
 	var keys: Array[Key] = [KEY_Q, KEY_E]
 	return slot < keys.size() and Input.is_physical_key_pressed(keys[slot])
 
@@ -32,7 +29,7 @@ static func cancel_held() -> bool:
 	return Input.is_physical_key_pressed(KEY_ESCAPE) or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
 
 
-## Keys that are plain buttons. None now: the weapons and the pin are
+## Keys that are plain buttons. None now: the weapons are
 ## aimed slots (see weapon_key_held).
 static func keyboard_buttons() -> int:
 	return 0

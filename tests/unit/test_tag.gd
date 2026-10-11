@@ -59,7 +59,7 @@ func test_tagged_players_cannot_move_act_or_be_hit() -> void:
 	sim.kill(1)
 	var at: Vector2 = me.position
 	for i: int in 10:
-		sim.set_input(1, PlayerInput.create(Vector2(1.0, 0.0), Vector2.ZERO, PlayerInput.BTN_DASH, sim.tick))
+		sim.set_input(1, PlayerInput.create(Vector2(1.0, 0.0), Vector2.ZERO, PlayerInput.BTN_WEAPON_1, sim.tick))
 		sim.step(DT)
 	assert_eq(me.position, at, "waiting in the box")
 	assert_false(me.can_act())

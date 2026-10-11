@@ -3,8 +3,10 @@ extends Control
 ## The whole in-match HUD, built in code (no scene text to patch): overhead bars,
 ## top row (tall street minimap and settings button on the left, score in the
 ## centre, who is tagged on the right), the TAGGED!/RESCUED! feed under the minimap,
-## the capture countdown, the settings menu, and the controls: the joystick sits at
-## the bottom centre with weapon 1, weapon 2 and the pin fanned in an arc over it.
+## the capture countdown, the settings menu, and the controls. One-handed: there
+## is no stick (tilting the phone moves you, see TiltInput); weapon 1 and weapon 2
+## sit side by side in a row at the bottom centre, with a tilt hint over them when
+## tilt is not on yet. The score is at the top right, who is tagged under it.
 ## The match screen feeds it sim state through `sync_player()` and `sync_score()`.
 
 signal swap_pressed
@@ -20,7 +22,7 @@ const MARGIN: float = 14.0
 ## The street is twice as long as it is wide, and so is its minimap.
 const MINIMAP_SIZE: Vector2 = Vector2(104.0, 208.0)
 const GEAR_SIZE: float = 64.0
-const SCORE_SIZE: Vector2 = Vector2(200.0, 84.0)
+const SCORE_SIZE: Vector2 = Vector2(210.0, 64.0)
 const INFO_SIZE: Vector2 = Vector2(150.0, 58.0)
 const FEED_TIME: float = 2.6
 const FEED_SIZE: Vector2 = Vector2(250.0, 46.0)
@@ -30,14 +32,13 @@ const FEED_ENEMY: Color = Color(0.82, 0.22, 0.2, 0.92)
 const CAPTURE_COLOR: Color = Color(1.0, 0.95, 0.85)
 ## Controls, as (offset from the screen centre line, distance from the bottom) of
 ## each control's centre on the 720x1280 base.
-const STICK_CENTER: Vector2 = Vector2(0.0, 150.0)
-const STICK_ZONE: float = 270.0
-const ARC_RADIUS: float = 232.0
 ## Arc angles (degrees from straight left over the top to straight right) of
-## weapon 1, weapon 2 and the pin around the joystick (a symmetrical fan).
-const ARC_ANGLES: Array[float] = [20.0, 90.0, 160.0]
-const WEAPON_SIZE: float = 120.0
-const SKILL_SIZE: float = 104.0
+## The skill row: two big buttons side by side, centred, near the bottom (thumb reach).
+const ROW_HEIGHT: float = 140.0
+const ROW_GAP: float = 70.0
+const WEAPON_SIZE: float = 150.0
+const HINT_AT: Vector2 = Vector2(0.0, 270.0)
+const HINT_SIZE: Vector2 = Vector2(560.0, 60.0)
 const CANCEL_AT: Vector2 = Vector2(-242.0, 520.0)
 const CANCEL_SIZE: Vector2 = Vector2(110.0, 100.0)
 
@@ -46,10 +47,8 @@ var top: Control
 var scoreboard: Scoreboard
 var info_label: Label
 var minimap: LaneMinimap
-var joystick: VirtualJoystick
-var bookmark_button: AimButton
 var weapon_buttons: Array[AimButton] = []
-## Weapon 1, weapon 2, pin (the order MatchInput uses).
+## Weapon 1, weapon 2 (the order MatchInput uses).
 var aim_buttons: Array[AimButton] = []
 var cancel_zone: Control
 var tagged_panel: TaggedPanel
@@ -58,6 +57,8 @@ var hurt_button: Button
 var again_button: Button
 ## Big countdown in the middle while a capture is running.
 var capture_label: Label
+## "Tap the screen to turn on tilt" and the like, over the skill row.
+var tilt_hint: Label
 ## TAGGED! / RESCUED! pills under the minimap (newest at the bottom).
 var feed_box: VBoxContainer
 var settings_button: TextureButton
@@ -80,14 +81,18 @@ func set_top_inset(pixels: float) -> void:
 
 
 func set_controls_active(active: bool) -> void:
-	var controls: Array[Control] = [joystick]
-	controls.append_array(aim_buttons)
-	for control: Control in controls:
+	for control: Control in aim_buttons:
 		control.set_process_input(active)
 
 
 func controls_active() -> bool:
-	return bookmark_button.is_processing_input()
+	return weapon_buttons[0].is_processing_input()
+
+
+## Over the skill row: how to turn tilt on, or nothing once it works.
+func show_tilt_hint(text: String) -> void:
+	tilt_hint.text = text
+	tilt_hint.visible = not text.is_empty()
 
 
 func show_banner(text: String) -> void:
@@ -108,21 +113,12 @@ func banner_text() -> String:
 
 
 ## Buttons, labels and cooldowns for the local player.
-func sync_player(sim: MatchSim, rules: GameRules, player: PlayerState, _local_id: int, pick_open: bool) -> void:
+func sync_player(sim: MatchSim, player: PlayerState, pick_open: bool) -> void:
 	tagged_panel.sync(player, pick_open)
 	# while you wait in the box the controls are hidden so the card sits alone at the bottom
-	joystick.visible = not player.tagged
-	bookmark_button.visible = not player.tagged
 	for button: AimButton in weapon_buttons:
 		button.visible = not player.tagged
 	# disabled while on cooldown too: no pressing or precasting until ready
-	# the pin: ready, or out on the pin (then the same button brings you back early)
-	bookmark_button.set_locked(player.tagged or not (player.bookmark_ready() or player.mark_active))
-	bookmark_button.highlight = player.mark_active
-	# ready: the dash arrow (the blink); through the tumble too; then the return arrow while out on the pin
-	var returning: bool = player.mark_active and player.stumble_time_left <= 0.0
-	_set_icon(bookmark_button, &"pin_return" if returning else &"dash")
-	bookmark_button.set_cooldown(player.bookmark_cooldown_left, rules.bookmark_cooldown)
 	var weapons_off: bool = player.tagged or not player.effects.can_cast()
 	for slot: int in weapon_buttons.size():
 		var button: AimButton = weapon_buttons[slot]
@@ -141,8 +137,8 @@ func sync_player(sim: MatchSim, rules: GameRules, player: PlayerState, _local_id
 
 
 ## Top row: score, who is tagged; the capture countdown; banners and the feed fade out.
-func sync_score(sim: MatchSim, rules: GameRules, local_team: int, delta: float) -> void:
-	scoreboard.show_score(sim.score, local_team, rules.match_sets_to_win, rules.set_points_to_win)
+func sync_score(sim: MatchSim, local_team: int, delta: float) -> void:
+	scoreboard.show_score(sim.score, local_team)
 	var tagged: Array[int] = [0, 0]
 	var counts: Array[int] = [0, 0]
 	for id: int in sim.players:
@@ -223,12 +219,6 @@ func _tick_feed(delta: float) -> void:
 			pill.queue_free()
 
 
-func _set_icon(button: TouchButton, icon: StringName) -> void:
-	if button.icon_id != icon:
-		button.icon_id = icon
-		button.queue_redraw()
-
-
 # ---- building ------------------------------------------------------------------
 
 func _build() -> void:
@@ -236,18 +226,14 @@ func _build() -> void:
 	_place(overhead, Vector4(0, 0, 1, 1), Vector4.ZERO)
 	add_child(overhead)
 	_build_top_row()
-	joystick = VirtualJoystick.new()
-	joystick.rest_fraction = Vector2(0.5, 0.5)
-	joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(joystick)
 	cancel_zone = _build_cancel_zone()
 	var weapon_one: AimButton = _aim_button()
 	var weapon_two: AimButton = _aim_button()
-	bookmark_button = _aim_button()
-	bookmark_button.icon_id = &"dash"
-	bookmark_button.label_text = "Pin"
 	weapon_buttons = [weapon_one, weapon_two]
-	aim_buttons = [weapon_one, weapon_two, bookmark_button]
+	aim_buttons = [weapon_one, weapon_two]
+	tilt_hint = _pill_label("", 22, Vector4(0.5, 1, 0.5, 1), Vector4(
+		HINT_AT.x - HINT_SIZE.x / 2.0, -HINT_AT.y - HINT_SIZE.y / 2.0, HINT_AT.x + HINT_SIZE.x / 2.0, -HINT_AT.y + HINT_SIZE.y / 2.0))
+	tilt_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	for button: AimButton in aim_buttons:
 		button.cancel_zone = cancel_zone
 	banner = Label.new()
@@ -281,16 +267,11 @@ func _build() -> void:
 	menu.closed.connect(set_controls_active.bind(true))
 
 
-## Puts the joystick at the bottom centre and the skills in an arc over it.
+## Puts weapon 1 and weapon 2 side by side in a row at the bottom centre.
 func layout_controls() -> void:
-	_put(joystick, STICK_CENTER, Vector2(STICK_ZONE, STICK_ZONE))
-	var arc: Array[Control] = [weapon_buttons[0], weapon_buttons[1], bookmark_button]
-	for i: int in arc.size():
-		var angle: float = deg_to_rad(ARC_ANGLES[i])
-		# 0 degrees is straight left of the stick, 90 straight up
-		var at: Vector2 = STICK_CENTER + Vector2(-cos(angle), sin(angle)) * ARC_RADIUS
-		var side: float = WEAPON_SIZE if i < 2 else SKILL_SIZE
-		_put(arc[i], at, Vector2(side, side))
+	var half_step: float = (WEAPON_SIZE + ROW_GAP) / 2.0
+	_put(weapon_buttons[0], Vector2(-half_step, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
+	_put(weapon_buttons[1], Vector2(half_step, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
 	_put(cancel_zone, CANCEL_AT, CANCEL_SIZE)
 
 
@@ -325,20 +306,20 @@ func _build_top_row() -> void:
 	feed_box.add_theme_constant_override("separation", 6)
 	feed_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(feed_box)
-	# right: who is tagged
+	# right: the score, and who is tagged under it
+	scoreboard = Scoreboard.new()
+	_place(scoreboard, Vector4(1, 0, 1, 0), Vector4(-MARGIN - SCORE_SIZE.x, TOP_ROW_Y, -MARGIN, TOP_ROW_Y + SCORE_SIZE.y))
+	scoreboard.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(scoreboard)
 	info_label = Label.new()
-	_place(info_label, Vector4(1, 0, 1, 0), Vector4(-MARGIN - INFO_SIZE.x, TOP_ROW_Y, -MARGIN, TOP_ROW_Y + INFO_SIZE.y))
+	var info_top: float = TOP_ROW_Y + SCORE_SIZE.y + 4.0
+	_place(info_label, Vector4(1, 0, 1, 0), Vector4(-MARGIN - INFO_SIZE.x, info_top, -MARGIN, info_top + INFO_SIZE.y))
 	info_label.theme_type_variation = &"HudPill"
 	info_label.add_theme_font_size_override("font_size", 17)
 	info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	info_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.add_child(info_label)
-	# centre: score
-	scoreboard = Scoreboard.new()
-	_place(scoreboard, Vector4(0.5, 0, 0.5, 0), Vector4(-SCORE_SIZE.x / 2.0, TOP_ROW_Y, SCORE_SIZE.x / 2.0, TOP_ROW_Y + SCORE_SIZE.y))
-	scoreboard.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top.add_child(scoreboard)
 
 
 ## Open or close the settings menu; the controls ignore touches while it is open.

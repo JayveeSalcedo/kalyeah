@@ -1,8 +1,8 @@
 class_name LobbyScreen
 extends Control
 ## Online lobby (portrait): server address and name, then Create (1v1 / 2v2 / 3v3)
-## or Join (6-letter code), then the room: two team columns, Ready, Start (host)
-## and Leave. When the host starts, it switches to the online match scene.
+## or Join (6-letter code), then the room: two team columns, best of 3 / 5 / 7
+## (the host picks, everyone sees it), Ready, Start (host) and Leave. When the host starts, it switches to the online match scene.
 ## Built in code; all networking goes through the GameClient in `Net`.
 
 enum Intent { CREATE, JOIN }
@@ -37,6 +37,8 @@ var _team_lists: Array[VBoxContainer] = []
 var _team_buttons: Array[Button] = []
 var _ready_button: Button
 var _start_button: Button
+var _best_of_label: Label
+var _best_of_buttons: Dictionary[int, Button] = {}
 var _team_size: int = 1
 
 
@@ -204,6 +206,12 @@ func _on_room_changed(room: Dictionary) -> void:
 			me_ready = member["ready"] as bool
 	_ready_button.button_pressed = me_ready
 	_ready_button.text = "READY!" if me_ready else "Tap when you're ready"
+	var best_of: int = room.get("best_of", 3) as int
+	_best_of_label.text = "Best of %d - first to %d points wins" % [best_of, best_of / 2 + 1]
+	for count: int in _best_of_buttons:
+		var button: Button = _best_of_buttons[count]
+		button.visible = client.is_host()
+		button.set_pressed_no_signal(count == best_of)
 	_start_button.visible = client.is_host()
 	_start_button.disabled = not (room.get("can_start", false) as bool)
 
@@ -312,6 +320,17 @@ func _build() -> void:
 		var list: VBoxContainer = VBoxContainer.new()
 		_room_box.add_child(list)
 		_team_lists.append(list)
+	_best_of_label = _label("", FONT, Color(1.0, 0.86, 0.3))
+	_room_box.add_child(_best_of_label)
+	var counts: HBoxContainer = HBoxContainer.new()
+	counts.add_theme_constant_override("separation", 12)
+	_room_box.add_child(counts)
+	for count: int in [3, 5, 7]:
+		var choice: Button = _button("Best of %d" % count, client.set_best_of.bind(count))
+		_make_toggle(choice)
+		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		counts.add_child(choice)
+		_best_of_buttons[count] = choice
 	_ready_button = _button("Tap when you're ready", func() -> void: client.set_ready(_ready_button.button_pressed))
 	_make_toggle(_ready_button)
 	_ready_button.custom_minimum_size = Vector2(0, 96)

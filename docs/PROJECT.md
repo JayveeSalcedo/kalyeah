@@ -19,7 +19,7 @@ Kalyeah is a stylised 3D multiplayer MOBA built in Godot 4 for Android, with opt
 | Storage | 200 MB free | 500 MB free |
 | Display | 5.0", 720 × 1280, portrait | 6.0"+, 1080 × 1920, portrait |
 | Network | Internet for multiplayer (Wi-Fi or 4G), latency under 150 ms | Wi-Fi or 4G/5G, latency under 80 ms |
-| Input | Touchscreen (virtual joystick + drag-to-aim skill buttons) | — |
+| Input | One-handed touchscreen: tilt the phone to move, drag-to-aim skill buttons | — |
 | Software | Kalyeah APK installed (no Google account or sign-in needed) | — |
 
 Practice mode works offline; online rooms need an internet connection.
@@ -69,8 +69,7 @@ All six are written with respect: identity is shown through the clothes and styl
 - **Death:** when gray HP runs out (or HP hits 0 again after a revive), a 10-second respawn at base, with the option to swap both weapons.
 - **No basic attack:** players only use the skills and weapons they picked.
 - **Default skills for all:**
-  - *Takbo (Dash)* — quick dash, then a brief stumble (nadapa).
-  - *Bookmark* — blink forward with bonus speed, leaving a bookmark; snap back to it after 4 s.
+  - (Removed by the owner: Takbo (dash) and Bookmark/pin. Players use only their two weapons.)
 - MOBA-style aiming (drag-to-aim on mobile, mouse on desktop) with range indicators.
 
 ### 3.4 Arsenal (12 weapons, 3 types: Attack, Crowd Control, Block)
@@ -107,7 +106,7 @@ Every weapon has a type icon. All values (damage, cooldowns, ranges) are data-dr
 
 ### 3.8 Visual style and orientation
 - **Portrait (vertical) only, by design.** Kalyeah is a one-hand-friendly vertical MOBA: the phone is held upright, the lane runs up the screen, your base is at the bottom and the enemy base at the top. Android is locked to portrait; the web build shows a "rotate your phone" prompt if held in landscape.
-- **Vertical UI layout:** left thumb = virtual joystick (bottom-left); right thumb = round art-only skill buttons in an arc (bottom-right: two weapons with an ATK / CC / BLK tag, and the pin) with drag-to-aim and a cancel zone; top = team portraits, the score and set pips, a timer; a slim lane minimap on the left edge; the kill feed and the weapon pick screen are designed for a tall screen. Over each hero: a health bar, an italic status line above it, and a Dash and a Mark cooldown bar under it (no names). Keep the centre of the screen clear for gameplay.
+- **Vertical UI layout, one-handed:** tilt the phone to move (no joystick); the two weapon buttons (art only, ATK / CC / BLK tag) sit in a row at the bottom centre with drag-to-aim and a cancel zone; the minimap and settings at the top left, the score (best of 3 / 5 / 7) at the top right; the TAGGED!/RESCUED! feed and the weapon pick screen are designed for a tall screen. Over each hero: a health bar and an italic status line above it (no names). Keep the centre of the screen clear for gameplay.
 - **Camera: League of Legends.** The gameplay camera copies League of Legends: 56° pitch, 30° vertical field of view, far and flat. Its distance is chosen so about 13 m of the lane width is visible on a phone (see `docs/ROADMAP.md`). The lane minimap shows the rest; rules and numbers are unchanged (see `docs/GDD.md`).
 - **Style target: Clash of Clans design language, stylised 3D, Filipino street theme.** Chunky, toy-like proportions; soft rounded shapes with bevels and painted-looking textures; bright, saturated, high-contrast colours; soft shadows; thick readable silhouettes; bouncy, exaggerated animation; big rounded buttons and painted icons. Everything must read clearly from the camera on a small phone screen.
 - **Pinoy flavour:** colours and details from the street (jeepney paint, faded sari-sari signage, laundry lines, tarpaulin posters, concrete and cardboard, bahay-kubo/barong-barong roofs), warm daylight, and kids in everyday clothes.

@@ -73,16 +73,6 @@ func test_player_slides_along_an_obstacle() -> void:
 	assert_gt(p.position.x, start.x + 0.5, "but slid sideways along it")
 
 
-func test_a_dash_cannot_tunnel_through_an_obstacle() -> void:
-	var sim: MatchSim = _sim()
-	var p: PlayerState = sim.add_player(1, 0)
-	p.position = Vector2(_cover().get_center().x, _cover().end.y + 0.5)
-	sim.set_input(1, PlayerInput.create(Vector2(0.0, -1.0), Vector2.ZERO, PlayerInput.BTN_DASH, 0))
-	for i: int in 12:
-		sim.step(DT)
-	assert_gt(p.position.y, _cover().end.y, "still on the near side")
-
-
 func test_player_cannot_leave_the_street_sideways() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
