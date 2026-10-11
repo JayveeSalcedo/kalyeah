@@ -65,7 +65,7 @@ func test_fewer_obstacles_mirrored_for_both_halves() -> void:
 	var rects: Array[Rect2] = LAYOUT.obstacle_rects()
 	var count: int = LAYOUT.obstacles.size()
 	assert_eq(rects.size(), count * 2)
-	assert_lte(rects.size(), 12, "a handful of cover pieces, not a maze")
+	assert_lte(rects.size(), 6, "only a few cover pieces (owner: reduced twice)")
 	for i: int in count:
 		assert_true(rects[i + count].is_equal_approx(Rect2(-rects[i].end, rects[i].size)), "turned round the center")
 

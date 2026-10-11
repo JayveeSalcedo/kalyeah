@@ -1,10 +1,10 @@
 class_name StreetMap
 extends Node3D
 ## The barangay street the game is played on (view only; reads MapLayout, holds no
-## rules). A long concrete street with gutters, curbs and sidewalks, house fronts,
-## a sari-sari store with an umbrella, power poles with wires across, bunting, chalk
-## games on the road; the cover kids hide behind (crates, benches, a sawhorse, a
-## NO ENTRY board); each team's electric post in its corner with a chalk base
+## rules). The play area is one flat, dark grey cement slab (no tiles or
+## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
+## umbrella, power poles with wires across and bunting around it; the few cover
+## pieces kids hide behind (a bench, crates, a NO ENTRY board); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
 const OWN_COLOR: Color = Palette.TEAM_OWN
@@ -42,7 +42,6 @@ const CHALK: Color = Color(0.96, 0.95, 0.9)
 const CHALK_WIDTH: float = 0.12
 const BASE_STEPS: int = 36
 const CURB_HEIGHT: float = 0.18
-const GUTTER_WIDTH: float = 0.4
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
@@ -52,18 +51,14 @@ const POLE_TOP: float = 6.65
 const BUNTING_HEIGHT: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
-const GROUND_LIFT: float = 0.004
-const GROUND_TILE: float = 8.0
 const PAVER_TILE: float = 2.4
-const STREET_TINT: Color = Color(0.86, 0.85, 0.84)
+## The play area is one flat, dark grey cement slab (owner): no tiles, no texture.
+const CEMENT: Color = Color(0.3, 0.3, 0.31)
 const SIDEWALK_TINT: Color = Color(0.8, 0.76, 0.7)
 ## Paving around the whole map, so the street never ends in sky.
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
 const OUTER_TINT: Color = Color(0.62, 0.58, 0.54)
-const DECAL_LIFT: float = 0.009
-const CHALK_PIKO_SIZE: Vector2 = Vector2(2.2, 4.4)
-const CHALK_PRESO_SIZE: Vector2 = Vector2(4.2, 2.8)
 const POSTER_HEIGHT: float = 1.1
 const SARI_SIGN_HEIGHT: float = 1.15
 const SIGN_TEXT: String = "NO\nENTRY"
@@ -74,8 +69,6 @@ const SIGN_INK: Color = Color(0.78, 0.12, 0.1)
 @export var show_overview_camera: bool = true
 ## side -> [post band, base chalk, box tape, box fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
-## Road paint and chalk, turned to read the right way up for the viewer's side.
-var _readable: Array[MeshInstance3D] = []
 
 @onready var _geometry: Node3D = %Geometry
 @onready var _camera: Camera3D = %Camera
@@ -152,8 +145,6 @@ func set_own_side(own_side: int) -> void:
 				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
-	for decal: MeshInstance3D in _readable:
-		decal.rotation.y = 0.0 if own_side == MapLayout.SIDE_OWN else PI
 
 
 func base_color(side: int) -> Color:
@@ -181,28 +172,23 @@ func _build_map() -> void:
 	_add_details()
 
 
-## Concrete street (past both ends of the play area), gutters, curbs and sidewalks.
+## The cement street (past both ends of the play area), curbs and sidewalks.
 func _street() -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
-	kit.box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), Palette.CONCRETE)
+	kit.box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
-		var x: float = side * (half_w - GUTTER_WIDTH / 2.0)
-		kit.box(Vector3(x, -0.04, 0.0), Vector3(GUTTER_WIDTH, 0.1, length), Palette.ASPHALT_DARK)
 		kit.box(Vector3(side * (half_w + layout.boundary_thickness / 2.0), CURB_HEIGHT / 2.0, 0.0), Vector3(layout.boundary_thickness, CURB_HEIGHT, length), Palette.CURB, Palette.CURB)
 		var walk_x: float = side * (half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0)
 		kit.box(Vector3(walk_x, CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(SIDEWALK_WIDTH, CURB_HEIGHT, length), Palette.SIDEWALK, Palette.SIDEWALK)
 	return kit.commit()
 
 
-## Concrete texture on the street, pavers on the sidewalks, paving all around.
+## Pavers on the sidewalks and paving all around (the street itself stays plain cement).
 func _add_ground_textures() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
-	var street: MeshInstance3D = StreetArt.ground("alley", Vector2(layout.lane_width - GUTTER_WIDTH * 2.0, length), GROUND_TILE, STREET_TINT)
-	street.position = Vector3(0.0, GROUND_LIFT, 0.0)
-	_geometry.add_child(street)
 	for side: float in [-1.0, 1.0]:
 		var walk: MeshInstance3D = StreetArt.ground("pavers", Vector2(SIDEWALK_WIDTH, length), PAVER_TILE, SIDEWALK_TINT)
 		walk.position = Vector3(side * (half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0), CURB_HEIGHT - 0.015, 0.0)
@@ -365,8 +351,9 @@ func _add_houses() -> void:
 			x += HOUSE_SPACING
 
 
-## Life on the street: power poles with wires along and across, bunting, chalk
-## games, manholes, laundry, the store's umbrella and bench, drums and trees.
+## Life around the street: power poles with wires along and across, bunting,
+## laundry, the store's umbrella and bench, drums and trees. The play area itself
+## stays plain cement.
 func _add_details() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0
@@ -398,12 +385,6 @@ func _add_details() -> void:
 	for bz: float in [-half_l * 0.55, half_l * 0.05, half_l * 0.6]:
 		_add(Props.banderitas(span, bunting_index), Vector3(0.0, BUNTING_HEIGHT, bz))
 		bunting_index += 1
-	# kids' chalk games on the road, the same on both halves (turned round)
-	for side: float in [1.0, -1.0]:
-		_add_decal("chalk_piko", CHALK_PIKO_SIZE, Vector3(side * 9.0, 0.0, side * 10.0))
-		_add_decal("chalk_preso", CHALK_PRESO_SIZE, Vector3(-side * 2.0, 0.0, side * 9.0))
-	for spot: Vector3 in [Vector3(3.0, 0.0, 2.0), Vector3(-5.0, 0.0, -6.5), Vector3(8.5, 0.0, -12.0), Vector3(-6.0, 0.0, 16.0)]:
-		_add(Props.manhole(), spot)
 	var walk_x: float = half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0
 	var store_z: float = -layout.lane_length * 0.18
 	_add(Props.umbrella(), Vector3(-walk_x, CURB_HEIGHT, store_z + 1.6))
@@ -421,13 +402,6 @@ func _add_details() -> void:
 	for tz: float in [-30.0, -14.0, 4.0, 22.0]:
 		_add(Props.mango_tree(), Vector3(-tree_x - 1.0, 0.0, tz))
 		_add(Props.banana_plant(), Vector3(tree_x, 0.0, tz + 6.0))
-
-
-func _add_decal(texture_name: String, size: Vector2, at: Vector3) -> void:
-	var decal: MeshInstance3D = StreetArt.decal(texture_name, size)
-	decal.position = at + Vector3(0.0, DECAL_LIFT, 0.0)
-	_geometry.add_child(decal)
-	_readable.append(decal)
 
 
 func _add_sign(texture_name: String, height: float, at: Vector3) -> void:
