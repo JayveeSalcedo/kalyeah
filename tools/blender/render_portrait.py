@@ -1,9 +1,11 @@
-"""Renders a kid's HUD portrait (transparent PNG, standing, facing the camera) from the rigged
-3D boy (Meshy model, Mixamo skeleton), with the same soft three-light look as the game.
+"""Renders a kid's HUD portrait (transparent PNG, standing, facing the camera) from a rigged
+3D kid, with the same soft three-light look as the game.
 
-usage: python render_portrait.py -- model.glb out_dir
-Writes out_dir/idle_toward.png; crop it to the kid and save as assets/portraits/<kid>.png.
-The model (not stored in the repo) is the owner's Meshy GLB.
+usage: python render_portrait.py -- model.glb out_dir [portrait.png]
+Writes out_dir/idle_toward.png; with a third argument it also crops it to the kid and saves it
+there (assets/portraits/<kid>.png). Works with the Meshy boy (Mixamo skeleton, posed here) and
+with the rigged kids that carry their own clips (posed from the first frame of scratch_head,
+a relaxed stand). The models are the owner's and are not stored in the repo.
 """
 import math
 import os
@@ -92,6 +94,50 @@ def setup_scene():
     return scene, cam
 
 
+RELAXED_CLIP = "scratch_head"  # its first frame is a relaxed stand, arms down
+CROP_MARGIN = 12
+
+
+def crop_to_kid(src, dst):
+    """Trim the transparent border around the kid (a small margin kept)."""
+    from PIL import Image
+    image = Image.open(src)
+    left, top, right, bottom = image.getbbox()
+    box = (max(0, left - CROP_MARGIN), max(0, top - CROP_MARGIN),
+           min(image.width, right + CROP_MARGIN), min(image.height, bottom + CROP_MARGIN))
+    image.crop(box).save(dst)
+
+
+def render_rigged_kid(argv):
+    """A rigged kid with its own clips: pose it from the relaxed clip and render it standing."""
+    out_dir = argv[1]
+    rig = next(o for o in bpy.data.objects if o.type == "ARMATURE")
+    for owner in [rig] + [o.data.shape_keys for o in bpy.data.objects if o.type == "MESH" and o.data.shape_keys]:
+        if owner.animation_data:
+            for track in owner.animation_data.nla_tracks:
+                track.mute = True
+    for action in bpy.data.actions:
+        if action.name.startswith(RELAXED_CLIP):
+            slot = next((sl for sl in action.slots if sl.target_id_type == "OBJECT"), None)
+            if slot is not None:
+                rig.animation_data_create()
+                rig.animation_data.action = action
+                rig.animation_data.action_slot = slot
+    tame_materials()
+    scene, cam = setup_scene()
+    scene.frame_set(0)
+    spec = POSES["idle"]
+    pitch = math.radians(PITCH)
+    target = Vector((0, 0, spec["target"]))
+    cam.location = target + Vector((0, -math.cos(pitch), math.sin(pitch))) * 8.0
+    cam.rotation_euler = (math.radians(90) - pitch, 0, 0)
+    out = os.path.join(out_dir, "idle_toward.png")
+    scene.render.filepath = out
+    bpy.ops.render.render(write_still=True)
+    if len(argv) > 2:
+        crop_to_kid(out, argv[2])
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:]
     src, out_dir = argv[0], argv[1]
@@ -102,6 +148,9 @@ def main():
     ico = bpy.data.objects.get("Icosphere")
     if ico:
         bpy.data.objects.remove(ico)
+    if "target_character" not in bpy.data.objects:
+        render_rigged_kid(argv)
+        return
     rig = bpy.data.objects["target_character"]
     rig.animation_data_create()
     rig.animation_data.action = bpy.data.actions.new("Pose")
