@@ -1,17 +1,12 @@
 class_name MatchMenu
 extends Control
 ## The in-match settings modal: a see-through navy card with a gold frame and a
-## title plate, a close button, the tilt controls (re-centre, sensitivity), the
+## title plate, a close button, the
 ## practice test buttons and Resume / Exit. Built in code.
 
 signal closed
 signal exit_pressed
 signal hurt_pressed
-signal recenter_pressed
-## The player picked tilt sensitivity step `index` (TiltRules.sensitivity_steps).
-signal sensitivity_changed(index: int)
-
-const SENSITIVITY_NAMES: Array[String] = ["Low", "Medium", "High"]
 
 const BACKDROP: Color = Color(0.02, 0.02, 0.06, 0.32)
 const GOLD: Color = Color(1.0, 0.8, 0.32)
@@ -23,11 +18,6 @@ const CARD_ALPHA: float = 0.9
 const BUTTON_HEIGHT: float = 62.0
 
 var hurt_button: Button
-var recenter_button: Button
-var sensitivity_button: Button
-
-var _sensitivity: int = 0
-var _sensitivity_count: int = 1
 
 var _test_title: Label
 
@@ -51,12 +41,6 @@ func _ready() -> void:
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	card.add_child(column)
-	_section(column, "TILT")
-	recenter_button = _button("Re-center tilt", "blue", column)
-	recenter_button.pressed.connect(recenter_pressed.emit)
-	sensitivity_button = _button("Sensitivity: Medium", "blue", column)
-	sensitivity_button.pressed.connect(func() -> void:
-		sensitivity_changed.emit((_sensitivity + 1) % _sensitivity_count))
 	_test_title = _section(column, "PRACTICE")
 	hurt_button = _button("-30 HP (test)", "blue", column)
 	hurt_button.pressed.connect(hurt_pressed.emit)
@@ -75,14 +59,6 @@ func _ready() -> void:
 func open() -> void:
 	_test_title.visible = hurt_button.visible
 	visible = true
-
-
-## Shows sensitivity step `index` of `count` on its button.
-func show_sensitivity(index: int, count: int) -> void:
-	_sensitivity = index
-	_sensitivity_count = maxi(count, 1)
-	var label: String = SENSITIVITY_NAMES[index] if index < SENSITIVITY_NAMES.size() else str(index + 1)
-	sensitivity_button.text = "Sensitivity: %s" % label
 
 
 func close() -> void:

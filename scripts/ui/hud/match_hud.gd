@@ -3,10 +3,9 @@ extends Control
 ## The whole in-match HUD, built in code (no scene text to patch): overhead bars,
 ## top row (tall street minimap and settings button on the left, score in the
 ## centre, who is tagged on the right), the TAGGED!/RESCUED! feed under the minimap,
-## the capture countdown, the settings menu, and the controls. One-handed: there
-## is no stick (tilting the phone moves you, see TiltInput); weapon 1 and weapon 2
-## sit side by side in a row at the bottom centre, with a tilt hint over them when
-## tilt is not on yet. The score card (points and the match clock) is at the top right.
+## the capture countdown, the settings menu, and the controls: the movement stick
+## at the bottom centre with weapon 1 on its left and weapon 2 on its right, all in
+## one row within thumb reach. The score card (points and the match clock) is at the top right.
 ## The match screen feeds it sim state through `sync_player()` and `sync_score()`.
 
 signal swap_pressed
@@ -34,12 +33,13 @@ const CAPTURE_COLOR: Color = Color(1.0, 0.95, 0.85)
 ## Controls, as (offset from the screen centre line, distance from the bottom) of
 ## each control's centre on the 720x1280 base.
 ## Arc angles (degrees from straight left over the top to straight right) of
-## The skill row: two big buttons side by side, centred, near the bottom (thumb reach).
-const ROW_HEIGHT: float = 140.0
-const ROW_GAP: float = 70.0
+## The control row near the bottom (thumb reach): the stick in the middle, a skill on
+## each side of it.
+const ROW_HEIGHT: float = 150.0
+## The square the stick listens in (its ring is VirtualJoystick.MAX_RADIUS).
+const STICK_ZONE: float = 260.0
+const ROW_GAP: float = 24.0
 const WEAPON_SIZE: float = 150.0
-const HINT_AT: Vector2 = Vector2(0.0, 270.0)
-const HINT_SIZE: Vector2 = Vector2(560.0, 60.0)
 const CANCEL_AT: Vector2 = Vector2(-242.0, 520.0)
 const CANCEL_SIZE: Vector2 = Vector2(110.0, 100.0)
 
@@ -47,6 +47,7 @@ var overhead: OverheadHud
 var top: Control
 var scoreboard: Scoreboard
 var minimap: LaneMinimap
+var joystick: VirtualJoystick
 var weapon_buttons: Array[AimButton] = []
 ## Weapon 1, weapon 2 (the order MatchInput uses).
 var aim_buttons: Array[AimButton] = []
@@ -61,8 +62,6 @@ var hurt_button: Button
 var again_button: Button
 ## Big countdown in the middle while a capture is running.
 var capture_label: Label
-## "Tap the screen to turn on tilt" and the like, over the skill row.
-var tilt_hint: Label
 ## TAGGED! / RESCUED! pills under the minimap (newest at the bottom).
 var feed_box: VBoxContainer
 var settings_button: TextureButton
@@ -85,18 +84,15 @@ func set_top_inset(pixels: float) -> void:
 
 
 func set_controls_active(active: bool) -> void:
+	if not active:
+		joystick.release()
+	joystick.set_process_input(active)
 	for control: Control in aim_buttons:
 		control.set_process_input(active)
 
 
 func controls_active() -> bool:
 	return weapon_buttons[0].is_processing_input()
-
-
-## Over the skill row: how to turn tilt on, or nothing once it works.
-func show_tilt_hint(text: String) -> void:
-	tilt_hint.text = text
-	tilt_hint.visible = not text.is_empty()
 
 
 func show_banner(text: String) -> void:
@@ -125,6 +121,9 @@ func sync_player(sim: MatchSim, player: PlayerState, watched: int, pick_open: bo
 	var playing: bool = not player.tagged and sim.phase != MatchSim.Phase.INTRO
 	for button: AimButton in weapon_buttons:
 		button.visible = playing
+	joystick.visible = playing
+	if not playing:
+		joystick.release()
 	# disabled while on cooldown too: no pressing or precasting until ready
 	var weapons_off: bool = player.tagged or not player.effects.can_cast()
 	for slot: int in weapon_buttons.size():
@@ -225,9 +224,10 @@ func _build() -> void:
 	var weapon_two: AimButton = _aim_button()
 	weapon_buttons = [weapon_one, weapon_two]
 	aim_buttons = [weapon_one, weapon_two]
-	tilt_hint = _pill_label("", 22, Vector4(0.5, 1, 0.5, 1), Vector4(
-		HINT_AT.x - HINT_SIZE.x / 2.0, -HINT_AT.y - HINT_SIZE.y / 2.0, HINT_AT.x + HINT_SIZE.x / 2.0, -HINT_AT.y + HINT_SIZE.y / 2.0))
-	tilt_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	joystick = VirtualJoystick.new()
+	joystick.rest_fraction = Vector2(0.5, 0.5)
+	joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(joystick)
 	for button: AimButton in aim_buttons:
 		button.cancel_zone = cancel_zone
 	banner = Label.new()
@@ -263,11 +263,12 @@ func _build() -> void:
 	menu.closed.connect(set_controls_active.bind(true))
 
 
-## Puts weapon 1 and weapon 2 side by side in a row at the bottom centre.
+## The stick at the bottom centre, weapon 1 on its left and weapon 2 on its right.
 func layout_controls() -> void:
-	var half_step: float = (WEAPON_SIZE + ROW_GAP) / 2.0
-	_put(weapon_buttons[0], Vector2(-half_step, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
-	_put(weapon_buttons[1], Vector2(half_step, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
+	var side: float = STICK_ZONE / 2.0 + ROW_GAP + WEAPON_SIZE / 2.0
+	_put(joystick, Vector2(0.0, ROW_HEIGHT), Vector2(STICK_ZONE, STICK_ZONE))
+	_put(weapon_buttons[0], Vector2(-side, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
+	_put(weapon_buttons[1], Vector2(side, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
 	_put(cancel_zone, CANCEL_AT, CANCEL_SIZE)
 
 

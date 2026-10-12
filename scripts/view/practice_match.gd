@@ -15,8 +15,6 @@ const ALLY_ID: int = 4
 const MAX_STEPS_PER_FRAME: int = 8
 const AIRBORNE_LIFT: float = 1.0
 const WEAPON_SLOTS: int = 2
-## How often the tilt hint checks the sensor (s).
-const TILT_HINT_INTERVAL: float = 0.5
 ## The opening show: the first part shows the enemy post, the rest yours.
 const INTRO_SPLIT: float = 0.45
 ## Camera path of each shot (m): from close and low to further and higher.
@@ -26,8 +24,6 @@ const INTRO_LOW: float = 4.5
 const INTRO_HIGH: float = 7.5
 const INTRO_SIDE: float = 2.5
 const INTRO_POST_TOP: float = 3.5
-const TILT_TAP_TEXT: String = "Tap the screen to turn on tilt, then tilt the phone to run"
-const TILT_DENIED_TEXT: String = "Tilt is blocked: allow Motion & Orientation for this site in Safari settings, then reload"
 const RECONNECT_INTERVAL: float = 2.0
 ## Practice-only debug button to test getting tagged without an enemy that fights back.
 const DEBUG_DAMAGE: int = 30
@@ -35,8 +31,6 @@ const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 
 @export var rules: GameRules
 @export var layout: MapLayout
-## One-handed movement: tilting the phone (see TiltInput).
-@export var tilt_rules: TiltRules
 ## Online match: driven by Net.client (set `client` before adding to the tree to
 ## use another one, e.g. in tests).
 @export var online: bool = false
@@ -46,10 +40,6 @@ var client: GameClient
 var local_id: int = LOCAL_ID
 var local_team: int = LOCAL_TEAM
 var input: MatchInput = MatchInput.new()
-var tilt: TiltInput
-## Where tilt readings come from; tests swap in their own.
-var read_tilt: Callable = TiltInput.read_device
-var _tilt_hint_left: float = 0.0
 ## While you are tagged: the player the camera follows (-1 = yourself).
 var watch_id: int = -1
 ## Next camera update jumps straight to its target (after a rescue).
@@ -89,8 +79,6 @@ func _ready() -> void:
 	_views[local_id].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
 	_map.set_own_side(own_side())
 	_map.show_back_button(false)
-	tilt = TiltInput.new(tilt_rules)
-	tilt.sensitivity = tilt_rules.sensitivity_steps[_tilt_sensitivity_index()]
 	_setup_hud()
 	_connect_hud()
 	_connect_sim()
@@ -121,14 +109,9 @@ func _exit_tree() -> void:
 
 # ---- public API (used by tests and the HUD) ---------------------------------------
 
-## Tests (and debugging): push the movement stick directly, on top of the tilt.
+## The movement stick (the on-screen joystick, tests).
 func set_stick(value: Vector2) -> void:
 	input.set_stick(value)
-
-
-## The way the phone is held now counts as level (standing still).
-func recenter_tilt() -> void:
-	tilt.recenter()
 
 
 ## A skill button was pressed; it is sent with the next sim tick.
@@ -205,7 +188,6 @@ func open_swap() -> void:
 ## Runs as many fixed sim ticks as `delta` allows, then updates the visuals.
 func advance(delta: float) -> void:
 	_pick_screen.tick(delta)
-	_update_tilt(delta)
 	if online:
 		client.interpolate()
 		_try_reconnect(delta)
@@ -259,9 +241,7 @@ func _setup_hud() -> void:
 
 
 func _connect_hud() -> void:
-	hud.menu.recenter_pressed.connect(recenter_tilt)
-	hud.menu.sensitivity_changed.connect(_set_tilt_sensitivity)
-	hud.menu.show_sensitivity(_tilt_sensitivity_index(), tilt_rules.sensitivity_steps.size())
+	hud.joystick.changed.connect(set_stick)
 	for slot: int in hud.aim_buttons.size():
 		hud.aim_buttons[slot].aim_started.connect(aim_started.bind(slot))
 		hud.aim_buttons[slot].aim_released.connect(aim_released.bind(slot))
@@ -281,7 +261,6 @@ func _connect_sim() -> void:
 	sim.player_damaged.connect(func(id: int, _amount: int) -> void: _views[id].play_hit())
 	sim.point_scored.connect(_on_point_scored)
 	sim.match_won.connect(_on_match_won)
-	sim.point_reset.connect(func() -> void: tilt.recenter())
 	sim.point_reset.connect(func() -> void:
 		watch_id = -1
 		_snap_camera = true)
@@ -359,7 +338,6 @@ func _on_pick_confirmed(picks: Array[StringName]) -> void:
 			show_banner("Waiting for the other players...")
 			return
 	_opening_pick = false
-	tilt.recenter()
 	sim.begin_intro()
 	_set_controls_active(true)
 	_sync_views(0.0)
@@ -388,7 +366,6 @@ func _on_stage_changed(stage: String) -> void:
 		return
 	_pick_screen.dismiss()
 	_opening_pick = false
-	tilt.recenter()
 	_set_controls_active(true)
 
 
@@ -413,39 +390,6 @@ func _try_reconnect(delta: float) -> void:
 		_reconnect_left = RECONNECT_INTERVAL
 		var url: String = Session.reconnect_url if not Session.reconnect_url.is_empty() else Settings.server_url
 		client.connect_to(url)
-
-
-# ---- tilt ----------------------------------------------------------------------------
-
-## Reads the phone's tilt into the movement stick and keeps the hint over the
-## skill row up to date (tap to turn tilt on / blocked).
-func _update_tilt(delta: float) -> void:
-	input.tilt = tilt.update(read_tilt.call(), delta)
-	_tilt_hint_left -= delta
-	if _tilt_hint_left > 0.0:
-		return
-	_tilt_hint_left = TILT_HINT_INTERVAL
-	var text: String = ""
-	match TiltInput.device_status():
-		TiltInput.Status.WAITING:
-			if DisplayServer.is_touchscreen_available():
-				text = TILT_TAP_TEXT
-		TiltInput.Status.DENIED:
-			text = TILT_DENIED_TEXT
-	hud.show_tilt_hint(text)
-
-
-func _tilt_sensitivity_index() -> int:
-	var count: int = tilt_rules.sensitivity_steps.size()
-	if Settings.tilt_sensitivity >= 0 and Settings.tilt_sensitivity < count:
-		return Settings.tilt_sensitivity
-	return tilt_rules.default_sensitivity
-
-
-func _set_tilt_sensitivity(index: int) -> void:
-	Settings.save_tilt_sensitivity(index)
-	tilt.sensitivity = tilt_rules.sensitivity_steps[_tilt_sensitivity_index()]
-	hud.menu.show_sensitivity(_tilt_sensitivity_index(), tilt_rules.sensitivity_steps.size())
 
 
 # ---- opening show and watching others -----------------------------------------------
@@ -556,7 +500,6 @@ func _on_player_rescued(id: int, by_id: int) -> void:
 	if by_id != MatchSim.RELEASED_ALONE:
 		hud.feed(MatchHud.Feed.RESCUED, sim.players[id].team == local_team, _name_of(id))
 	if id == local_id:
-		tilt.recenter()
 		# back to your own view at your post at once, no slow pan from the teammate
 		watch_id = -1
 		_snap_camera = true

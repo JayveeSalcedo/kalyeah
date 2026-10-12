@@ -38,11 +38,6 @@ func _enemy_ahead(practice: PracticeMatch, distance: float) -> PlayerState:
 	return enemy
 
 
-## A fake tilt sensor: `reading` (roll, pitch in degrees) or null for none.
-func _tilt(practice: PracticeMatch, reading: Variant) -> void:
-	practice.read_tilt = func() -> Variant: return reading
-
-
 func test_hurt_button_path_and_no_health_panel_in_the_corner() -> void:
 	var practice: PracticeMatch = _practice()
 	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
@@ -120,62 +115,23 @@ func test_practice_has_two_enemy_dummies_and_one_ally() -> void:
 	assert_eq(ally.position, Vector2(-10.0, 13.0))
 
 
-# ---- tilt (one-handed movement) --------------------------------------------------
+# ---- the movement stick ---------------------------------------------------------
 
-func test_tilting_the_top_away_runs_up_the_screen() -> void:
+func test_pushing_the_stick_up_runs_up_the_screen() -> void:
 	var practice: PracticeMatch = _practice()
 	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	_tilt(practice, Vector2(0.0, 45.0))
-	practice.advance(DT)
 	var start: Vector2 = player.position
-	_tilt(practice, Vector2(0.0, 45.0 - practice.tilt_rules.full_tilt_degrees * 1.2))
+	practice.hud.joystick.changed.emit(Vector2(0.0, -1.0))
 	for i: int in 30:
 		practice.advance(DT)
 	assert_lt(player.position.y, start.y - 3.0, "toward the enemy end")
 	assert_almost_eq(player.position.x, start.x, 0.3, "straight")
-
-
-func test_the_way_you_hold_the_phone_at_the_start_is_standing_still() -> void:
-	var practice: PracticeMatch = _practice()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	_tilt(practice, Vector2(6.0, 60.0))
-	var start: Vector2 = player.position
-	for i: int in 30:
-		practice.advance(DT)
-	assert_eq(player.position, start, "whatever angle it is held at")
-	_tilt(practice, Vector2(6.0 + practice.tilt_rules.deadzone_degrees * 0.8, 60.0))
-	for i: int in 30:
-		practice.advance(DT)
-	assert_eq(player.position, start, "a small wobble does nothing")
-
-
-func test_re_center_makes_the_new_angle_level() -> void:
-	var practice: PracticeMatch = _practice()
-	var player: PlayerState = practice.sim.players[PracticeMatch.LOCAL_ID]
-	_tilt(practice, Vector2(0.0, 45.0))
+	practice.hud.joystick.changed.emit(Vector2.ZERO)
 	practice.advance(DT)
-	var start: Vector2 = player.position
-	_tilt(practice, Vector2(20.0, 45.0))
+	var at: Vector2 = player.position
 	for i: int in 10:
 		practice.advance(DT)
-	assert_gt(player.position.x, start.x + 0.5, "tilted right: running right")
-	practice.hud.menu.recenter_button.pressed.emit()
-	for i: int in 20:
-		practice.advance(DT)
-	var at: Vector2 = player.position
-	for i: int in 20:
-		practice.advance(DT)
-	assert_eq(player.position, at, "the tilted hold is now standing still")
-
-
-func test_the_sensitivity_button_cycles_and_is_saved() -> void:
-	var practice: PracticeMatch = _practice()
-	var steps: Array[float] = practice.tilt_rules.sensitivity_steps
-	var before: int = Settings.tilt_sensitivity
-	practice.hud.menu.sensitivity_button.pressed.emit()
-	assert_ne(practice.tilt.sensitivity, steps[practice.tilt_rules.default_sensitivity])
-	assert_string_starts_with(practice.hud.menu.sensitivity_button.text, "Sensitivity: ")
-	Settings.save_tilt_sensitivity(before)
+	assert_eq(player.position, at, "let go: standing still")
 
 
 func test_match_waits_on_the_opening_weapon_pick() -> void:
