@@ -13,7 +13,7 @@ const FALLBACK_SET: StringName = &"junjun"
 const DIRECTIONS: Array[String] = ["toward", "toward_right", "right", "away_right", "away"]
 ## World height of one sprite cell in metres (the kid fills about 85% of it).
 ## The kids are drawn a little bigger than life so they read through the wide lens.
-const CELL_HEIGHT: float = 2.2
+const CELL_HEIGHT: float = 2.65
 const GHOST_COLOR: Color = Color(0.55, 0.55, 0.62)
 const HIT_COLOR: Color = Color(1.0, 0.55, 0.55)
 const STRIDE: float = 1.6
@@ -234,12 +234,18 @@ func _view_angle() -> float:
 	return atan2(look.dot(right), -look.dot(forward))
 
 
-## A kid's standing sprite facing the camera, for HUD cards (falls back to FALLBACK_SET).
+## A kid's standing sprite facing the camera, cropped to the kid, for HUD cards (falls back to FALLBACK_SET).
 static func portrait(character_id: StringName) -> Texture2D:
 	var set_id: StringName = character_id
 	if not ResourceLoader.exists(SPRITE_PATH % [set_id, "idle", "toward"]):
 		set_id = FALLBACK_SET
-	return _frame(set_id, "idle", "toward")["texture"] as Texture2D
+	var frame: Dictionary = _frame(set_id, "idle", "toward")
+	var atlas: AtlasTexture = AtlasTexture.new()
+	atlas.atlas = frame["texture"] as Texture2D
+	# the cell is wide and mostly empty: show only the kid, so a card is filled by it
+	var texture_size: Vector2 = (frame["texture"] as Texture2D).get_size()
+	atlas.region = Rect2(frame["used"] as Rect2i).grow(10.0).intersection(Rect2(Vector2.ZERO, texture_size))
+	return atlas
 
 
 static func _frame(set_id: StringName, anim: String, direction: String) -> Dictionary:
@@ -247,7 +253,7 @@ static func _frame(set_id: StringName, anim: String, direction: String) -> Dicti
 	if not _frames.has(path):
 		var texture: Texture2D = load(path) as Texture2D
 		var used: Rect2i = texture.get_image().get_used_rect()
-		_frames[path] = {"texture": texture, "feet": float(used.end.y)}
+		_frames[path] = {"texture": texture, "feet": float(used.end.y), "used": used}
 	return _frames[path]
 
 

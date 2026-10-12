@@ -300,3 +300,11 @@ func test_the_run_frame_is_not_mirrored_on_side_and_diagonal_views() -> void:
 				flips += 1
 				last = sprite.flip_h
 		assert_eq(flips, 0, "no stride mirroring at %d degrees" % int(degrees))
+
+
+func test_the_card_portrait_is_cropped_to_the_kid() -> void:
+	var portrait: AtlasTexture = KidModel.portrait(&"junjun") as AtlasTexture
+	assert_not_null(portrait, "a cropped piece of the idle sprite")
+	var cell: Vector2 = portrait.atlas.get_size()
+	assert_lt(portrait.region.size.x, cell.x * 0.5, "the wide empty cell is cut away")
+	assert_gt(portrait.region.size.y, cell.y * 0.6, "the whole kid stays in")
