@@ -107,6 +107,7 @@ func test_the_stick_sits_in_the_middle_with_a_skill_on_each_side() -> void:
 	assert_lt(left.get_center().x, stick.get_center().x, "weapon 1 on the left")
 	assert_gt(right.get_center().x, stick.get_center().x, "weapon 2 on the right")
 	assert_almost_eq(left.get_center().x + right.get_center().x, screen.x, 1.0, "symmetric")
+	assert_almost_eq(left.size.x, VirtualJoystick.THUMB_RADIUS * 2.0, 0.5, "a skill is the size of the stick's knob")
 
 
 func test_hiding_the_controls_lets_go_of_the_stick() -> void:

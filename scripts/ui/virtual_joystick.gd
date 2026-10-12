@@ -1,6 +1,6 @@
 class_name VirtualJoystick
 extends Control
-## On-screen joystick: a fixed see-through circle with a knob that follows the
+## On-screen joystick: a fixed outlined ring (no fill) with a knob that follows the
 ## finger. Put it over the area it should listen in. Handles real touches (multi-touch safe)
 ## and the real mouse; ignores mouse events emulated from touch.
 
@@ -11,7 +11,8 @@ const DEADZONE: float = 0.1
 const THUMB_RADIUS: float = 38.0
 const NO_POINTER: int = -1
 const MOUSE_POINTER: int = -2
-const BASE_COLOR: Color = Color(0.1, 0.08, 0.14, 0.5)
+const RING_COLOR: Color = Color(1.0, 1.0, 1.0, 0.6)
+const RING_WIDTH: float = 4.0
 const THUMB_COLOR: Color = Color(0.86, 0.87, 0.9, 0.4)
 
 var value: Vector2 = Vector2.ZERO
@@ -70,10 +71,10 @@ func rest_position() -> Vector2:
 
 
 func _draw() -> void:
-	# a plain see-through circle that never moves, and the knob that follows the finger
+	# an outline that never moves (no tint over the street), and the knob that follows the finger
 	var origin: Vector2 = rest_position()
 	var thumb: Vector2 = origin if _pointer == NO_POINTER else _thumb
-	draw_circle(origin, MAX_RADIUS, BASE_COLOR)
+	draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, RING_COLOR, RING_WIDTH, true)
 	draw_circle(thumb, THUMB_RADIUS, THUMB_COLOR)
 
 

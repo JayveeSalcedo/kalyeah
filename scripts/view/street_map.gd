@@ -4,7 +4,7 @@ extends Node3D
 ## rules). The play area is one flat, dark grey cement slab (no tiles or
 ## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
 ## umbrella, power poles with wires across and bunting around it; the few cover
-## pieces kids hide behind (a bench, a cardboard wall, a school-zone sign); each team's electric post in its corner with a chalk base
+## pieces kids hide behind (cardboard walls); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
 const OWN_COLOR: Color = Palette.TEAM_OWN
@@ -71,6 +71,8 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 }
 const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 6.0
+const BARRICADE_COUNT: int = 9
+const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
 const BARRICADE_DEPTH: float = 0.7
 const BARRICADE_HEIGHT: float = 1.1
 const POLE_HEIGHT: float = 7.0
@@ -312,15 +314,18 @@ func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	return [tape, fill]
 
 
-## A row of wooden A-frames across the street at each end of the play area.
+## The ends of the play area are walled off by a row of street things, the bench, the
+## SLOW DOWN SCHOOL ZONE sign and the wooden A-frame taking turns (the other end starts
+## one further along, so the two rows differ).
 func _add_barricades() -> void:
-	var count: int = 9
-	var piece: float = layout.lane_width / count
-	for end: float in [-1.0, 1.0]:
-		for i: int in count:
+	var piece: float = layout.lane_width / BARRICADE_COUNT
+	for end_index: int in 2:
+		var end: float = -1.0 if end_index == 0 else 1.0
+		for i: int in BARRICADE_COUNT:
 			var x: float = -layout.lane_width / 2.0 + piece * (i + 0.5)
-			var frame: Node3D = PropModel.fit("rooster_tent", Vector2(piece * 0.96, BARRICADE_DEPTH), BARRICADE_HEIGHT)
-			_add_prop(frame, Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.45)))
+			var id: String = BARRICADE_MODELS[(i + end_index) % BARRICADE_MODELS.size()]
+			var model: Node3D = PropModel.fit(id, Vector2(piece * 0.92, BARRICADE_DEPTH), BARRICADE_HEIGHT)
+			_add_prop(model, Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.45)))
 
 
 ## House fronts along both sides, a sari-sari store, and houses across both far ends.

@@ -29,7 +29,7 @@ The match is the Filipino street game of tagging the enemy base, like the refere
 ## Controls (owner)
 
 - **Stick to move (owner: back from tilt).** An on-screen joystick at the bottom centre moves your kid: push up to run up the screen, sideways to run sideways. It stays in place (a see-through ring with a knob that follows your thumb); let go and you stop. Keyboard WASD / arrows still work on desktop.
-- **Weapon 1 on the left of the stick, weapon 2 on the right**, all three in one row near the bottom within thumb reach. Drag a weapon button to aim, release to cast (or drag onto the cancel zone).
+- **Weapon 1 on the left of the stick, weapon 2 on the right**, drawn the same size as the stick's knob; the stick's area is an outline only (no tint). All three in one row near the bottom within thumb reach. Drag a weapon button to aim, release to cast (or drag onto the cancel zone).
 - There is no dash.
 - Keyboard and mouse still work for testing on a computer (WASD / arrows to move, Q / E to aim and cast).
 
@@ -80,7 +80,7 @@ Two copies of the same weapon cannot be equipped; two weapons of the same *type*
 Copied from the reference video (owner): one street. **The playing area is 3:4 (width:length, owner)**, and the minimap has exactly the same 3:4 shape.
 - **Posts and bases:** each team's electric post stands in a corner, 2.5 m in from both edges (`post_inset`): from your point of view **your post is bottom left, theirs top right**. The **base** is a chalk circle of 4.5 m round the post (`base_radius`), cut off by the street edges, tinted blue (yours) or red (theirs). Players start next to their post and come back there after a rescue (`spawn_offset`).
 - **Boxes:** each team's tagged box is a 3 × 4 m taped rectangle (`jail_size`) at the far end, on the same side as its post (yours top left, theirs bottom right; `jail_inset`).
-- **Cover (owner: fewer, and they are not objectives):** only a few street things kids hide behind — a long bench, a cardboard wall and a school-zone sign.
+- **Cover (owner: fewer, and they are not objectives):** only cardboard walls kids hide behind (owner: no other props inside the play area). The bench, the school-zone sign and the wooden A-frame take turns as the barricade row across both ends.
 - **The play area is plain, flat, dark grey cement (owner):** no tiles, texture, gutters, chalk games or manholes on it. The street edges (curbs) and both ends (sawhorse barricades) block everyone. Outside: sidewalks, house fronts, a sari-sari store with an umbrella, power poles with wires along and across the street, bunting; the street goes on past both ends to more houses. The look is in `docs/ART.md`.
 - There are no breakable walls, no cross street, no guava and no tricycle any more (owner).
 

@@ -93,7 +93,7 @@ Every weapon has a type icon. All values (damage, cooldowns, ranges) are data-dr
 
 ### 3.5 Map and objectives
 - **One street**, a 3:4 playing area (30 × 40 m), in a Filipino barangay (sari-sari store, houses, power lines, laundry, bunting, chalk games). Your post is in the bottom-left corner, theirs in the top-right (see `GDD.md` "Map").
-- **Cover:** a few street things (a bench, a cardboard wall, a school-zone sign) to hide behind; they block both teams.
+- **Cover:** a few cardboard walls to hide behind; they block both teams.
 - **Base (agawan-base):** a concrete electric post covered in flyers inside a chalk circle. Tag rules and scoring are in `GDD.md` ("Tag", "Scoring").
 
 ### 3.6 Neutral events

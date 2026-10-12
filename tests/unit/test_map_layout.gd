@@ -85,9 +85,9 @@ func test_obstacles_inside_the_street_and_clear_of_bases_boxes_and_each_other() 
 			assert_false(rect.grow(0.8).intersects(rects[j]), "obstacles %d and %d leave room to pass" % [i, j])
 
 
-func test_every_obstacle_has_a_prop() -> void:
+func test_every_obstacle_is_a_cardboard_wall() -> void:
 	for index: int in LAYOUT.obstacle_rects().size():
-		assert_true(LAYOUT.obstacle_prop(index) in [&"bench", &"cardboard_wall", &"school_zone", &"tent"])
+		assert_eq(LAYOUT.obstacle_prop(index), &"cardboard_wall", "inside the play area: cardboard walls only (owner)")
 
 
 func test_boundary_walls_enclose_lane_without_overlapping_it() -> void:

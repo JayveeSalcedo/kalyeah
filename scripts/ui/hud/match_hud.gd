@@ -39,7 +39,8 @@ const ROW_HEIGHT: float = 150.0
 ## The square the stick listens in (its ring is VirtualJoystick.MAX_RADIUS).
 const STICK_ZONE: float = 260.0
 const ROW_GAP: float = 24.0
-const WEAPON_SIZE: float = 150.0
+## The skill buttons are drawn the same size as the stick's knob.
+const WEAPON_SIZE: float = VirtualJoystick.THUMB_RADIUS * 2.0
 const CANCEL_AT: Vector2 = Vector2(-242.0, 520.0)
 const CANCEL_SIZE: Vector2 = Vector2(110.0, 100.0)
 
