@@ -26,7 +26,7 @@ Goal: the look of the owner's reference image (League of Legends mid view, Clash
 | P1 ✅ | The match screen is split into `MatchInput`, `MatchHud` (all HUD built in code) and wiring; `practice.tscn` is 79 lines | behaviour unchanged, tests green |
 | P2 ✅ | HUD spec below | screenshot matches the spec |
 | P3 ✅ | League of Legends camera | numbers below, camera tests updated |
-| P4 | 3D kids (rigged GLB models): Junjun done; Ligaya, Migo, Toni, Popoy, Inday waiting for models | all six kids use their own model |
+| P4 | 3D kids (rigged GLB models): done, all six kids use their own rigged and animated model and portrait | all six kids use their own model |
 | P5 | Environment kit in Blender (tin roofs, cardboard sheets, tyres, plants, hoop, drains, tricycle with driver, base post with posters) | street matches the reference |
 | P6 | Effects: impact debris, trails, dust, ground rings, per-weapon projectiles | every weapon has a clear effect |
 | P7 | UI pass: painted skill icons, team portraits and timer across the top, framed minimap | HUD matches the reference |
@@ -56,5 +56,5 @@ Budgets (M6): 60 fps on a recommended Android phone, 30+ on the minimum; APK und
 - No basic attack (see `GDD.md`).
 - Tag street (owner): the map, the rules and the camera follow the reference video of the street game; portrait stays binding. The guava, the tricycle, breakable walls and the death delay were removed.
 - Game name: **Kalyeah**. Tagline: *Mga larong Pinoy sa kalye*. Android package `com.kalyeah.game`.
-- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged GLB models the owner makes (Meshy); `tools/blender/build_junjun_model.py` lightens and animates them.
+- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged, animated GLB models from the owner; `tools/blender/build_kid_game_model.py` makes them light for phones (`build_junjun_model.py` was the first, Mixamo-based Junjun).
 - Multiplayer is built and tested; deploying the server and setting `KALYEAH_SERVER_URL` is the owner's step (`server/README.md`).
