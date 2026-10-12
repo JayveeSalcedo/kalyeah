@@ -30,7 +30,7 @@ The match is the Filipino street game of tagging the enemy base, like the refere
 
 - **Stick to move (owner: back from tilt).** An on-screen joystick at the bottom centre moves your kid: push up to run up the screen, sideways to run sideways. It stays in place (a see-through ring with a knob that follows your thumb); let go and you stop. Keyboard WASD / arrows still work on desktop.
 - **Weapon 1 on the left of the stick, weapon 2 on the right**, all three in one row near the bottom within thumb reach. Drag a weapon button to aim, release to cast (or drag onto the cancel zone).
-There is no dash.
+- There is no dash.
 - Keyboard and mouse still work for testing on a computer (WASD / arrows to move, Q / E to aim and cast).
 
 **One skill at a time (owner):** while one weapon button is held (aiming), the other can't be pressed or cast until the release.
