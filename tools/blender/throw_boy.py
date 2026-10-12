@@ -143,43 +143,44 @@ def ry(deg):
 SPINE = (("Spine", 0.3, 0.3, LAG["spine"]), ("Spine1", 0.65, 0.7, LAG["spine1"]), ("Spine2", 1.0, 1.0, LAG["spine2"]))
 
 
-def pose_frame(rig, rest, f):
+def pose_frame(rig, rest, f, t=None):
     """One frame. The spine only ever twists about the vertical and bends forward/back about
     its own side axis (never sideways), the shoulder line stays level, and the arms are aimed
     in the torso's turning frame, so nothing looks bent or dislocated."""
     pb = rig.pose.bones
+    tt = f if t is None else t  # the pose time sampled; the keyframe goes at f
     for b in pb:
         b.rotation_mode = "QUATERNION"
         b.rotation_quaternion = (1, 0, 0, 0)
         b.location = (0, 0, 0)
     bpy.context.view_layer.update()
-    hyaw = sample("hyaw", f)
-    set_bone(pb[P + "Hips"], rest["Hips"]["head"] + sample("hips", f), rz(hyaw) @ rest["Hips"]["rot"])
+    hyaw = sample("hyaw", tt)
+    set_bone(pb[P + "Hips"], rest["Hips"]["head"] + sample("hips", tt), rz(hyaw) @ rest["Hips"]["rot"])
     chest_yaw = hyaw
     for name, yaw_cum, pitch_cum, lag in SPINE:
-        t = f - lag
+        t = tt - lag
         yaw = sample("hyaw", t) + (sample("cyaw", t) - sample("hyaw", t)) * yaw_cum
         pbn = pb[P + name]
         set_bone(pbn, pbn.matrix.translation.copy(), rz(yaw) @ rx(sample("lean", t) * pitch_cum) @ rest[name]["rot"])
         chest_yaw = yaw
     frame = rz(chest_yaw)  # the torso's turning frame (yaw only, arms still hang under gravity)
-    t = f - LAG["head"]
+    t = tt - LAG["head"]
     hy, hp = sample("hy", t), sample("hp", t)
     neck = pb[P + "Neck"]
     set_bone(neck, neck.matrix.translation.copy(), rz(hy * 0.4) @ rx(hp * 0.4) @ rest["Neck"]["rot"])
     head = pb[P + "Head"]
     set_bone(head, head.matrix.translation.copy(), rz(hy) @ rx(hp) @ rest["Head"]["rot"])
-    t = f - LAG["sh"]
+    t = tt - LAG["sh"]
     for side, S, sgn in (("r", "Right", 1.0), ("l", "Left", -1.0)):
         prot, elev = sample("s" + side, t)
         shd = pb[P + S + "Shoulder"]
         set_bone(shd, shd.matrix.translation.copy(), rz(sgn * prot) @ ry(sgn * elev) @ shd.matrix.to_3x3())
     for side, S in (("r", "Right"), ("l", "Left")):
-        aim(pb[P + S + "Arm"], rest, frame @ direction("arm_" + side, f - LAG["arm"]), S + "Arm")
-        aim(pb[P + S + "ForeArm"], rest, frame @ direction("fore_" + side, f - LAG["fore"]), S + "ForeArm")
-        aim(pb[P + S + "Hand"], rest, frame @ direction("hand_" + side, f - LAG["hand"]), S + "Hand")
+        aim(pb[P + S + "Arm"], rest, frame @ direction("arm_" + side, tt - LAG["arm"]), S + "Arm")
+        aim(pb[P + S + "ForeArm"], rest, frame @ direction("fore_" + side, tt - LAG["fore"]), S + "ForeArm")
+        aim(pb[P + S + "Hand"], rest, frame @ direction("hand_" + side, tt - LAG["hand"]), S + "Hand")
     for side, S, sx in (("l", "Left", 1.0), ("r", "Right", -1.0)):
-        o = sample("foot_" + side, f)
+        o = sample("foot_" + side, tt)
         ankle = Vector((o.x, o.y, rest[S + "Foot"]["head"].z + o.z))
         two_bone_ik(rig, rest, S + "UpLeg", S + "Leg", S + "Foot", ankle, Vector((sx * 0.12, -1.0, 0.0)).normalized())
         flat = Vector((0.04 * sx, -0.9, -0.25)).normalized()
