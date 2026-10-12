@@ -24,6 +24,8 @@ const THUMB_COLOR: Color = Color(0.86, 0.87, 0.9, 0.4)
 ## The ring that is not "active" is the same white, dimmer: the outer one until it lights
 ## up (auto-run armed), then the inner one.
 const DIM_RING_COLOR: Color = Color(1.0, 1.0, 1.0, 0.25)
+## While the outer ring is lit, the band between the two rings is tinted too.
+const BAND_COLOR: Color = Color(1.0, 1.0, 1.0, 0.16)
 
 var value: Vector2 = Vector2.ZERO
 ## Resting spot of the stick inside the zone (0..1 of its size).
@@ -108,6 +110,9 @@ func _draw() -> void:
 	var origin: Vector2 = rest_position()
 	var thumb: Vector2 = _thumb if _pointer != NO_POINTER or auto_run else origin
 	var colors: Array[Color] = ring_colors()
+	if outer_lit():
+		var band: float = OUTER_RADIUS - MAX_RADIUS
+		draw_arc(origin, MAX_RADIUS + band / 2.0, 0.0, TAU, 72, BAND_COLOR, band, true)
 	draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, colors[0], RING_WIDTH, true)
 	draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, colors[1], RING_WIDTH, true)
 	draw_circle(thumb, THUMB_RADIUS, THUMB_COLOR)
