@@ -4,7 +4,7 @@ extends Node3D
 ## rules). The play area is one flat, dark grey cement slab (no tiles or
 ## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
 ## umbrella, power poles with wires across and bunting around it; the few cover
-## pieces kids hide behind (a bench, crates, a NO ENTRY board); each team's electric post in its corner with a chalk base
+## pieces kids hide behind (a bench, a cardboard wall, a school-zone sign); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
 const OWN_COLOR: Color = Palette.TEAM_OWN
@@ -65,8 +65,15 @@ const OUTER_DROP: float = -0.12
 const OUTER_TINT: Color = Color(0.62, 0.58, 0.54)
 const POSTER_HEIGHT: float = 1.1
 const SARI_SIGN_HEIGHT: float = 1.15
-const SIGN_TEXT: String = "NO\nENTRY"
-const SIGN_INK: Color = Color(0.78, 0.12, 0.1)
+## Which model each cover piece (MapLayout.obstacle_props) is drawn as.
+const OBSTACLE_MODELS: Dictionary[StringName, String] = {
+	&"bench": "bench", &"cardboard_wall": "cardboard_wall", &"school_zone": "school_zone", &"tent": "rooster_tent",
+}
+const COVER_HEIGHT: float = 1.15
+const POST_HEIGHT: float = 6.0
+const BARRICADE_DEPTH: float = 0.7
+const BARRICADE_HEIGHT: float = 1.1
+const POLE_HEIGHT: float = 7.0
 
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
@@ -164,7 +171,7 @@ func _build_map() -> void:
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN_COLOR if side == MapLayout.SIDE_OWN else ENEMY_COLOR
 		var center: Vector2 = layout.base_center(side)
-		var post: MeshInstance3D = _add(Props.electric_post(), Vector3(center.x, 0.0, center.y))
+		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
 		# a team-coloured band on the post so you can tell bases apart from afar
 		var band: StandardMaterial3D = _add_band(post, color)
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
@@ -224,36 +231,11 @@ func _add_obstacle(index: int) -> void:
 	var rect: Rect2 = layout.obstacle_rects()[index]
 	var center: Vector2 = rect.get_center()
 	var at: Vector3 = Vector3(center.x, 0.0, center.y)
-	match layout.obstacle_prop(index):
-		&"bench":
-			_add(Props.street_bench(rect.size), at)
-		&"sawhorse":
-			_add(Props.sawhorse(rect.size), at)
-		&"no_entry":
-			var board: MeshInstance3D = _add(Props.sign_board(rect.size), at)
-			_add_sign_words(board, rect.size)
-		_:
-			_add(Props.crates(rect.size), at)
-
-
-## "NO ENTRY" painted on both faces of a board.
-func _add_sign_words(board: MeshInstance3D, size: Vector2) -> void:
-	var along_z: bool = size.y > size.x
-	for face: float in [-1.0, 1.0]:
-		var words: Label3D = Label3D.new()
-		words.text = SIGN_TEXT
-		words.font_size = 72
-		words.pixel_size = 0.0055
-		words.outline_size = 0
-		words.modulate = SIGN_INK
-		words.shaded = true
-		words.double_sided = false
-		words.position = Vector3(0.0, 0.86, face * 0.06)
-		words.rotation.y = 0.0 if face > 0.0 else PI
-		if along_z:
-			words.position = Vector3(face * 0.06, 0.86, 0.0)
-			words.rotation.y = PI / 2.0 if face > 0.0 else -PI / 2.0
-		board.add_child(words)
+	# the long side lies along X; a rect that is longer in Z turns the model a quarter
+	var turned: bool = rect.size.y > rect.size.x
+	var footprint: Vector2 = Vector2(maxf(rect.size.x, rect.size.y), minf(rect.size.x, rect.size.y))
+	var id: String = String(OBSTACLE_MODELS.get(layout.obstacle_prop(index), "cardboard_wall"))
+	_add_prop(PropModel.fit(id, footprint, COVER_HEIGHT), at, PI / 2.0 if turned else 0.0)
 
 
 ## The base: a chalk-coloured circle round the post, cut off by the street edges,
@@ -330,14 +312,15 @@ func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	return [tape, fill]
 
 
-## A row of sawhorses across the street at each end of the play area.
+## A row of wooden A-frames across the street at each end of the play area.
 func _add_barricades() -> void:
-	var count: int = 4
+	var count: int = 9
 	var piece: float = layout.lane_width / count
 	for end: float in [-1.0, 1.0]:
 		for i: int in count:
 			var x: float = -layout.lane_width / 2.0 + piece * (i + 0.5)
-			_add(Props.sawhorse(Vector2(piece - 0.6, 0.5)), Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.5)))
+			var frame: Node3D = PropModel.fit("rooster_tent", Vector2(piece * 0.96, BARRICADE_DEPTH), BARRICADE_HEIGHT)
+			_add_prop(frame, Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.45)))
 
 
 ## House fronts along both sides, a sari-sari store, and houses across both far ends.
@@ -387,7 +370,7 @@ func _add_details() -> void:
 		var z: float = -half_l - END_REACH + 4.0
 		while z <= half_l + END_REACH - 2.0:
 			var pole_z: float = z + side * 2.5
-			_add(Props.power_pole(), Vector3(side * pole_x, 0.0, pole_z))
+			_add_prop(PropModel.by_height("electric_pole", POLE_HEIGHT), Vector3(side * pole_x, 0.0, pole_z), PI / 2.0)
 			_add_sign("poster_%d" % (poster % 3), POSTER_HEIGHT, Vector3(side * (pole_x - 0.3), 1.4, pole_z))
 			poster += 1
 			var top: Vector3 = Vector3(side * pole_x, POLE_TOP, pole_z)
@@ -409,7 +392,7 @@ func _add_details() -> void:
 	var walk_x: float = half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0
 	var store_z: float = -layout.lane_length * 0.18
 	_add(Props.umbrella(), Vector3(-walk_x, CURB_HEIGHT, store_z + 1.6))
-	_add(Props.bench(), Vector3(-walk_x - 0.3, CURB_HEIGHT, store_z - 1.0))
+	_add_prop(PropModel.fit("bench", Vector2(2.0, 0.7), 1.0), Vector3(-walk_x - 0.3, CURB_HEIGHT, store_z - 1.0), PI / 2.0)
 	for lz: float in [-half_l * 0.7, half_l * 0.3]:
 		_add(Props.laundry_line(4.0), Vector3(-walk_x - 0.6, CURB_HEIGHT, lz))
 	for lz: float in [-half_l * 0.25, half_l * 0.75]:
@@ -440,10 +423,17 @@ func _add(mesh: Mesh, at: Vector3, yaw: float = 0.0) -> MeshInstance3D:
 	return instance
 
 
-func _add_band(post: MeshInstance3D, color: Color) -> StandardMaterial3D:
+func _add_prop(model: Node3D, at: Vector3, yaw: float = 0.0) -> Node3D:
+	model.position = at
+	model.rotation.y = yaw
+	_geometry.add_child(model)
+	return model
+
+
+func _add_band(post: Node3D, color: Color) -> StandardMaterial3D:
 	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = 0.27
-	mesh.bottom_radius = 0.28
+	mesh.top_radius = 0.44
+	mesh.bottom_radius = 0.45
 	mesh.height = 0.35
 	mesh.radial_segments = 8
 	var material: StandardMaterial3D = StandardMaterial3D.new()

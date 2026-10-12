@@ -14,7 +14,7 @@ const RIM_TINT: float = 0.3
 
 ## Gives every surface of every mesh under `root` its own copy of the look and returns them
 ## (so a tint can be applied per kid).
-static func apply(root: Node) -> Array[StandardMaterial3D]:
+static func apply(root: Node, gain: float = ALBEDO_GAIN) -> Array[StandardMaterial3D]:
 	var made: Array[StandardMaterial3D] = []
 	for node: Node in root.find_children("*", "MeshInstance3D", true, false):
 		var mesh_instance: MeshInstance3D = node as MeshInstance3D
@@ -34,7 +34,7 @@ static func apply(root: Node) -> Array[StandardMaterial3D]:
 			material.rim_enabled = true
 			material.rim = RIM
 			material.rim_tint = RIM_TINT
-			material.albedo_color = Color(ALBEDO_GAIN, ALBEDO_GAIN, ALBEDO_GAIN) * material.albedo_color
+			material.albedo_color = Color(gain, gain, gain) * material.albedo_color
 			mesh_instance.set_surface_override_material(surface, material)
 			made.append(material)
 	return made

@@ -3,7 +3,7 @@ extends RefCounted
 ## Low-poly street props built from LowPoly pieces (one material, palette colours).
 ## Inspired by Filipino streets: sari-sari store, houses with tin roofs, laundry
 ## lines, an electric post covered in flyers, and the cover kids hide behind in the
-## street game: stacked crates, a bench, a sawhorse barricade, a NO ENTRY board.
+## street game: the houses, store, trees, wires and the like. The cover pieces, benches, poles and A-frames are 3D models (PropModel).
 ## Meshes are cached per key, so the same prop is built once.
 
 static var _cache: Dictionary[String, ArrayMesh] = {}
@@ -85,16 +85,6 @@ static func banderitas(span: float, seed_value: int) -> ArrayMesh:
 		return kit.commit())
 
 
-## Wooden utility pole with a crossarm (wires are drawn between poles).
-static func power_pole() -> ArrayMesh:
-	return cached("pole", func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		kit.cylinder(Vector3.ZERO, 0.17, 0.13, 7.0, 6, Palette.WOOD)
-		kit.box(Vector3(0.0, 6.6, 0.0), Vector3(0.12, 0.12, 1.6), Palette.WOOD.darkened(0.15))
-		kit.cylinder(Vector3(0.0, 5.6, 0.25), 0.22, 0.22, 0.6, 6, Palette.POST_GREY)
-		return kit.commit())
-
-
 ## A straight wire segment between two points (thin box along the segment).
 static func wire(from: Vector3, to: Vector3) -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
@@ -131,18 +121,6 @@ static func manhole() -> ArrayMesh:
 		kit.cylinder(Vector3(0.0, 0.0, 0.0), 0.55, 0.55, 0.02, 10, Palette.ASPHALT_DARK.darkened(0.3), Palette.ASPHALT_DARK.darkened(0.25))
 		for i: int in 3:
 			kit.box(Vector3(0.0, 0.025, -0.25 + float(i) * 0.25), Vector3(0.7, 0.01, 0.05), Palette.ASPHALT_DARK.darkened(0.45))
-		return kit.commit())
-
-
-## A bench + stools in front of the store (tambayan).
-static func bench() -> ArrayMesh:
-	return cached("bench", func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		kit.box(Vector3(0.0, 0.45, 0.0), Vector3(0.45, 0.08, 2.0), Palette.WOOD)
-		for z: float in [-0.85, 0.85]:
-			kit.box(Vector3(0.0, 0.22, z), Vector3(0.38, 0.44, 0.08), Palette.WOOD.darkened(0.2))
-		for z: float in [-1.6, 1.5]:
-			kit.cylinder(Vector3(0.4, 0.0, z), 0.18, 0.15, 0.4, 6, Palette.JEEP_RED)
 		return kit.commit())
 
 
@@ -252,113 +230,6 @@ static func laundry_line(length: float) -> ArrayMesh:
 			var z: float = -half + 0.5 + (length - 1.0) * float(i) / float(count - 1)
 			var tall: float = 0.5 + float(i % 3) * 0.15
 			kit.box(Vector3(0.0, 2.6 - tall / 2.0, z), Vector3(0.05, tall, 0.55), Palette.LAUNDRY[i % Palette.LAUNDRY.size()])
-		return kit.commit())
-
-
-## The concrete electric post with flyers stuck on it (septic, hiring, notices).
-static func electric_post() -> ArrayMesh:
-	return cached("post", func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		kit.cylinder(Vector3.ZERO, 0.32, 0.2, 6.0, 8, Palette.POST_GREY)
-		kit.box(Vector3(0.0, 5.6, 0.0), Vector3(2.2, 0.16, 0.16), Palette.POST_GREY.darkened(0.2))
-		for x: float in [-0.9, 0.0, 0.9]:
-			kit.cylinder(Vector3(x, 5.68, 0.0), 0.06, 0.06, 0.18, 5, Palette.WHITE)
-		kit.box(Vector3(0.0, 4.7, -0.32), Vector3(0.5, 0.6, 0.3), Palette.POST_GREY.darkened(0.35))
-		# flyers wrapped around the lower post
-		for i: int in 10:
-			var angle: float = TAU * float(i) / 7.0
-			var height: float = 0.9 + float(i % 4) * 0.42
-			var dir: Vector3 = Vector3(cos(angle), 0.0, sin(angle))
-			var radius: float = 0.3 - height * 0.015
-			kit.set_transform(Transform3D(Basis(Vector3.UP, -angle), dir * (radius + 0.015) + Vector3(0.0, height, 0.0)))
-			kit.box(Vector3.ZERO, Vector3(0.03, 0.42, 0.3), Palette.FLYERS[i % Palette.FLYERS.size()])
-		kit.reset_transform()
-		return kit.commit())
-
-
-## Cover on the street: stacked wooden fruit crates filling a `size` (x, z) footprint
-## about a metre high, slats and dark gaps on every side, the top crate a little turned.
-static func crates(size: Vector2) -> ArrayMesh:
-	return cached("crates%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var crate: float = 0.62
-		var across: int = maxi(1, roundi(size.x / crate))
-		var deep: int = maxi(1, roundi(size.y / crate))
-		var cell: Vector2 = Vector2(size.x / across, size.y / deep)
-		for ix: int in across:
-			for iz: int in deep:
-				var stack: int = 2 if (ix + iz) % 2 == 0 else 1
-				for level: int in stack:
-					var center: Vector3 = Vector3(
-						-size.x / 2.0 + cell.x * (ix + 0.5), 0.27 + level * 0.5, -size.y / 2.0 + cell.y * (iz + 0.5)
-					)
-					var turn: float = 0.12 if level == 1 else 0.0
-					kit.set_transform(Transform3D(Basis(Vector3.UP, turn), center))
-					var wood: Color = Palette.WOOD.lightened(0.18 if (ix + iz + level) % 2 == 0 else 0.06)
-					kit.box(Vector3.ZERO, Vector3(cell.x - 0.06, 0.5, cell.y - 0.06), wood.darkened(0.35), wood.darkened(0.3))
-					# two slats on each face over the dark inside
-					for y: float in [-0.12, 0.12]:
-						kit.box(Vector3(0.0, y, 0.0), Vector3(cell.x - 0.02, 0.13, cell.y - 0.02), wood, wood)
-					kit.box(Vector3(0.0, 0.24, 0.0), Vector3(cell.x - 0.02, 0.04, cell.y - 0.02), wood.lightened(0.08))
-		kit.reset_transform()
-		return kit.commit())
-
-
-## A long wooden street bench filling a `size` (x, z) footprint, long side along X.
-static func street_bench(size: Vector2) -> ArrayMesh:
-	return cached("sbench%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var length: float = maxf(size.x, size.y)
-		var depth: float = minf(size.x, size.y)
-		if size.y > size.x:
-			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
-		kit.box(Vector3(0.0, 0.5, 0.0), Vector3(length, 0.1, depth * 0.8), Palette.WOOD.lightened(0.1))
-		kit.box(Vector3(0.0, 0.85, -depth * 0.36), Vector3(length, 0.3, 0.08), Palette.WOOD)
-		for x: float in [-length / 2.0 + 0.2, length / 2.0 - 0.2]:
-			kit.box(Vector3(x, 0.25, 0.0), Vector3(0.1, 0.5, depth * 0.75), Palette.WOOD.darkened(0.25))
-			kit.box(Vector3(x, 0.7, -depth * 0.36), Vector3(0.1, 0.4, 0.08), Palette.WOOD.darkened(0.25))
-		kit.reset_transform()
-		return kit.commit())
-
-
-## A road barricade: a striped plank on two A-frame legs, long side along X.
-static func sawhorse(size: Vector2) -> ArrayMesh:
-	return cached("saw%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var length: float = maxf(size.x, size.y)
-		var depth: float = minf(size.x, size.y)
-		if size.y > size.x:
-			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
-		var base: Transform3D = kit._transform
-		for x: float in [-length / 2.0 + 0.25, length / 2.0 - 0.25]:
-			for lean: float in [-0.3, 0.3]:
-				kit.set_transform(base * Transform3D(Basis(Vector3.RIGHT, lean), Vector3(x, 0.5, 0.0)))
-				kit.box(Vector3.ZERO, Vector3(0.09, 1.05, 0.09), Palette.WOOD)
-		kit.set_transform(base)
-		var stripes: int = maxi(4, roundi(length / 0.4))
-		var piece: float = length / stripes
-		for i: int in stripes:
-			var color: Color = Palette.JEEP_RED if i % 2 == 0 else Palette.WHITE
-			kit.box(Vector3(-length / 2.0 + piece * (i + 0.5), 0.92, depth * 0.1), Vector3(piece, 0.24, 0.08), color)
-		kit.box(Vector3(0.0, 0.45, 0.0), Vector3(length - 0.3, 0.08, 0.06), Palette.WOOD.darkened(0.2))
-		kit.reset_transform()
-		return kit.commit())
-
-
-## A painted plywood board on short legs (the words are added by the map), long
-## side along X, facing both ways.
-static func sign_board(size: Vector2) -> ArrayMesh:
-	return cached("board%.1f_%.1f" % [size.x, size.y], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var length: float = maxf(size.x, size.y)
-		if size.y > size.x:
-			kit.set_transform(Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3.ZERO))
-		kit.box(Vector3(0.0, 0.85, 0.0), Vector3(length, 1.1, 0.08), Palette.CARDBOARD.lightened(0.15))
-		kit.box(Vector3(0.0, 0.85, 0.0), Vector3(length + 0.06, 1.16, 0.05), Palette.CARDBOARD_DARK)
-		for x: float in [-length / 2.0 + 0.2, length / 2.0 - 0.2]:
-			kit.box(Vector3(x, 0.3, 0.12), Vector3(0.1, 0.6, 0.1), Palette.WOOD)
-			kit.box(Vector3(x, 0.03, 0.0), Vector3(0.12, 0.06, 0.5), Palette.WOOD.darkened(0.2))
-		kit.reset_transform()
 		return kit.commit())
 
 

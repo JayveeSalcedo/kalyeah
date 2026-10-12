@@ -87,7 +87,7 @@ func test_obstacles_inside_the_street_and_clear_of_bases_boxes_and_each_other() 
 
 func test_every_obstacle_has_a_prop() -> void:
 	for index: int in LAYOUT.obstacle_rects().size():
-		assert_true(LAYOUT.obstacle_prop(index) in [&"bench", &"crates", &"sawhorse", &"no_entry"])
+		assert_true(LAYOUT.obstacle_prop(index) in [&"bench", &"cardboard_wall", &"school_zone", &"tent"])
 
 
 func test_boundary_walls_enclose_lane_without_overlapping_it() -> void:
@@ -111,10 +111,7 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 
 func test_props_stay_low_poly() -> void:
 	var budgets: Dictionary = {
-		"house": Props.house(0), "store": Props.sari_sari(), "post": Props.electric_post(),
-		"crates": Props.crates(Vector2(1.4, 1.4)), "bench": Props.street_bench(Vector2(3.0, 0.7)),
-		"sawhorse": Props.sawhorse(Vector2(2.6, 0.6)), "board": Props.sign_board(Vector2(2.4, 0.5)),
-		"umbrella": Props.umbrella(),
+		"house": Props.house(0), "store": Props.sari_sari(), "crates_free": Props.umbrella(),
 	}
 	for name: String in budgets:
 		var mesh: ArrayMesh = budgets[name]
@@ -123,9 +120,27 @@ func test_props_stay_low_poly() -> void:
 		assert_eq(mesh.surface_get_material(0), LowPoly.material(), "%s uses the one shared material" % name)
 
 
-func test_cover_props_fill_their_footprint() -> void:
-	var size: Vector2 = Vector2(0.7, 3.0)
-	var bench: AABB = Props.street_bench(size).get_aabb()
-	assert_almost_eq(bench.size.x, size.x, 0.25, "a bench along Z is turned to fit")
-	assert_almost_eq(bench.size.z, size.y, 0.25)
-	assert_between(Props.crates(Vector2(1.4, 1.4)).get_aabb().size.y, 0.8, 1.3, "kids hide behind about a metre of crates")
+func test_the_model_props_are_light_and_standing_on_the_ground() -> void:
+	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300}
+	for id: String in limits:
+		var model: Node3D = autofree(PropModel.make(id)) as Node3D
+		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		var vertices: int = mesh.mesh.surface_get_array_len(0)
+		assert_lt(vertices, limits[id] * 3, "%s has %d vertices" % [id, vertices])
+		var box: AABB = mesh.mesh.get_aabb()
+		assert_almost_eq(box.position.y, 0.0, 0.01, "%s stands on the ground" % id)
+		assert_almost_eq(box.position.x + box.size.x / 2.0, 0.0, 0.01, "%s is centred" % id)
+		var material: StandardMaterial3D = mesh.get_surface_override_material(0) as StandardMaterial3D
+		assert_eq(material.roughness, 1.0, "%s is matte" % id)
+
+
+func test_cover_models_fill_their_footprint_and_stay_about_a_metre_high() -> void:
+	for id: String in ["bench", "cardboard_wall", "school_zone", "rooster_tent"]:
+		var footprint: Vector2 = Vector2(2.6, 0.6)
+		var model: Node3D = autofree(PropModel.fit(id, footprint, 1.15)) as Node3D
+		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		var box: AABB = mesh.mesh.get_aabb()
+		assert_almost_eq(box.size.x * model.scale.x, footprint.x, 0.02, "%s fills the length" % id)
+		assert_almost_eq(box.size.z * model.scale.z, footprint.y, 0.02, "%s fills the depth" % id)
+		assert_lte(box.size.y * model.scale.y, 1.16, "%s is no taller than the cap" % id)
+		assert_gt(box.size.y * model.scale.y, 0.5, "%s is tall enough to hide behind" % id)
