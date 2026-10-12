@@ -97,13 +97,23 @@ func test_each_state_plays_its_own_animation() -> void:
 	assert_eq(kid.pose, "run")
 	assert_eq(kid.current_animation(), "run")
 	kid.play_cast()
-	assert_eq(_animation_after(kid, state), "cast")
+	assert_eq(_animation_after(kid, state), "run", "a cast on the move keeps the legs running")
+	assert_eq(kid.pose, "cast")
+	for i: int in 20:
+		kid.animate(0.05, 0.0, state)
+	kid.play_cast()
+	assert_eq(_animation_after(kid, state), "cast", "standing still: the whole body throws")
 	state = PlayerState.new()
 	state.effects.apply(StatusEffects.Type.STUN, 2.0)
 	assert_eq(_animation_after(kid, state), "stun", "stars")
 	state = PlayerState.new()
+	for i: int in 20:
+		kid.animate(0.05, 0.0, state)  # the cast is over
 	state.effects.apply(StatusEffects.Type.AIRBORNE, 2.0)
-	assert_eq(_animation_after(kid, state), "stun", "every status uses the stars")
+	assert_eq(_animation_after(kid, state), "airborne", "flailing in the air")
+	assert_true((kid.find_child("Stars", true, false) as Node3D).visible, "dizzy stars in the air too")
+	state.effects.clear()
+	assert_eq(_animation_after(kid, state), "land", "a landing squash when back on the ground")
 	state = PlayerState.new()
 	state.tagged = true
 	assert_eq(_animation_after(kid, state), "idle", "tagged kids stand in the box")
@@ -262,19 +272,70 @@ func test_a_cast_plays_at_the_cast_time_and_restarts() -> void:
 	assert_lt(player.current_animation_position, before, "a second cast starts over")
 
 
-func test_a_knockout_tips_the_kid_over_backwards_and_back_up() -> void:
+func _hips_height(kid: KidModel) -> float:
+	var skeleton: Skeleton3D = kid.find_children("*", "Skeleton3D", true, false)[0] as Skeleton3D
+	var bone: int = skeleton.find_bone("hips")
+	return (skeleton.global_transform * skeleton.get_bone_global_pose(bone)).origin.y - kid.global_position.y
+
+
+func test_a_knockout_knocks_the_kid_down_on_their_back_and_back_up() -> void:
 	var kid: KidModel = _kid(1)
 	var body: Node3D = kid.find_child("Body", true, false) as Node3D
+	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	await wait_frames(2)
+	var standing: float = _hips_height(kid)
 	var state: PlayerState = PlayerState.new()
 	state.effects.apply(StatusEffects.Type.KNOCKOUT, 3.0)
 	for i: int in 30:
 		kid.animate(0.02, 0.0, state)
-	assert_almost_eq(body.rotation.x, PI * 0.5, 0.05, "lying on the back")
-	assert_gt(body.position.y, 0.1, "lies on the street, not in it")
+	assert_eq(player.current_animation, "ko", "the kid's own knock-down clip")
+	player.advance(1.5)
+	await wait_frames(2)  # the skeleton applies the new pose on the next frame
+	assert_lt(_hips_height(kid), standing * 0.35, "lying on the street")
+	assert_almost_eq(body.rotation.x, 0.0, 0.05, "the clip falls, the body is not tipped as well")
 	state.effects.clear()
 	for i: int in 30:
 		kid.animate(0.02, 0.0, state)
-	assert_almost_eq(body.rotation.x, 0.0, 0.05, "back on their feet")
+	assert_eq(player.current_animation, "idle", "back on their feet")
+
+
+func test_a_cast_on_the_move_moves_only_the_upper_body() -> void:
+	var kid: KidModel = _kid(0)
+	var upper: AnimationPlayer = kid.find_child("UpperPlayer", true, false) as AnimationPlayer
+	assert_not_null(upper)
+	var state: PlayerState = PlayerState.new()
+	for i: int in 10:
+		kid.animate(0.05, 5.0, state)
+	kid.play_cast(0.5)
+	kid.animate(0.02, 5.0, state)
+	assert_eq(upper.current_animation, "cast")
+	assert_almost_eq(upper.speed_scale, upper.get_animation("cast").length / 0.5, 0.01, "at the cast time")
+	for clip: String in ["cast", "spell"]:
+		var anim: Animation = upper.get_animation(clip)
+		assert_gt(anim.get_track_count(), 20, "%s moves the arms, spine and head" % clip)
+		for track: int in anim.get_track_count():
+			var part: String = String(anim.track_get_path(track).get_subname(0))
+			for lower: String in ["thigh", "shin", "foot", "toe", "pelvis", "hips", "root", "knee_flex", "hip_flex"]:
+				assert_false(part.begins_with(lower), "%s leaves %s to the run" % [clip, part])
+	for i: int in 30:
+		kid.animate(0.05, 5.0, state)
+	assert_false(upper.is_playing(), "the layer stops once the cast is over")
+
+
+func test_heals_shields_and_traps_are_cast_with_an_open_hand() -> void:
+	var spells: Array[StringName] = []
+	for def: WeaponDef in RULES.weapons:
+		if KidModel.is_spell(def):
+			spells.append(def.id)
+	spells.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
+	assert_eq(spells, [&"heal", &"langit_lupa", &"papel_shield", &"papel_trap"] as Array[StringName])
+	var kid: KidModel = _kid(3)
+	var state: PlayerState = PlayerState.new()
+	kid.play_cast(0.5, true)
+	assert_eq(_animation_after(kid, state), "spell")
+	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	assert_eq(player.current_animation, "spell")
+	assert_almost_eq(player.current_animation_position, KidModel.SPELL_FROM, 0.05, "starts after the charge-up")
 
 
 func test_stars_circle_the_head_only_while_stunned() -> void:

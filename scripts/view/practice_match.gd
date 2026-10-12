@@ -275,7 +275,9 @@ func _connect_hud() -> void:
 
 func _connect_sim() -> void:
 	sim.player_damaged.connect(func(id: int, amount: int) -> void: if id == local_id: _camera.shake(minf(0.1 + amount * 0.01, 0.4)))
-	sim.weapon_cast.connect(func(id: int, weapon: StringName) -> void: _views[id].play_cast(sim.weapon_defs[weapon].cast_lock))
+	sim.weapon_cast.connect(func(id: int, weapon: StringName) -> void:
+		var def: WeaponDef = sim.weapon_defs[weapon]
+		_views[id].play_cast(def.cast_lock, KidModel.is_spell(def)))
 	sim.player_damaged.connect(func(id: int, _amount: int) -> void: _views[id].play_hit())
 	sim.point_scored.connect(_on_point_scored)
 	sim.match_won.connect(_on_match_won)
