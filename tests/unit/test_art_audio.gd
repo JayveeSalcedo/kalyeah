@@ -11,16 +11,6 @@ func _kid(index: int) -> KidModel:
 	return kid
 
 
-func test_every_kid_is_a_sprite_of_the_same_size() -> void:
-	var sizes: Array[Vector2] = []
-	for i: int in RULES.characters.size():
-		var sprite: Sprite3D = _kid(i).find_child("Sprite", true, false) as Sprite3D
-		assert_not_null(sprite.texture, RULES.characters[i].display_name)
-		sizes.append(sprite.texture.get_size() * sprite.pixel_size)
-	for size: Vector2 in sizes:
-		assert_almost_eq(size.y, KidModel.CELL_HEIGHT, 0.01, "one cell height for every kid")
-
-
 func test_each_kid_has_their_own_outfit() -> void:
 	var seen: Dictionary = {}
 	for i: int in RULES.characters.size():
@@ -99,7 +89,7 @@ func _animation_after(kid: KidModel, state: PlayerState, speed: float = 0.0) -> 
 	return kid.current_animation()
 
 
-func test_each_state_shows_its_own_sprite() -> void:
+func test_each_state_plays_its_own_animation() -> void:
 	var kid: KidModel = _kid(2)
 	var state: PlayerState = PlayerState.new()
 	for i: int in 10:
@@ -129,32 +119,6 @@ func test_a_knockout_falls_then_lies() -> void:
 	assert_eq(kid.pose, "ko")
 	state.effects.clear()
 	assert_eq(_animation_after(kid, state), "idle", "gets back up")
-
-
-func test_the_sprite_turns_with_the_facing_and_mirrors() -> void:
-	var kid: KidModel = _kid(0)
-	var camera: Camera3D = autofree(Camera3D.new()) as Camera3D
-	add_child(camera)
-	camera.position = Vector3(0.0, 10.0, 10.0)
-	camera.look_at(Vector3.ZERO)
-	camera.current = true
-	var sprite: Sprite3D = kid.find_child("Sprite", true, false) as Sprite3D
-	var state: PlayerState = PlayerState.new()
-	kid.face(Vector2(0.0, 1.0))
-	kid.animate(0.05, 0.0, state)
-	assert_false(sprite.flip_h)
-	assert_true(sprite.texture.resource_path.ends_with("idle_toward.png"), "faces the camera")
-	kid.face(Vector2(1.0, 0.0))
-	kid.animate(0.05, 0.0, state)
-	assert_true(sprite.texture.resource_path.ends_with("idle_right.png"))
-	assert_false(sprite.flip_h)
-	kid.face(Vector2(-1.0, 0.0))
-	kid.animate(0.05, 0.0, state)
-	assert_true(sprite.texture.resource_path.ends_with("idle_right.png"), "the left side is the right side mirrored")
-	assert_true(sprite.flip_h)
-	kid.face(Vector2(0.0, -1.0))
-	kid.animate(0.05, 0.0, state)
-	assert_true(sprite.texture.resource_path.ends_with("idle_away.png"))
 
 
 func test_every_weapon_has_its_own_cast_sound() -> void:
@@ -231,80 +195,101 @@ func test_a_moving_kid_keeps_running_between_the_30_hz_sim_steps() -> void:
 	assert_eq(kid.current_animation(), "idle", "standing still again once the movement stops")
 
 
-func test_the_mirror_does_not_flicker_while_the_facing_jitters() -> void:
-	var kid: KidModel = _kid(1)
-	var camera: Camera3D = autofree(Camera3D.new()) as Camera3D
-	add_child(camera)
-	camera.position = Vector3(0.0, 10.0, 10.0)
-	camera.look_at(Vector3.ZERO)
-	camera.current = true
-	var sprite: Sprite3D = kid.find_child("Sprite", true, false) as Sprite3D
+func test_every_kid_is_the_same_3d_model_at_one_height() -> void:
+	for i: int in RULES.characters.size():
+		var kid: KidModel = _kid(i)
+		var model: Node3D = kid.find_child("Model", true, false) as Node3D
+		assert_not_null(model, RULES.characters[i].display_name)
+		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		assert_almost_eq(mesh.get_aabb().size.y * model.scale.y, KidModel.KID_HEIGHT, 0.01, "one kid height")
+		assert_null(kid.find_child("Sprite", true, false), "no sprite: a real model")
+
+
+func test_the_model_has_every_animation_and_loops_only_the_continuous_ones() -> void:
+	var player: AnimationPlayer = _kid(0).find_child("AnimationPlayer", true, false) as AnimationPlayer
+	for clip: String in ["idle", "run", "cast", "stun", "ko"]:
+		assert_true(player.has_animation(clip), clip)
+	for clip: String in ["idle", "run", "stun"]:
+		assert_eq(player.get_animation(clip).loop_mode, Animation.LOOP_LINEAR, "%s loops" % clip)
+	for clip: String in ["cast", "ko"]:
+		assert_eq(player.get_animation(clip).loop_mode, Animation.LOOP_NONE, "%s plays once" % clip)
+
+
+func test_the_model_gets_the_matte_look_and_a_tint() -> void:
+	var kid: KidModel = _kid(0)
+	var mesh: MeshInstance3D = kid.find_children("*", "MeshInstance3D", true, false).filter(func(n: Node) -> bool: return n.name == "Mesh0")[0] as MeshInstance3D
+	var material: StandardMaterial3D = mesh.get_surface_override_material(0) as StandardMaterial3D
+	assert_not_null(material)
+	assert_eq(material.roughness, 1.0)
+	assert_eq(material.metallic, 0.0)
+	assert_false(material.normal_enabled)
+	assert_eq(material.diffuse_mode, BaseMaterial3D.DIFFUSE_LAMBERT_WRAP)
+	assert_true(material.rim_enabled)
 	var state: PlayerState = PlayerState.new()
-	# standing straight toward the camera with a hair of noise either side
-	var flips: int = 0
-	var last: bool = sprite.flip_h
+	kid.animate(0.05, 0.0, state)
+	assert_almost_eq(material.albedo_color.r, ModelLook.ALBEDO_GAIN, 0.001, "untinted")
+	state.tagged = true
+	kid.animate(0.05, 0.0, state)
+	assert_lt(material.albedo_color.r, ModelLook.ALBEDO_GAIN * 0.6, "greyed out in the box")
+
+
+func test_the_run_cycle_follows_the_ground_speed() -> void:
+	var kid: KidModel = _kid(0)
+	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	var state: PlayerState = PlayerState.new()
+	for i: int in 10:
+		kid.animate(0.05, 2.5, state)
+	var slow: float = player.speed_scale
+	for i: int in 10:
+		kid.animate(0.05, 5.0, state)
+	assert_gt(player.speed_scale, slow * 1.5, "faster ground speed, faster legs")
+
+
+func test_a_cast_plays_at_the_cast_time_and_restarts() -> void:
+	var kid: KidModel = _kid(0)
+	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	var state: PlayerState = PlayerState.new()
+	kid.play_cast(0.5)
+	kid.animate(0.02, 0.0, state)
+	assert_eq(player.current_animation, "cast")
+	assert_almost_eq(player.speed_scale, player.get_animation("cast").length / 0.5, 0.01)
+	kid.animate(0.2, 0.0, state)
+	player.advance(0.2)
+	var before: float = player.current_animation_position
+	assert_gt(before, 0.0)
+	kid.play_cast(0.5)
+	kid.animate(0.02, 0.0, state)
+	assert_lt(player.current_animation_position, before, "a second cast starts over")
+
+
+func test_a_knockout_tips_the_kid_over_backwards_and_back_up() -> void:
+	var kid: KidModel = _kid(1)
+	var body: Node3D = kid.find_child("Body", true, false) as Node3D
+	var state: PlayerState = PlayerState.new()
+	state.effects.apply(StatusEffects.Type.KNOCKOUT, 3.0)
 	for i: int in 30:
-		kid.face(Vector2(0.03 if i % 2 == 0 else -0.03, 1.0))
 		kid.animate(0.02, 0.0, state)
-		if sprite.flip_h != last:
-			flips += 1
-			last = sprite.flip_h
-	assert_eq(flips, 0, "no left-right flipping")
-	# and near a 45 degree boundary the direction does not chatter
-	var changes: int = 0
-	var previous: String = ""
-	for i: int in 30:
-		kid.face(Vector2.from_angle(deg_to_rad(112.0 + (3.0 if i % 2 == 0 else -3.0))))
-		kid.animate(0.02, 5.0, state)
-		var name: String = sprite.texture.resource_path
-		if previous != "" and name != previous:
-			changes += 1
-		previous = name
-	assert_lte(changes, 1, "settles on one direction")
-
-
-func test_the_run_frame_mirrors_every_step_to_swap_the_forward_foot() -> void:
-	var kid: KidModel = _kid(1)
-	var sprite: Sprite3D = kid.find_child("Sprite", true, false) as Sprite3D
-	var state: PlayerState = PlayerState.new()
-	var flips: int = 0
-	var last: bool = sprite.flip_h
-	for i: int in 60:
-		kid.animate(0.02, 5.0, state)
-		if sprite.flip_h != last:
-			flips += 1
-			last = sprite.flip_h
-	assert_gte(flips, 2, "mirrors while running")
+	assert_almost_eq(body.rotation.x, PI * 0.5, 0.05, "lying on the back")
+	assert_gt(body.position.y, 0.1, "lies on the street, not in it")
+	state.effects.clear()
 	for i: int in 30:
 		kid.animate(0.02, 0.0, state)
-	assert_false(sprite.flip_h, "upright again when standing")
+	assert_almost_eq(body.rotation.x, 0.0, 0.05, "back on their feet")
 
 
-func test_the_run_frame_is_not_mirrored_on_side_and_diagonal_views() -> void:
-	var kid: KidModel = _kid(1)
-	var camera: Camera3D = autofree(Camera3D.new()) as Camera3D
-	add_child(camera)
-	camera.position = Vector3(0.0, 10.0, 10.0)
-	camera.look_at(Vector3.ZERO)
-	camera.current = true
-	var sprite: Sprite3D = kid.find_child("Sprite", true, false) as Sprite3D
+func test_stars_circle_the_head_only_while_stunned() -> void:
+	var kid: KidModel = _kid(0)
+	var stars: Node3D = kid.find_child("Stars", true, false) as Node3D
 	var state: PlayerState = PlayerState.new()
-	for degrees: float in [45.0, 90.0, 135.0]:
-		kid.face(Vector2(sin(deg_to_rad(degrees)), cos(deg_to_rad(degrees))))
-		var flips: int = 0
-		kid.animate(0.02, 5.0, state)
-		var last: bool = sprite.flip_h
-		for i: int in 60:
-			kid.animate(0.02, 5.0, state)
-			if sprite.flip_h != last:
-				flips += 1
-				last = sprite.flip_h
-		assert_eq(flips, 0, "no stride mirroring at %d degrees" % int(degrees))
+	kid.animate(0.05, 0.0, state)
+	assert_false(stars.visible)
+	state.effects.apply(StatusEffects.Type.STUN, 2.0)
+	kid.animate(0.05, 0.0, state)
+	assert_true(stars.visible)
 
 
-func test_the_card_portrait_is_cropped_to_the_kid() -> void:
-	var portrait: AtlasTexture = KidModel.portrait(&"junjun") as AtlasTexture
-	assert_not_null(portrait, "a cropped piece of the idle sprite")
-	var cell: Vector2 = portrait.atlas.get_size()
-	assert_lt(portrait.region.size.x, cell.x * 0.5, "the wide empty cell is cut away")
-	assert_gt(portrait.region.size.y, cell.y * 0.6, "the whole kid stays in")
+func test_the_card_portrait_is_a_picture_of_the_kid() -> void:
+	var portrait: Texture2D = KidModel.portrait(&"junjun")
+	assert_not_null(portrait)
+	assert_gt(portrait.get_size().y, portrait.get_size().x, "a tall portrait, not a wide empty cell")
+	assert_eq(KidModel.portrait(&"nobody"), portrait, "kids with no portrait use Junjun's")

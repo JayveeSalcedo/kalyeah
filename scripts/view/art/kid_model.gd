@@ -1,38 +1,36 @@
 class_name KidModel
 extends Node3D
-## One of the six kids (docs/PROJECT.md 3.2) drawn as a pre-rendered sprite, like
-## Clash of Clans does: every pose exists for 5 directions (toward the camera, 45
-## degrees, side, away at 45 degrees, away) and the other three are mirrored. The
-## sprites are cut from the sheets in assets/sprites/<kid>/ (tools/sprites/).
-## Visual only: the hitbox and every number come from the sim. Poses are one frame
-## each, so the motion is added in code (run bounce, idle breathing, hit flash).
-## Origin at the feet. Kids with no sprite set yet use FALLBACK_SET.
+## One of the six kids (docs/PROJECT.md 3.2) as a real 3D model: a rigged GLB with idle, run,
+## cast, stun and knock-out animations (tools/blender/build_junjun_model.py), lit with the
+## shared matte look (ModelLook). Visual only: the hitbox and every number come from the sim.
+## The run cycle is paced by the ground speed so the feet do not skate, a cast plays at the
+## weapon's cast time, and a knock-out falls over backwards. Origin at the feet, the kid
+## faces -Z (like a camera). Kids with no model of their own yet use FALLBACK_SET.
 
-const SPRITE_PATH: String = "res://assets/sprites/%s/%s_%s.png"
+const MODEL_PATH: String = "res://assets/models/characters/%s.glb"
+const PORTRAIT_PATH: String = "res://assets/portraits/%s.png"
 const FALLBACK_SET: StringName = &"junjun"
-const DIRECTIONS: Array[String] = ["toward", "toward_right", "right", "away_right", "away"]
-## World height of one sprite cell in metres (the kid fills about 85% of it).
-## The kids are drawn a little bigger than life so they read through the wide lens.
-const CELL_HEIGHT: float = 2.65
+## How tall the kid stands in the world, in metres (a little taller than life so the kids
+## read through the wide lens).
+const KID_HEIGHT: float = 1.85
 const GHOST_COLOR: Color = Color(0.55, 0.55, 0.62)
 const HIT_COLOR: Color = Color(1.0, 0.55, 0.55)
+## Ground covered by one full run cycle (two steps).
 const STRIDE: float = 1.6
 const CAST_TIME: float = 0.38
-## A tumble starts with the slightly falling pose, then the face-down one.
-const HIT_TIME: float = 0.28
-## How long the knockout fall (top row) plays before the kid lies down.
+## How long the knockout fall plays before the kid lies down (seconds).
 const KO_FALL_TIME: float = 0.35
+const HIT_TIME: float = 0.28
 const SHADOW_SIZE: float = 1.1
-## A direction only changes once the facing is this far (in direction steps of 45
-## degrees) past the halfway point, and the left-right mirror only changes outside
-## this many radians of straight toward / away: no flicker while moving.
-const DIRECTION_HYSTERESIS: float = 0.25
-const MIRROR_DEADZONE: float = 0.12
+const BLEND: float = 0.14
 ## The sim steps at 30 Hz but the screen draws faster: with no new position for this
 ## long the kid is standing still.
 const STILL_AFTER: float = 0.2
+const LOOPING: Array[String] = ["idle", "run", "stun"]
+const STAR_COUNT: int = 5
 
-static var _frames: Dictionary[String, Dictionary] = {}
+static var _scenes: Dictionary[String, PackedScene] = {}
+static var _portraits: Dictionary[String, Texture2D] = {}
 static var _shadow_texture: GradientTexture2D
 
 var character: CharacterDef
@@ -41,8 +39,12 @@ var team_color: Color = Color.WHITE
 signal footstep
 
 var _set: StringName = FALLBACK_SET
-var _sprite: Sprite3D
+var _body: Node3D  # leans and falls over (pivot at the feet)
+var _model: Node3D
+var _player: AnimationPlayer
+var _materials: Array[StandardMaterial3D] = []
 var _shadow: MeshInstance3D
+var _stars: Node3D
 var _can: MeshInstance3D
 var _facing: Vector2 = Vector2(0.0, 1.0)
 var _phase: float = 0.0
@@ -50,14 +52,15 @@ var _clock: float = 0.0
 var _ghost: bool = false
 var _cast_left: float = 0.0
 var _cast_total: float = CAST_TIME
+var _cast_serial: int = 0
+var _cast_played: int = 0
 var _hit_left: float = 0.0
 var _ko_time: float = 0.0
+var _lie: float = 0.0  # 0 standing, 1 lying on the back
 var _move_blend: float = 0.0
 var _last_step: int = 0
 var _anim: String = "idle"
-var _dir_index: int = 0
-var _flipped: bool = false
-var _stride_flip: bool = false  # the run frame has one foot forward: mirroring it each step swaps the foot
+var _playing: String = ""
 var _tracked_position: Vector2 = Vector2.INF
 var _since_move: float = 0.0
 var _ground_speed: float = 0.0
@@ -69,9 +72,9 @@ var pose: String = "idle"
 func setup(def: CharacterDef, team: Color, _ring_radius: float) -> void:
 	character = def
 	team_color = team
-	_set = def.id if ResourceLoader.exists(SPRITE_PATH % [def.id, "idle", "toward"]) else FALLBACK_SET
+	_set = def.id if ResourceLoader.exists(MODEL_PATH % def.id) else FALLBACK_SET
 	_build()
-	_show_frame("idle", 0.0)
+	_play("idle", 1.0)
 
 
 ## Turns the kid to look along `facing` (world x/z).
@@ -85,6 +88,7 @@ func face(facing: Vector2) -> void:
 func play_cast(duration: float = CAST_TIME) -> void:
 	_cast_total = maxf(duration, CAST_TIME)
 	_cast_left = _cast_total
+	_cast_serial += 1
 
 
 ## Flinch (took damage).
@@ -104,7 +108,7 @@ func set_ghost(on: bool) -> void:
 	_ghost = on
 
 
-## Which sprite is showing ("idle", "run", "cast", "stun", "down", "ko_stagger", "ko_lying").
+## Which animation is showing ("idle", "run", "cast", "stun", "ko_stagger", "ko_lying").
 func current_animation() -> String:
 	return _anim
 
@@ -131,12 +135,13 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	_cast_left = maxf(0.0, _cast_left - delta)
 	_hit_left = maxf(0.0, _hit_left - delta)
 	var polymorphed: bool = state.effects.has(StatusEffects.Type.POLYMORPH)
-	_sprite.visible = not polymorphed
+	_model.visible = not polymorphed
 	_shadow.visible = true
 	_can.visible = polymorphed
 	set_ghost(state.tagged)
 	if polymorphed:
 		pose = "can"
+		_stars.visible = false
 		_can.rotation.z = sin(_clock * 10.0) * 0.1 * clampf(speed, 0.0, 1.0)
 		_can.position.y = absf(sin(_clock * 10.0)) * 0.08 * clampf(speed, 0.0, 1.0)
 		return
@@ -149,10 +154,8 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 			footstep.emit()
 	var knocked_out: bool = state.effects.has(StatusEffects.Type.KNOCKOUT)
 	_ko_time = _ko_time + delta if knocked_out else 0.0
-	var bob: float = 0.0
-	var squash: Vector2 = Vector2.ONE
 	var anim: String = "idle"
-	_stride_flip = false
+	var play_speed: float = 1.0
 	if state.tagged:
 		# waiting in the box: just standing there
 		pose = "idle"
@@ -162,29 +165,27 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	elif state.effects.has(StatusEffects.Type.AIRBORNE) or state.effects.has(StatusEffects.Type.BOUNCE):
 		pose = "airborne"
 		anim = "stun"
-		squash = Vector2(1.0, 1.0 + sin(_clock * 12.0) * 0.06)
+		play_speed = 1.6
 	elif state.effects.has(StatusEffects.Type.STUN):
 		pose = "stunned"
 		anim = "stun"
-		squash = Vector2(1.0 + sin(_clock * 6.0) * 0.03, 1.0 - sin(_clock * 6.0) * 0.03)
 	elif _cast_left > 0.0:
 		pose = "cast"
 		anim = "cast"
-		var u: float = 1.0 - _cast_left / _cast_total
-		squash = Vector2(1.0 + sin(u * PI) * 0.1, 1.0 - sin(u * PI) * 0.06)
+		play_speed = _clip_length("cast") / _cast_total
 	elif _move_blend > 0.5:
 		pose = "run"
 		anim = "run"
-		_stride_flip = int(floor(_phase * 2.0)) % 2 == 1
-		var t: float = _phase * TAU
-		bob = absf(sin(t)) * 0.09
-		squash = Vector2(1.0 - absf(sin(t)) * 0.03, 1.0 + absf(sin(t)) * 0.04)
+		# one cycle per STRIDE metres: the feet keep up with the ground
+		play_speed = clampf(speed / STRIDE * _clip_length("run"), 0.5, 2.2)
 	else:
 		pose = "idle"
-		squash = Vector2(1.0, 1.0 + sin(_clock * 2.2) * 0.015)
-	_show_frame(anim, bob)
-	_sprite.scale = Vector3(squash.x, squash.y, 1.0)
-	_sprite.modulate = _tint()
+	_anim = anim
+	_drive(anim, play_speed)
+	_pose_body(delta, knocked_out)
+	_stars.visible = anim == "stun"
+	_stars.rotation.y = _clock * 2.6
+	_set_tint(_tint())
 
 
 func _tint() -> Color:
@@ -195,66 +196,60 @@ func _tint() -> Color:
 	return Color.WHITE
 
 
-## Picks the sprite for `anim` and the view direction (mirrored for the left side).
-func _show_frame(anim: String, bob: float) -> void:
-	_anim = anim
-	var angle: float = _view_angle()
-	var steps: float = absf(angle) / (PI / 4.0)
-	if absf(steps - float(_dir_index)) > 0.5 + DIRECTION_HYSTERESIS:
-		_dir_index = clampi(int(round(steps)), 0, DIRECTIONS.size() - 1)
-	var index: int = _dir_index
-	if index == 0 or index == DIRECTIONS.size() - 1:
-		_flipped = false
-	elif absf(angle) > MIRROR_DEADZONE and absf(angle) < PI - MIRROR_DEADZONE:
-		_flipped = angle < 0.0
-	var frame: Dictionary = _frame(_set, anim, DIRECTIONS[index])
-	var texture: Texture2D = frame["texture"] as Texture2D
-	var size: Vector2 = texture.get_size()
-	_sprite.texture = texture
-	_sprite.pixel_size = CELL_HEIGHT / size.y
-	# mirroring a side or diagonal view swings the body (or turns it around), so only the full front and back views swap feet
-	_sprite.flip_h = _flipped != (_stride_flip and (index == 0 or index == DIRECTIONS.size() - 1))
-	# the feet (bottom of the drawn pixels) sit on the origin
-	var feet: float = frame["feet"] as float
-	_sprite.offset = Vector2(0.0, feet - size.y * 0.5)
-	_sprite.position.y = bob
+func _set_tint(tint: Color) -> void:
+	var color: Color = ModelLook.tinted(tint)
+	for material: StandardMaterial3D in _materials:
+		material.albedo_color = color
 
 
-## Angle of the kid's facing as seen from the camera: 0 = toward it, +90 = to the
-## right of the screen, 180 = away. Without a camera (tests) the kid faces it.
-func _view_angle() -> float:
-	var camera: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
-	if camera == null:
-		return 0.0
-	var right: Vector3 = camera.global_basis.x
-	var forward: Vector3 = -camera.global_basis.z
-	forward.y = 0.0
-	forward = forward.normalized()
-	var look: Vector3 = Vector3(_facing.x, 0.0, _facing.y)
-	return atan2(look.dot(right), -look.dot(forward))
+## Starts the clip for `anim` (blended from whatever was playing) and sets its speed.
+func _drive(anim: String, play_speed: float) -> void:
+	var clip: String = "ko" if anim.begins_with("ko") else anim
+	if clip != _playing or (clip == "cast" and _cast_played != _cast_serial):
+		_cast_played = _cast_serial
+		_play(clip, play_speed)
+	_player.speed_scale = play_speed
 
 
-## A kid's standing sprite facing the camera, cropped to the kid, for HUD cards (falls back to FALLBACK_SET).
+func _play(clip: String, play_speed: float) -> void:
+	_playing = clip
+	_player.play(clip, BLEND, play_speed)
+	if clip == "cast" or clip == "ko":
+		_player.seek(0.0, true)
+
+
+func _clip_length(clip: String) -> float:
+	return _player.get_animation(clip).length
+
+
+## The whole body tips over backwards in a knockout (and gets back up), and flinches back
+## a little when hit.
+func _pose_body(delta: float, knocked_out: bool) -> void:
+	if knocked_out:
+		_lie = move_toward(_lie, 1.0, delta / KO_FALL_TIME)
+	else:
+		_lie = move_toward(_lie, 0.0, delta * 5.0)
+	var fall: float = _lie * _lie * (3.0 - 2.0 * _lie)
+	var flinch: float = sin((1.0 - _hit_left / HIT_TIME) * PI) if _hit_left > 0.0 else 0.0
+	_body.rotation.x = fall * PI * 0.5 + flinch * 0.16
+	_body.position = Vector3(0.0, fall * 0.16, flinch * 0.06)
+
+
+## A kid's standing portrait for HUD cards (falls back to FALLBACK_SET).
 static func portrait(character_id: StringName) -> Texture2D:
-	var set_id: StringName = character_id
-	if not ResourceLoader.exists(SPRITE_PATH % [set_id, "idle", "toward"]):
-		set_id = FALLBACK_SET
-	var frame: Dictionary = _frame(set_id, "idle", "toward")
-	var atlas: AtlasTexture = AtlasTexture.new()
-	atlas.atlas = frame["texture"] as Texture2D
-	# the cell is wide and mostly empty: show only the kid, so a card is filled by it
-	var texture_size: Vector2 = (frame["texture"] as Texture2D).get_size()
-	atlas.region = Rect2(frame["used"] as Rect2i).grow(10.0).intersection(Rect2(Vector2.ZERO, texture_size))
-	return atlas
+	var set_id: String = String(character_id)
+	if not ResourceLoader.exists(PORTRAIT_PATH % set_id):
+		set_id = String(FALLBACK_SET)
+	if not _portraits.has(set_id):
+		_portraits[set_id] = load(PORTRAIT_PATH % set_id) as Texture2D
+	return _portraits[set_id]
 
 
-static func _frame(set_id: StringName, anim: String, direction: String) -> Dictionary:
-	var path: String = SPRITE_PATH % [set_id, anim, direction]
-	if not _frames.has(path):
-		var texture: Texture2D = load(path) as Texture2D
-		var used: Rect2i = texture.get_image().get_used_rect()
-		_frames[path] = {"texture": texture, "feet": float(used.end.y), "used": used}
-	return _frames[path]
+static func _scene(set_id: StringName) -> PackedScene:
+	var path: String = MODEL_PATH % set_id
+	if not _scenes.has(path):
+		_scenes[path] = load(path) as PackedScene
+	return _scenes[path]
 
 
 func _build() -> void:
@@ -272,19 +267,52 @@ func _build() -> void:
 	_shadow.position.y = 0.04
 	_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_shadow)
-	_sprite = Sprite3D.new()
-	_sprite.name = "Sprite"
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_sprite.shaded = false
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
-	add_child(_sprite)
+	_body = Node3D.new()
+	_body.name = "Body"
+	add_child(_body)
+	_model = _scene(_set).instantiate() as Node3D
+	_model.name = "Model"
+	_model.rotation.y = PI  # glTF models face +Z, the kid faces -Z
+	_body.add_child(_model)
+	var mesh: MeshInstance3D = _model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	_model.scale = Vector3.ONE * (KID_HEIGHT / mesh.get_aabb().size.y)
+	_materials = ModelLook.apply(_model)
+	_player = _model.find_child("AnimationPlayer", true, false) as AnimationPlayer
+	for clip: String in _player.get_animation_list():
+		_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR if clip in LOOPING else Animation.LOOP_NONE
+	_stars = _build_stars()
+	add_child(_stars)
 	_can = MeshInstance3D.new()
 	_can.mesh = Props.can_body()
 	_can.scale = Vector3.ONE * 1.3
 	_can.visible = false
 	add_child(_can)
 	LowPoly.add_outline(_can, 0.02)
+
+
+## A ring of little yellow stars over the head while stunned.
+func _build_stars() -> Node3D:
+	var ring: Node3D = Node3D.new()
+	ring.name = "Stars"
+	ring.position.y = KID_HEIGHT + 0.12
+	ring.visible = false
+	var mesh: SphereMesh = SphereMesh.new()
+	mesh.radius = 0.08
+	mesh.height = 0.08
+	mesh.radial_segments = 6
+	mesh.rings = 3
+	var star: StandardMaterial3D = StandardMaterial3D.new()
+	star.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	star.albedo_color = Color(1.0, 0.82, 0.15)
+	mesh.material = star
+	for i: int in STAR_COUNT:
+		var piece: MeshInstance3D = MeshInstance3D.new()
+		piece.mesh = mesh
+		var angle: float = TAU * float(i) / float(STAR_COUNT)
+		piece.position = Vector3(cos(angle), 0.0, sin(angle)) * 0.3
+		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ring.add_child(piece)
+	return ring
 
 
 static func _blob_texture() -> GradientTexture2D:
