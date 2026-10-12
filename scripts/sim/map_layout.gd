@@ -27,7 +27,7 @@ const SIDE_ENEMY: int = -1
 ## Cover on the own half of the street (x, z rects); the enemy half gets the same
 ## pieces turned around the center. They block walking and throws for both teams.
 @export var obstacles: Array[Rect2] = []
-## Cosmetic: what each obstacle is drawn as (bench, crates, sawhorse, sign...).
+## Cosmetic: what each obstacle is drawn as (bench, cardboard_wall, school_zone, tent).
 @export var obstacle_props: Array[StringName] = []
 @export var boundary_thickness: float = 0.0
 @export var overview_height: float = 0.0
@@ -87,7 +87,7 @@ func obstacle_rects() -> Array[Rect2]:
 ## The prop an obstacle is drawn as (same order as obstacle_rects()).
 func obstacle_prop(index: int) -> StringName:
 	if obstacle_props.is_empty():
-		return &"crates"
+		return &"cardboard_wall"
 	return obstacle_props[index % obstacles.size() % obstacle_props.size()]
 
 
