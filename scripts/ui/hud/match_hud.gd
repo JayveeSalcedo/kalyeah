@@ -36,8 +36,8 @@ const CAPTURE_COLOR: Color = Color(1.0, 0.95, 0.85)
 ## The control row near the bottom (thumb reach): the stick in the middle, a skill on
 ## each side of it.
 const ROW_HEIGHT: float = 150.0
-## The square the stick listens in (its ring is VirtualJoystick.MAX_RADIUS).
-const STICK_ZONE: float = 260.0
+## The square the stick listens in: its outer ring plus a margin for the thumb.
+const STICK_ZONE: float = (VirtualJoystick.OUTER_RADIUS + 20.0) * 2.0
 const ROW_GAP: float = 24.0
 ## The skill buttons are drawn the same size as the stick's knob.
 const WEAPON_SIZE: float = VirtualJoystick.THUMB_RADIUS * 2.0

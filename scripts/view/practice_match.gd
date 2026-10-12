@@ -262,6 +262,7 @@ func _connect_sim() -> void:
 	sim.point_scored.connect(_on_point_scored)
 	sim.match_won.connect(_on_match_won)
 	sim.point_reset.connect(func() -> void:
+		hud.joystick.release()  # a new round starts standing at the post, not auto-running
 		watch_id = -1
 		_snap_camera = true)
 	sim.intro_finished.connect(func() -> void:

@@ -149,3 +149,63 @@ func test_the_stick_follows_the_turned_camera() -> void:
 			var back: Vector2 = LocalInput.to_screen(LocalInput.to_world(stick, flip, 45.0), flip, 45.0)
 			assert_almost_eq(back.x, stick.x, 0.0001)
 			assert_almost_eq(back.y, stick.y, 0.0001)
+
+
+func _stick() -> VirtualJoystick:
+	var stick: VirtualJoystick = autofree(VirtualJoystick.new()) as VirtualJoystick
+	stick.size = Vector2(290.0, 290.0)
+	stick.rest_fraction = Vector2(0.5, 0.5)
+	add_child(stick)
+	return stick
+
+
+func test_letting_go_past_the_inner_ring_keeps_running() -> void:
+	var stick: VirtualJoystick = _stick()
+	var centre: Vector2 = stick.rest_position()
+	stick._begin(VirtualJoystick.MOUSE_POINTER, centre + Vector2(0.0, -50.0))
+	assert_false(stick.outer_lit(), "inside the inner ring: a normal stick")
+	stick._update(centre + Vector2(VirtualJoystick.MAX_RADIUS + 10.0, 0.0))
+	assert_true(stick.outer_lit(), "most of the knob past the inner ring lights the outer ring")
+	stick._end()
+	assert_true(stick.auto_run)
+	assert_eq(stick.value, Vector2(1.0, 0.0), "keeps running that way at full speed")
+	assert_true(stick.outer_lit(), "the outer ring stays lit while auto-running")
+
+
+func test_letting_go_inside_the_inner_ring_stops() -> void:
+	var stick: VirtualJoystick = _stick()
+	var centre: Vector2 = stick.rest_position()
+	stick._begin(VirtualJoystick.MOUSE_POINTER, centre + Vector2(VirtualJoystick.MAX_RADIUS + 20.0, 0.0))
+	stick._update(centre + Vector2(VirtualJoystick.MAX_RADIUS - 10.0, 0.0))
+	assert_false(stick.outer_lit(), "back inside: not lit")
+	stick._end()
+	assert_false(stick.auto_run)
+	assert_eq(stick.value, Vector2.ZERO, "idle")
+
+
+func test_a_touch_grabs_the_knob_at_once_out_of_auto_run() -> void:
+	var stick: VirtualJoystick = _stick()
+	var centre: Vector2 = stick.rest_position()
+	stick._begin(VirtualJoystick.MOUSE_POINTER, centre + Vector2(0.0, -120.0))
+	stick._end()
+	assert_true(stick.auto_run)
+	# a new touch to the left: the very first event steers left, no unlock delay
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = stick.get_global_rect().position + centre + Vector2(-60.0, 0.0)
+	stick._input(press)
+	assert_false(stick.auto_run, "grabbed")
+	assert_almost_eq(stick.value.x, -60.0 / VirtualJoystick.MAX_RADIUS, 0.01, "follows the finger on the same touch")
+	assert_almost_eq(stick.value.y, 0.0, 0.01)
+
+
+func test_release_stops_auto_run() -> void:
+	var stick: VirtualJoystick = _stick()
+	var centre: Vector2 = stick.rest_position()
+	stick._begin(VirtualJoystick.MOUSE_POINTER, centre + Vector2(0.0, 120.0))
+	stick._end()
+	assert_true(stick.auto_run)
+	stick.release()
+	assert_false(stick.auto_run)
+	assert_eq(stick.value, Vector2.ZERO)

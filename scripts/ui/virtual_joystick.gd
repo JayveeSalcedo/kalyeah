@@ -1,12 +1,19 @@
 class_name VirtualJoystick
 extends Control
-## On-screen joystick: a fixed outlined ring (no fill) with a knob that follows the
-## finger. Put it over the area it should listen in. Handles real touches (multi-touch safe)
-## and the real mouse; ignores mouse events emulated from touch.
+## On-screen joystick: two fixed outlined rings (no fill) and a knob that follows the
+## finger. Inside the inner ring it is a normal stick. Drag the knob so most of it is past
+## the inner ring and the outer ring lights up: let go there and the kid keeps running that
+## way on his own (auto-run). Let go inside and he stops. A touch in the stick's area
+## always grabs the knob at once, auto-run or not. Put it over the area it should listen
+## in. Handles real touches (multi-touch safe) and the real mouse; ignores mouse events
+## emulated from touch.
 
 signal changed(value: Vector2)
 
 const MAX_RADIUS: float = 90.0
+## The outer ring: the knob can be dragged out to it; past MAX_RADIUS (the knob's centre
+## over the inner ring, so most of the knob outside it) a release locks the run.
+const OUTER_RADIUS: float = 125.0
 const DEADZONE: float = 0.1
 const THUMB_RADIUS: float = 38.0
 const NO_POINTER: int = -1
@@ -14,12 +21,19 @@ const MOUSE_POINTER: int = -2
 const RING_COLOR: Color = Color(1.0, 1.0, 1.0, 0.6)
 const RING_WIDTH: float = 4.0
 const THUMB_COLOR: Color = Color(0.86, 0.87, 0.9, 0.4)
+const OUTER_COLOR: Color = Color(1.0, 1.0, 1.0, 0.3)
+const LIT_COLOR: Color = Color(1.0, 0.82, 0.25, 0.95)
+const LIT_WIDTH: float = 6.0
 
 var value: Vector2 = Vector2.ZERO
 ## Resting spot of the stick inside the zone (0..1 of its size).
 var rest_fraction: Vector2 = Vector2(0.42, 0.72)
 
+## Running on its own after a release past the inner ring (value stays at full speed).
+var auto_run: bool = false
+
 var _pointer: int = NO_POINTER
+var _armed: bool = false  # the knob is past the inner ring: a release locks the run
 var _origin: Vector2 = Vector2.ZERO
 var _thumb: Vector2 = Vector2.ZERO
 
@@ -59,10 +73,22 @@ func _input(event: InputEvent) -> void:
 			_update(motion.position)
 
 
-## Lets go of the stick (the controls were hidden mid-drag).
+## Stops the stick dead: lets go of a drag and ends auto-run (the controls were hidden,
+## or a new round began).
 func release() -> void:
-	if _pointer != NO_POINTER:
-		_end()
+	var moving: bool = _pointer != NO_POINTER or auto_run or value != Vector2.ZERO
+	_pointer = NO_POINTER
+	_armed = false
+	auto_run = false
+	value = Vector2.ZERO
+	if moving:
+		changed.emit(value)
+	queue_redraw()
+
+
+## The outer ring is lit: letting go now (or already let go) keeps running.
+func outer_lit() -> bool:
+	return auto_run or (_pointer != NO_POINTER and _armed)
 
 
 ## Where the stick rests when nobody touches it (MOBA style: always visible).
@@ -73,8 +99,12 @@ func rest_position() -> Vector2:
 func _draw() -> void:
 	# an outline that never moves (no tint over the street), and the knob that follows the finger
 	var origin: Vector2 = rest_position()
-	var thumb: Vector2 = origin if _pointer == NO_POINTER else _thumb
+	var thumb: Vector2 = _thumb if _pointer != NO_POINTER or auto_run else origin
 	draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, RING_COLOR, RING_WIDTH, true)
+	if outer_lit():
+		draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, LIT_COLOR, LIT_WIDTH, true)
+	else:
+		draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, OUTER_COLOR, RING_WIDTH * 0.75, true)
 	draw_circle(thumb, THUMB_RADIUS, THUMB_COLOR)
 
 
@@ -87,6 +117,8 @@ func _in_zone(viewport_position: Vector2) -> bool:
 
 
 func _begin(pointer: int, viewport_position: Vector2) -> void:
+	# grabs at once, also out of auto-run: the finger takes over on this very touch
+	auto_run = false
 	_pointer = pointer
 	_origin = rest_position()
 	_update(viewport_position)
@@ -95,13 +127,22 @@ func _begin(pointer: int, viewport_position: Vector2) -> void:
 func _update(viewport_position: Vector2) -> void:
 	var offset: Vector2 = _to_local(viewport_position) - _origin
 	value = stick_from_offset(offset, MAX_RADIUS, DEADZONE)
-	_thumb = _origin + offset.limit_length(MAX_RADIUS)
+	_thumb = _origin + offset.limit_length(OUTER_RADIUS)
+	_armed = offset.length() > MAX_RADIUS
 	changed.emit(value)
 	queue_redraw()
 
 
 func _end() -> void:
 	_pointer = NO_POINTER
-	value = Vector2.ZERO
+	if _armed and value != Vector2.ZERO:
+		# let go past the inner ring: keep running that way at full speed
+		auto_run = true
+		value = value.normalized()
+		_thumb = _origin + value * OUTER_RADIUS
+	else:
+		auto_run = false
+		value = Vector2.ZERO
+	_armed = false
 	changed.emit(value)
 	queue_redraw()
