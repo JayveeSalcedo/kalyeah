@@ -21,9 +21,9 @@ const MOUSE_POINTER: int = -2
 const RING_COLOR: Color = Color(1.0, 1.0, 1.0, 0.6)
 const RING_WIDTH: float = 4.0
 const THUMB_COLOR: Color = Color(0.86, 0.87, 0.9, 0.4)
-const OUTER_COLOR: Color = Color(1.0, 1.0, 1.0, 0.3)
-const LIT_COLOR: Color = Color(1.0, 0.82, 0.25, 0.95)
-const LIT_WIDTH: float = 6.0
+## The ring that is not "active" is the same white, dimmer: the outer one until it lights
+## up (auto-run armed), then the inner one.
+const DIM_RING_COLOR: Color = Color(1.0, 1.0, 1.0, 0.25)
 
 var value: Vector2 = Vector2.ZERO
 ## Resting spot of the stick inside the zone (0..1 of its size).
@@ -91,6 +91,13 @@ func outer_lit() -> bool:
 	return auto_run or (_pointer != NO_POINTER and _armed)
 
 
+## [inner ring, outer ring] colours: both white and as thick; the lit one is the brighter.
+func ring_colors() -> Array[Color]:
+	if outer_lit():
+		return [DIM_RING_COLOR, RING_COLOR]
+	return [RING_COLOR, DIM_RING_COLOR]
+
+
 ## Where the stick rests when nobody touches it (MOBA style: always visible).
 func rest_position() -> Vector2:
 	return size * rest_fraction
@@ -100,11 +107,9 @@ func _draw() -> void:
 	# an outline that never moves (no tint over the street), and the knob that follows the finger
 	var origin: Vector2 = rest_position()
 	var thumb: Vector2 = _thumb if _pointer != NO_POINTER or auto_run else origin
-	draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, RING_COLOR, RING_WIDTH, true)
-	if outer_lit():
-		draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, LIT_COLOR, LIT_WIDTH, true)
-	else:
-		draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, OUTER_COLOR, RING_WIDTH * 0.75, true)
+	var colors: Array[Color] = ring_colors()
+	draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, colors[0], RING_WIDTH, true)
+	draw_arc(origin, OUTER_RADIUS, 0.0, TAU, 72, colors[1], RING_WIDTH, true)
 	draw_circle(thumb, THUMB_RADIUS, THUMB_COLOR)
 
 
