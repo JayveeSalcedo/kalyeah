@@ -105,8 +105,11 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	assert_gt(geometry.get_child_count(), 60, "street, cover, 2 bases, 2 boxes, houses and props")
 	assert_eq(map.base_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR)
+	assert_eq(map.post_outline_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR, "a blue outline round your post")
+	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR, "a red one round theirs")
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "your post is always blue")
+	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
 
 
 func test_props_stay_low_poly() -> void:

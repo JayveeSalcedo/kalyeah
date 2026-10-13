@@ -68,6 +68,8 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 }
 const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 6.0
+## How thick the team-colour outline round each base post is (m).
+const POST_OUTLINE: float = 0.07
 const BARRICADE_COUNT: int = 9
 const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
 const BARRICADE_DEPTH: float = 0.7
@@ -78,6 +80,8 @@ const BARRICADE_HEIGHT: float = 1.1
 @export var show_overview_camera: bool = true
 ## side -> [post band, base chalk, box tape, box fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
+## The team-colour outline round each base post (full colour, not softened).
+var _post_outlines: Dictionary[int, StandardMaterial3D] = {}
 
 @onready var _geometry: Node3D = %Geometry
 @onready var _camera: Camera3D = %Camera
@@ -154,6 +158,8 @@ func set_own_side(own_side: int) -> void:
 				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
+		if _post_outlines.has(side):
+			_post_outlines[side].albedo_color = tint
 
 
 func base_color(side: int) -> Color:
@@ -177,6 +183,7 @@ func _build_map() -> void:
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
 		_base_materials[side] = [band, chalk, jail[0], jail[1]]
+		_post_outlines[side] = _add_post_outline(post, color)
 	_add_barricades()
 	_add_houses()
 	_add_details()
@@ -407,6 +414,28 @@ func _add_prop(model: Node3D, at: Vector3, yaw: float = 0.0) -> Node3D:
 	model.rotation.y = yaw
 	_geometry.add_child(model)
 	return model
+
+
+## A team-colour outline all round a base post (an inverted shell drawn after the post).
+func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
+	var outline: StandardMaterial3D = StandardMaterial3D.new()
+	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	outline.cull_mode = BaseMaterial3D.CULL_FRONT
+	outline.grow = true
+	outline.grow_amount = POST_OUTLINE / post.scale.y  # the model is scaled up: grow in its own units
+	outline.albedo_color = color
+	for node: Node in post.find_children("*", "MeshInstance3D", true, false):
+		var mesh: MeshInstance3D = node as MeshInstance3D
+		for surface: int in mesh.mesh.get_surface_count():
+			var look: Material = mesh.get_surface_override_material(surface)
+			if look != null:
+				look.next_pass = outline
+	return outline
+
+
+## The colour of the outline round base `side`'s post.
+func post_outline_color(side: int) -> Color:
+	return _post_outlines[side].albedo_color
 
 
 func _add_band(post: Node3D, color: Color) -> StandardMaterial3D:
