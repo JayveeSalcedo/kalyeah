@@ -26,13 +26,13 @@ The match is the Filipino street game of tagging the enemy base, like the refere
 - **Rescue:** a free teammate who steps into the box sets **everyone** waiting there free (data toggle `rescue_frees_all`; off = one per touch). Rescued players go straight back to **their post** at full HP (cooldowns keep running). A *RESCUED!* line shows.
 - Numbers and toggles in `data/rules/game_rules.tres` (`rescue_frees_all`, `dummy_release_time`); box size and place in `data/rules/map_layout.tres` (`jail_size`, `jail_inset`).
 
-## Controls (one-handed, owner)
-The game is played with **one hand**: there is no movement stick and no dash.
-- **Tilt to move.** Tilting the phone moves your kid, measured from the way you hold it when the match starts: tip the top away to run up the screen, toward you to run down, sideways to run sideways. It is tuned to be gentle, not twitchy: tilts under **3.5°** do nothing (a still hand stands still), speed grows with the tilt and is full at **15°**, and the movement eases in and out (`smoothing_rate`) so hand shake does not jitter. Numbers in `data/rules/tilt_rules.tres`.
-- The settings menu has **Re-center tilt** (your current hold becomes "standing still") and **Sensitivity: Low / Medium / High** (x0.75 / 1 / 1.3, saved on the phone). The tilt also re-centres at the start of the match, after every point and when you are rescued.
-- **iPhone:** Safari asks for permission to use motion; the first tap on the screen asks. Until tilt works, a line over the skill row says "Tap the screen to turn on tilt"; if it was refused, it says how to allow it in Safari settings. **Android:** the phone's gravity sensor, no permission needed.
+## Controls (owner)
+
+- **Stick to move (owner: back from tilt).** An on-screen joystick at the bottom centre moves your kid: push up to run up the screen, sideways to run sideways. It stays in place (a see-through ring with a knob that follows your thumb); let go and you stop. Keyboard WASD / arrows still work on desktop.
+- **Auto-run (owner):** at rest only the knob and the inner ring show, and a touch must land inside the inner ring to grab the knob; a second, outer ring then appears around it (so you cannot start auto-run by pressing straight on the outer ring). Drag the knob so most of it is past the inner ring and the outer ring lights up (same white and thickness as the inner ring: the unlit ring is the dimmer one, and lighting the outer ring swaps which one is dim and tints the band between the two rings): let go there and your kid keeps running that way at full speed on their own. Let go with the knob (mostly) inside the inner ring and they stop. While auto-running, touching the stick area grabs the knob at once (no unlock delay) and you steer again. Auto-run stops when the controls hide (menu, weapon pick, tagged) and when a new round starts.
+- **Weapon 1 on the left of the stick, weapon 2 on the right**, drawn the same size as the stick's knob; the stick's area is an outline only (no tint). All three in one row near the bottom within thumb reach. Drag a weapon button to aim, release to cast (or drag onto the cancel zone).
+- There is no dash.
 - Keyboard and mouse still work for testing on a computer (WASD / arrows to move, Q / E to aim and cast).
-- **Skills:** weapon 1 and weapon 2 sit side by side in a row at the bottom centre, big enough for the thumb.
 
 **One skill at a time (owner):** while one weapon button is held (aiming), the other can't be pressed or cast until the release.
 
@@ -81,7 +81,7 @@ Two copies of the same weapon cannot be equipped; two weapons of the same *type*
 Copied from the reference video (owner): one street. **The playing area is 3:4 (width:length, owner)**, and the minimap has exactly the same 3:4 shape.
 - **Posts and bases:** each team's electric post stands in a corner, 2.5 m in from both edges (`post_inset`): from your point of view **your post is bottom left, theirs top right**. The **base** is a chalk circle of 4.5 m round the post (`base_radius`), cut off by the street edges, tinted blue (yours) or red (theirs). Players start next to their post and come back there after a rescue (`spawn_offset`).
 - **Boxes:** each team's tagged box is a 3 × 4 m taped rectangle (`jail_size`) at the far end, on the same side as its post (yours top left, theirs bottom right; `jail_inset`).
-- **Cover (owner: fewer, and they are not objectives):** only a few street things kids hide behind — a long bench, a cardboard wall and a school-zone sign.
+- **Cover (owner: fewer, and they are not objectives):** only cardboard walls kids hide behind (owner: no other props inside the play area). The bench, the school-zone sign and the wooden A-frame take turns as the barricade row across both ends.
 - **The play area is plain, flat, dark grey cement (owner):** no tiles, texture, gutters, chalk games or manholes on it. The street edges (curbs) and both ends (sawhorse barricades) block everyone. Outside: sidewalks, house fronts, a sari-sari store with an umbrella, power poles with wires along and across the street, bunting; the street goes on past both ends to more houses. The look is in `docs/ART.md`.
 - There are no breakable walls, no cross street, no guava and no tricycle any more (owner).
 
@@ -101,7 +101,7 @@ Copied from the reference video (owner): one street. **The playing area is 3:4 (
 - **Top:** a **minimap** (exactly 3:4 like the playing area, gold frame) at the top left showing the whole street with your end at the bottom: your base the blue corner bottom left, theirs the red corner top right, the two taped boxes (yours top left, theirs bottom right), the cover as dark blocks and every player as a dot (you white-ringed, tagged kids darker). The settings button sits beside it, top aligned. The score is at the top right (see below), with who is tagged under it ("Tagged you 1/3, them 0/3"). The settings button opens a see-through menu: the practice test button, Resume, Exit match. There is no health panel in the corner.
 - **Feed:** *TAGGED!* and *RESCUED!* lines slide in under the minimap with the kid's name (blue for your team, red for theirs) and fade after 2.6 s; at most three show.
 - **Capture countdown:** while a capture runs, big text in the middle says *HOLD THE BASE! 4* (or *ALL TAGGED! 4*) for your team and *DEFEND YOUR BASE! 4* (or *ALL OF YOU TAGGED! 4*) against you.
-- **Controls:** one-handed, no stick (see Controls): weapon 1 and weapon 2 side by side in a row at the bottom centre, no handedness setting. Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green).
+- **Controls:** the stick at the bottom centre with weapon 1 on its left and weapon 2 on its right (see Controls), no handedness setting. Each skill button is a cardboard disc with the painted icon whole on it; the icon's own glow shows the type (attack red, crowd control violet, block blue, heal green).
 - **Score card (owner): top right.** Your points (blue, left) and theirs (red) with the **match clock** between them, counting up from 0:00 like the video (it stops during the opening show and the freezes after points). Nothing under it.
 - **Tagged view (owner):** while you wait in the box, a grey band covers the bottom of the screen with "TAGGED!", a row of up to five **2:3 cards** (everyone else in the match, teammates first: portrait, name, TAGGED when they are) and Change weapons. The camera follows a free teammate first (the one who can rescue you); tap any card to follow that player. When you are rescued the camera **snaps straight back** to you at your post.
 
@@ -141,7 +141,6 @@ Before the first round (6 s, `intro_time`; the server runs it too, nobody moves 
 - **D1** ~~Basic attack~~ **Decided: no basic attack** (owner). See D10.
 - **D2 / D3 / D4 / D5 / D11** Retired: the guava, the tricycle and the breakable walls are gone (owner).
 - **D7** Retired with the pin (owner removed dash and the pin).
-- **D17** Tilt numbers were not given by the owner: dead zone 3.5°, full speed at 15°, smoothing 10/s, sensitivity steps 0.75 / 1 / 1.3 (`data/rules/tilt_rules.tres`). Android tilt directions are not tested on a real phone yet.
 - **D8 / D9** Retired with the death delay (replaced by Tag).
 - **D16** Tag defaults not given by the owner: one teammate in the box rescues **everyone** in it (`rescue_frees_all`, off = one per touch); rescued players keep their cooldowns; the tagged can't move inside the box; the capture counts **every** player of the team (so rescue first). Each capture wins one point; the match is best of 3, 5 or 7 (owner). Confirm or change.
 - **D10** With no basic attack, a loadout of only non-damaging weapons (e.g. `papel_trap` + `papel_shield`) deals no damage. Default: allowed; consider requiring at least one damaging weapon at pick time.

@@ -2,15 +2,12 @@ extends Node
 ## User and build settings. The game server address comes from, in order:
 ## the web page's `?server=wss://...` query, the address saved in the lobby, or
 ## the project setting `kalyeah/network/server_url` (empty until a server is
-## deployed, see server/README.md). Also the tilt sensitivity (one-handed
-## movement) and, on the web, the phone-orientation listener tilt needs.
+## deployed, see server/README.md).
 
 const SAVE_PATH: String = "user://settings.cfg"
 const PROJECT_KEY: String = "kalyeah/network/server_url"
 
 var server_url: String = ""
-## Index into TiltRules.sensitivity_steps; -1 = the rules' default.
-var tilt_sensitivity: int = -1
 
 var _ui_voice: AudioStreamPlayer
 
@@ -28,8 +25,6 @@ func _ready() -> void:
 		var saved: String = file.get_value("network", "server_url", "") as String
 		if not saved.is_empty():
 			server_url = saved
-		tilt_sensitivity = file.get_value("controls", "tilt_sensitivity", -1) as int
-	TiltInput.install_web_listener()
 	if OS.has_feature("web"):
 		var search: Variant = JavaScriptBridge.eval("window.location.search", true)
 		var from_query: String = url_from_query(search as String if search is String else "")
@@ -63,14 +58,6 @@ func save_server_url(url: String) -> void:
 	var file: ConfigFile = ConfigFile.new()
 	file.load(SAVE_PATH)
 	file.set_value("network", "server_url", server_url)
-	file.save(SAVE_PATH)
-
-
-func save_tilt_sensitivity(index: int) -> void:
-	tilt_sensitivity = index
-	var file: ConfigFile = ConfigFile.new()
-	file.load(SAVE_PATH)
-	file.set_value("controls", "tilt_sensitivity", index)
 	file.save(SAVE_PATH)
 
 
