@@ -169,7 +169,9 @@ func _build_map() -> void:
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN_COLOR if side == MapLayout.SIDE_OWN else ENEMY_COLOR
 		var center: Vector2 = layout.base_center(side)
-		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+		# the post's front (the side with the flyers, the model's +Z) faces the middle of the play area
+		var inward: float = atan2(-center.x, -center.y)
+		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y), inward)
 		# a team-coloured band on the post so you can tell bases apart from afar
 		var band: StandardMaterial3D = _add_band(post, color)
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
