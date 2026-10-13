@@ -3,7 +3,7 @@ extends Node3D
 ## The barangay street the game is played on (view only; reads MapLayout, holds no
 ## rules). The play area is one flat, dark grey cement slab (no tiles or
 ## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
-## umbrella, power poles with wires across and bunting around it; the few cover
+## umbrella and bunting around it; the few cover
 ## pieces kids hide behind (cardboard walls); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
@@ -46,8 +46,6 @@ const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
 const HOUSE_SPACING: float = 6.4
-const POLE_SPACING: float = 12.0
-const POLE_TOP: float = 6.65
 const BUNTING_HEIGHT: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -75,7 +73,6 @@ const BARRICADE_COUNT: int = 9
 const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
 const BARRICADE_DEPTH: float = 0.7
 const BARRICADE_HEIGHT: float = 1.1
-const POLE_HEIGHT: float = 7.0
 
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
@@ -360,35 +357,12 @@ func _add_houses() -> void:
 			x += HOUSE_SPACING
 
 
-## Life around the street: power poles with wires along and across, bunting,
+## Life around the street (no power poles along the sides, owner): bunting,
 ## laundry, the store's umbrella and bench, drums and trees. The play area itself
 ## stays plain cement.
 func _add_details() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0
-	var pole_x: float = half_w + layout.boundary_thickness + 0.5
-	var poster: int = 0
-	var crossing: int = 0
-	for side: float in [-1.0, 1.0]:
-		var previous: Vector3 = Vector3.ZERO
-		var first: bool = true
-		var z: float = -half_l - END_REACH + 4.0
-		while z <= half_l + END_REACH - 2.0:
-			var pole_z: float = z + side * 2.5
-			_add_prop(PropModel.by_height("electric_pole", POLE_HEIGHT), Vector3(side * pole_x, 0.0, pole_z), PI / 2.0)
-			_add_sign("poster_%d" % (poster % 3), POSTER_HEIGHT, Vector3(side * (pole_x - 0.3), 1.4, pole_z))
-			poster += 1
-			var top: Vector3 = Vector3(side * pole_x, POLE_TOP, pole_z)
-			if not first:
-				for dz: float in [-0.6, 0.6]:
-					_add(Props.wire(previous + Vector3(0.0, 0.0, dz), top + Vector3(0.0, 0.0, dz)), Vector3.ZERO)
-			# every other pole on the right sends a wire across to the left side
-			if side > 0.0 and crossing % 2 == 0:
-				_add(Props.wire(top, Vector3(-pole_x, POLE_TOP - 0.3, pole_z - 2.5)), Vector3.ZERO)
-			crossing += 1
-			previous = top
-			first = false
-			z += POLE_SPACING
 	var span: float = layout.lane_width + 2.0 * (layout.boundary_thickness + SIDEWALK_WIDTH)
 	var bunting_index: int = 0
 	for bz: float in [-half_l * 0.55, half_l * 0.05, half_l * 0.6]:

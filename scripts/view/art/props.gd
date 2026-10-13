@@ -3,7 +3,7 @@ extends RefCounted
 ## Low-poly street props built from LowPoly pieces (one material, palette colours).
 ## Inspired by Filipino streets: sari-sari store, houses with tin roofs, laundry
 ## lines, an electric post covered in flyers, and the cover kids hide behind in the
-## street game: the houses, store, trees, wires and the like. The cover pieces, benches, poles and A-frames are 3D models (PropModel).
+## street game: the houses, store, trees and the like. The cover pieces, benches, poles and A-frames are 3D models (PropModel).
 ## Meshes are cached per key, so the same prop is built once.
 
 static var _cache: Dictionary[String, ArrayMesh] = {}
@@ -83,19 +83,6 @@ static func banderitas(span: float, seed_value: int) -> ArrayMesh:
 			kit.tri(center + Vector3(-0.2, 0.0, 0.0), center + Vector3(0.2, 0.0, 0.0), center + Vector3(0.0, -0.42, 0.0), color.darkened(0.15), center + Vector3(0.0, -0.15, -0.08))
 			kit.box(center + Vector3(0.0, 0.01, 0.0), Vector3(0.55, 0.025, 0.025), Palette.WIRE)
 		return kit.commit())
-
-
-## A straight wire segment between two points (thin box along the segment).
-static func wire(from: Vector3, to: Vector3) -> ArrayMesh:
-	var kit: LowPoly = LowPoly.new()
-	var mid: Vector3 = (from + to) / 2.0
-	var length: float = from.distance_to(to)
-	var forward: Vector3 = (to - from).normalized()
-	var side: Vector3 = forward.cross(Vector3.UP).normalized()
-	var up: Vector3 = side.cross(forward)
-	kit.set_transform(Transform3D(Basis(side, up, forward), mid))
-	kit.box(Vector3.ZERO, Vector3(0.04, 0.04, length), Palette.WIRE)
-	return kit.commit()
 
 
 ## Chalk piko (hopscotch) drawn on the asphalt, long axis along Z.
