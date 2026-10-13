@@ -213,3 +213,34 @@ func test_release_stops_auto_run() -> void:
 	stick.release()
 	assert_false(stick.auto_run)
 	assert_eq(stick.value, Vector2.ZERO)
+
+
+func _press(stick: VirtualJoystick, offset: Vector2) -> void:
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = stick.get_global_rect().position + stick.rest_position() + offset
+	stick._input(press)
+
+
+func test_the_outer_ring_appears_only_once_the_knob_is_held() -> void:
+	var stick: VirtualJoystick = _stick()
+	assert_false(stick.outer_visible(), "at rest: the knob and the inner ring only")
+	_press(stick, Vector2(VirtualJoystick.MAX_RADIUS + 15.0, 0.0))
+	assert_eq(stick.value, Vector2.ZERO, "a touch in the (hidden) outer ring does not grab")
+	assert_false(stick.outer_visible())
+	_press(stick, Vector2(30.0, 0.0))
+	assert_ne(stick.value, Vector2.ZERO, "a touch inside the inner ring grabs")
+	assert_true(stick.outer_visible(), "the outer ring shows while held")
+
+
+func test_while_auto_running_a_touch_in_the_outer_ring_grabs_too() -> void:
+	var stick: VirtualJoystick = _stick()
+	_press(stick, Vector2(0.0, -20.0))
+	stick._update(stick.get_global_rect().position + stick.rest_position() + Vector2(0.0, -120.0))
+	stick._end()
+	assert_true(stick.auto_run)
+	assert_true(stick.outer_visible(), "showing while auto-running")
+	_press(stick, Vector2(VirtualJoystick.MAX_RADIUS + 15.0, 0.0))
+	assert_false(stick.auto_run, "grabbed from the outer ring at once")
+	assert_gt(stick.value.x, 0.9, "steering right on the same touch")

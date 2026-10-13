@@ -1,7 +1,9 @@
 class_name VirtualJoystick
 extends Control
 ## On-screen joystick: two fixed outlined rings (no fill) and a knob that follows the
-## finger. Inside the inner ring it is a normal stick. Drag the knob so most of it is past
+## finger. At rest only the knob and the inner ring show, and a touch must land inside the
+## inner ring to grab the knob; the outer ring appears once the knob is held. Inside the
+## inner ring it is a normal stick. Drag the knob so most of it is past
 ## the inner ring and the outer ring lights up: let go there and the kid keeps running that
 ## way on his own (auto-run). Let go inside and he stops. A touch in the stick's area
 ## always grabs the knob at once, auto-run or not. Put it over the area it should listen
@@ -93,6 +95,11 @@ func outer_lit() -> bool:
 	return auto_run or (_pointer != NO_POINTER and _armed)
 
 
+## The outer ring shows only while the knob is held or auto-running.
+func outer_visible() -> bool:
+	return _pointer != NO_POINTER or auto_run
+
+
 ## [inner ring, outer ring] colours: both white and as thick; the lit one is the brighter.
 func ring_colors() -> Array[Color]:
 	if outer_lit():
@@ -110,6 +117,10 @@ func _draw() -> void:
 	var origin: Vector2 = rest_position()
 	var thumb: Vector2 = _thumb if _pointer != NO_POINTER or auto_run else origin
 	var colors: Array[Color] = ring_colors()
+	if not outer_visible():
+		draw_arc(origin, MAX_RADIUS, 0.0, TAU, 64, colors[0], RING_WIDTH, true)
+		draw_circle(thumb, THUMB_RADIUS, THUMB_COLOR)
+		return
 	if outer_lit():
 		var band: float = OUTER_RADIUS - MAX_RADIUS
 		draw_arc(origin, MAX_RADIUS + band / 2.0, 0.0, TAU, 72, BAND_COLOR, band, true)
@@ -122,8 +133,11 @@ func _to_local(viewport_position: Vector2) -> Vector2:
 	return get_global_transform_with_canvas().affine_inverse() * viewport_position
 
 
+## Where a touch grabs the knob: inside the inner ring (at rest the outer ring is not there),
+## or anywhere in the outer ring while auto-running (it is showing then).
 func _in_zone(viewport_position: Vector2) -> bool:
-	return Rect2(Vector2.ZERO, size).has_point(_to_local(viewport_position))
+	var reach: float = OUTER_RADIUS if auto_run else MAX_RADIUS
+	return _to_local(viewport_position).distance_to(rest_position()) <= reach
 
 
 func _begin(pointer: int, viewport_position: Vector2) -> void:
