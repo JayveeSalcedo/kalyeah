@@ -3,7 +3,7 @@ extends Node3D
 ## The barangay street the game is played on (view only; reads MapLayout, holds no
 ## rules). The play area is one flat, dark grey cement slab (no tiles or
 ## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
-## umbrella, power poles with wires across and bunting around it; the few cover
+## umbrella and bunting around it; the few cover
 ## pieces kids hide behind (cardboard walls); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
@@ -46,8 +46,6 @@ const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
 const HOUSE_SPACING: float = 6.4
-const POLE_SPACING: float = 12.0
-const POLE_TOP: float = 6.65
 const BUNTING_HEIGHT: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -63,7 +61,6 @@ const SIDEWALK_TINT: Color = Color(0.8, 0.76, 0.7)
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
 const OUTER_TINT: Color = Color(0.62, 0.58, 0.54)
-const POSTER_HEIGHT: float = 1.1
 const SARI_SIGN_HEIGHT: float = 1.15
 ## Which model each cover piece (MapLayout.obstacle_props) is drawn as.
 const OBSTACLE_MODELS: Dictionary[StringName, String] = {
@@ -71,17 +68,21 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 }
 const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 6.0
+## How thick the team-colour outline round each base post is (m).
+const POST_OUTLINE: float = 0.07
+const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
 const BARRICADE_COUNT: int = 9
 const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
 const BARRICADE_DEPTH: float = 0.7
 const BARRICADE_HEIGHT: float = 1.1
-const POLE_HEIGHT: float = 7.0
 
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
 ## side -> [post band, base chalk, box tape, box fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
+## The team-colour outline round each base post (full colour, not softened).
+var _post_outlines: Dictionary[int, StandardMaterial3D] = {}
 
 @onready var _geometry: Node3D = %Geometry
 @onready var _camera: Camera3D = %Camera
@@ -158,6 +159,8 @@ func set_own_side(own_side: int) -> void:
 				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
+		if _post_outlines.has(side):
+			_post_outlines[side].albedo_color = tint
 
 
 func base_color(side: int) -> Color:
@@ -173,13 +176,15 @@ func _build_map() -> void:
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN_COLOR if side == MapLayout.SIDE_OWN else ENEMY_COLOR
 		var center: Vector2 = layout.base_center(side)
-		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+		# the post's front (the side with the flyers, the model's +Z) faces the middle of the play area
+		var inward: float = atan2(-center.x, -center.y)
+		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y), inward)
 		# a team-coloured band on the post so you can tell bases apart from afar
 		var band: StandardMaterial3D = _add_band(post, color)
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
 		_base_materials[side] = [band, chalk, jail[0], jail[1]]
-		_add_sign("poster_0" if side == MapLayout.SIDE_OWN else "poster_1", POSTER_HEIGHT, Vector3(center.x + 0.45, 1.3, center.y))
+		_post_outlines[side] = _add_post_outline(post, color)
 	_add_barricades()
 	_add_houses()
 	_add_details()
@@ -360,35 +365,12 @@ func _add_houses() -> void:
 			x += HOUSE_SPACING
 
 
-## Life around the street: power poles with wires along and across, bunting,
+## Life around the street (no power poles along the sides, owner): bunting,
 ## laundry, the store's umbrella and bench, drums and trees. The play area itself
 ## stays plain cement.
 func _add_details() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0
-	var pole_x: float = half_w + layout.boundary_thickness + 0.5
-	var poster: int = 0
-	var crossing: int = 0
-	for side: float in [-1.0, 1.0]:
-		var previous: Vector3 = Vector3.ZERO
-		var first: bool = true
-		var z: float = -half_l - END_REACH + 4.0
-		while z <= half_l + END_REACH - 2.0:
-			var pole_z: float = z + side * 2.5
-			_add_prop(PropModel.by_height("electric_pole", POLE_HEIGHT), Vector3(side * pole_x, 0.0, pole_z), PI / 2.0)
-			_add_sign("poster_%d" % (poster % 3), POSTER_HEIGHT, Vector3(side * (pole_x - 0.3), 1.4, pole_z))
-			poster += 1
-			var top: Vector3 = Vector3(side * pole_x, POLE_TOP, pole_z)
-			if not first:
-				for dz: float in [-0.6, 0.6]:
-					_add(Props.wire(previous + Vector3(0.0, 0.0, dz), top + Vector3(0.0, 0.0, dz)), Vector3.ZERO)
-			# every other pole on the right sends a wire across to the left side
-			if side > 0.0 and crossing % 2 == 0:
-				_add(Props.wire(top, Vector3(-pole_x, POLE_TOP - 0.3, pole_z - 2.5)), Vector3.ZERO)
-			crossing += 1
-			previous = top
-			first = false
-			z += POLE_SPACING
 	var span: float = layout.lane_width + 2.0 * (layout.boundary_thickness + SIDEWALK_WIDTH)
 	var bunting_index: int = 0
 	for bz: float in [-half_l * 0.55, half_l * 0.05, half_l * 0.6]:
@@ -433,6 +415,34 @@ func _add_prop(model: Node3D, at: Vector3, yaw: float = 0.0) -> Node3D:
 	model.rotation.y = yaw
 	_geometry.add_child(model)
 	return model
+
+
+## A team-colour outline all round a base post: an inverted hull of the post's smooth outline
+## shell (assets/models/props/electric_pole_outline.glb, tools/blender/build_outline_shell.py),
+## pushed out along its normals. A hull made from the detailed post itself breaks up into
+## jagged bits on its rough, decimated surface.
+func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
+	var outline: StandardMaterial3D = StandardMaterial3D.new()
+	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	outline.cull_mode = BaseMaterial3D.CULL_FRONT
+	outline.grow = true
+	outline.grow_amount = POST_OUTLINE / post.scale.y  # the model is scaled up: grow in its own units
+	outline.albedo_color = color
+	var source: Node3D = (load(POST_OUTLINE_SHELL) as PackedScene).instantiate() as Node3D
+	var shell_mesh: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var shell: MeshInstance3D = MeshInstance3D.new()
+	shell.name = "Outline"
+	shell.mesh = shell_mesh.mesh
+	shell.material_override = outline
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	source.free()
+	post.add_child(shell)
+	return outline
+
+
+## The colour of the outline round base `side`'s post.
+func post_outline_color(side: int) -> Color:
+	return _post_outlines[side].albedo_color
 
 
 func _add_band(post: Node3D, color: Color) -> StandardMaterial3D:

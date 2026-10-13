@@ -105,8 +105,11 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	assert_gt(geometry.get_child_count(), 60, "street, cover, 2 bases, 2 boxes, houses and props")
 	assert_eq(map.base_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR)
+	assert_eq(map.post_outline_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR, "a blue outline round your post")
+	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR, "a red one round theirs")
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "your post is always blue")
+	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
 
 
 func test_props_stay_low_poly() -> void:
@@ -144,3 +147,19 @@ func test_cover_models_fill_their_footprint_and_stay_about_a_metre_high() -> voi
 		assert_almost_eq(box.size.z * model.scale.z, footprint.y, 0.02, "%s fills the depth" % id)
 		assert_lte(box.size.y * model.scale.y, 1.16, "%s is no taller than the cap" % id)
 		assert_gt(box.size.y * model.scale.y, 0.5, "%s is tall enough to hide behind" % id)
+
+
+func test_each_base_post_faces_the_middle_of_the_play_area() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		var center: Vector2 = LAYOUT.base_center(side)
+		var post: Node3D = null
+		for child: Node in map.get_node("%Geometry").get_children():
+			var node: Node3D = child as Node3D
+			if node != null and node.scene_file_path.ends_with("electric_pole.glb") and Vector2(node.position.x, node.position.z).is_equal_approx(center):
+				post = node
+		assert_not_null(post, "a post at base %d" % side)
+		var front: Vector3 = post.global_basis.z.normalized()
+		var to_middle: Vector3 = Vector3(-center.x, 0.0, -center.y).normalized()
+		assert_gt(front.dot(to_middle), 0.99, "the flyers face the play area")
