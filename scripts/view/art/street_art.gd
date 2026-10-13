@@ -2,7 +2,7 @@ class_name StreetArt
 extends RefCounted
 ## The painted textures of the street (assets/textures/, made by
 ## tools/art/make_assets.py): concrete, asphalt and paver ground, chalk games, the
-## sari-sari store sign and barangay posters. View only.
+## sari-sari store sign. View only.
 
 const TEXTURE_PATH: String = "res://assets/textures/%s.png"
 
@@ -53,7 +53,7 @@ static func decal(name: String, size: Vector2) -> MeshInstance3D:
 	return instance
 
 
-## A sign or poster that always faces the camera, `height` metres tall, bottom at the origin.
+## A sign that always faces the camera, `height` metres tall, bottom at the origin.
 static func billboard(name: String, height: float) -> Sprite3D:
 	var sprite: Sprite3D = Sprite3D.new()
 	sprite.texture = texture(name)

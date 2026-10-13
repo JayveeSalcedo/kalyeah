@@ -507,36 +507,6 @@ def tex_sari_sign():
     return img
 
 
-def tex_poster(variant):
-    w, h = 256, 360
-    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    bg = [(255, 240, 200), (210, 235, 255), (255, 220, 230)][variant]
-    d.rectangle([6, 6, w - 6, h - 6], fill=(40, 24, 20, 255))
-    d.rectangle([12, 12, w - 12, h - 12], fill=bg + (255,))
-    title = ImageFont.truetype(FONT_BOLD, 40)
-    body = ImageFont.truetype(FONT_BOLD, 26)
-    if variant == 0:
-        d.text((w // 2, 52), "BARANGAY", font=title, fill=(30, 60, 160), anchor="mm")
-        d.ellipse([78, 92, 178, 192], fill=(255, 190, 40), outline=(40, 24, 20), width=5)
-        d.arc([102, 120, 154, 170], 20, 160, fill=(40, 24, 20), width=5)
-        d.text((w // 2, 236), "LIGA NG", font=body, fill=(200, 40, 40), anchor="mm")
-        d.text((w // 2, 272), "KALYE 2026", font=body, fill=(200, 40, 40), anchor="mm")
-    elif variant == 1:
-        d.text((w // 2, 52), "TUMBANG", font=title, fill=(200, 40, 40), anchor="mm")
-        d.text((w // 2, 96), "PRESO", font=title, fill=(200, 40, 40), anchor="mm")
-        d.rounded_rectangle([96, 140, 160, 240], 8, fill=(200, 205, 215), outline=(40, 24, 20), width=5)
-        d.text((w // 2, 290), "SABADO 4PM", font=body, fill=(30, 60, 160), anchor="mm")
-    else:
-        d.text((w // 2, 52), "BAWAL", font=title, fill=(200, 40, 40), anchor="mm")
-        d.text((w // 2, 96), "TUMAMBAY", font=body, fill=(40, 24, 20), anchor="mm")
-        d.text((w // 2, 128), "DITO", font=body, fill=(40, 24, 20), anchor="mm")
-        d.ellipse([88, 164, 168, 244], outline=(200, 40, 40), width=10)
-        d.line([(100, 232), (156, 176)], fill=(200, 40, 40), width=10)
-        d.text((w // 2, 290), "- Brgy. Captain", font=body, fill=(30, 60, 160), anchor="mm")
-    return img
-
-
 def _chalk(d, pts, color, width, rnd, closed=False):
     """A dusty chalk line: several thin, jittered passes."""
     if closed:
@@ -661,8 +631,6 @@ def main(only=None):
     save(tex_road_text("DAHAN-DAHAN", (255, 214, 60)), TEXTURES, "road_dahan")
     save(tex_chalk_piko(), TEXTURES, "chalk_piko")
     save(tex_chalk_preso(), TEXTURES, "chalk_preso")
-    for k in range(3):
-        save(tex_poster(k), TEXTURES, "poster_%d" % k)
 
 
 if __name__ == "__main__":

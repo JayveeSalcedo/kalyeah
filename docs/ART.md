@@ -26,8 +26,8 @@ The current art is a first pass built **in code**: procedural meshes, vector ico
 - Banners pop in, the camera shakes on hits and wall breaks, buttons click.
 
 ## Street textures (Pillow)
-- `tools/art/make_assets.py` also paints `assets/textures/`: warm asphalt and concrete pavers (tiling), the SARI-SARI STORE sign, three barangay posters, the DAHAN-DAHAN road paint and chalk piko and tumbang preso marks.
-- `scripts/view/art/street_art.gd` (`StreetArt`) puts them in the world: textured ground planes, doodles on both faces of every wall (darkened with the wall's damage), billboard signs and posters, ground decals that turn to read the right way up for the viewer's side.
+- `tools/art/make_assets.py` also paints `assets/textures/`: warm asphalt and concrete pavers (tiling), the SARI-SARI STORE sign, the DAHAN-DAHAN road paint and chalk piko and tumbang preso marks.
+- `scripts/view/art/street_art.gd` (`StreetArt`) puts them in the world: textured ground planes, doodles on both faces of every wall (darkened with the wall's damage), billboard signs (no posters, owner), ground decals that turn to read the right way up for the viewer's side.
 - Rerun: `python3 tools/art/make_assets.py` (all) or `python3 tools/art/make_assets.py guava gear` (only those icons). Textures used in 3D are imported with mipmaps.
 
 ## Cinematic morning and depth (after the sanga Tokhang intro frames)

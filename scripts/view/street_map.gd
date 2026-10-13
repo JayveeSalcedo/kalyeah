@@ -61,7 +61,6 @@ const SIDEWALK_TINT: Color = Color(0.8, 0.76, 0.7)
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
 const OUTER_TINT: Color = Color(0.62, 0.58, 0.54)
-const POSTER_HEIGHT: float = 1.1
 const SARI_SIGN_HEIGHT: float = 1.15
 ## Which model each cover piece (MapLayout.obstacle_props) is drawn as.
 const OBSTACLE_MODELS: Dictionary[StringName, String] = {
@@ -176,7 +175,6 @@ func _build_map() -> void:
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
 		_base_materials[side] = [band, chalk, jail[0], jail[1]]
-		_add_sign("poster_0" if side == MapLayout.SIDE_OWN else "poster_1", POSTER_HEIGHT, Vector3(center.x + 0.45, 1.3, center.y))
 	_add_barricades()
 	_add_houses()
 	_add_details()
