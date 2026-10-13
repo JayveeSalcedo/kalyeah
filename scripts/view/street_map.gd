@@ -70,6 +70,7 @@ const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 6.0
 ## How thick the team-colour outline round each base post is (m).
 const POST_OUTLINE: float = 0.07
+const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
 const BARRICADE_COUNT: int = 9
 const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
 const BARRICADE_DEPTH: float = 0.7
@@ -416,7 +417,10 @@ func _add_prop(model: Node3D, at: Vector3, yaw: float = 0.0) -> Node3D:
 	return model
 
 
-## A team-colour outline all round a base post (an inverted shell drawn after the post).
+## A team-colour outline all round a base post: an inverted hull of the post's smooth outline
+## shell (assets/models/props/electric_pole_outline.glb, tools/blender/build_outline_shell.py),
+## pushed out along its normals. A hull made from the detailed post itself breaks up into
+## jagged bits on its rough, decimated surface.
 func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
 	var outline: StandardMaterial3D = StandardMaterial3D.new()
 	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -424,12 +428,15 @@ func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
 	outline.grow = true
 	outline.grow_amount = POST_OUTLINE / post.scale.y  # the model is scaled up: grow in its own units
 	outline.albedo_color = color
-	for node: Node in post.find_children("*", "MeshInstance3D", true, false):
-		var mesh: MeshInstance3D = node as MeshInstance3D
-		for surface: int in mesh.mesh.get_surface_count():
-			var look: Material = mesh.get_surface_override_material(surface)
-			if look != null:
-				look.next_pass = outline
+	var source: Node3D = (load(POST_OUTLINE_SHELL) as PackedScene).instantiate() as Node3D
+	var shell_mesh: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+	var shell: MeshInstance3D = MeshInstance3D.new()
+	shell.name = "Outline"
+	shell.mesh = shell_mesh.mesh
+	shell.material_override = outline
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	source.free()
+	post.add_child(shell)
 	return outline
 
 
