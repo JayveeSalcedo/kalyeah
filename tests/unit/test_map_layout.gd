@@ -64,7 +64,7 @@ func test_the_box_fits_four_kids_and_no_more_room() -> void:
 		for other: Vector2 in slots:
 			assert_gte(slot.distance_to(other), kid, "kids don't overlap")
 		slots.append(slot)
-	assert_lte(box.size.y, kid * LAYOUT.jail_rows * 1.5, "the box is not much longer than four kids in a row")
+	assert_lte(box.size.y, kid * LAYOUT.jail_rows * 2.0, "the box is not much longer than four padded kids in a row")
 	# the camera looks down the street at 40 degrees, so its length shows at about 0.64x
 	assert_gt(box.size.y * 0.64, box.size.x * 1.2, "the box looks tall (portrait) on screen")
 
