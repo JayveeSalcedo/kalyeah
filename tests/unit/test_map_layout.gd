@@ -4,10 +4,10 @@ const LAYOUT: MapLayout = preload("res://data/rules/map_layout.tres")
 const MAP_SCENE: PackedScene = preload("res://scenes/map/street_map.tscn")
 
 
-func test_the_playing_area_is_3_by_4() -> void:
-	assert_eq(LAYOUT.lane_width, 30.0)
-	assert_eq(LAYOUT.lane_length, 40.0)
-	assert_almost_eq(LAYOUT.lane_width / LAYOUT.lane_length, 3.0 / 4.0, 0.001, "3:4 (width:length)")
+func test_the_playing_area_is_1_by_2() -> void:
+	assert_eq(LAYOUT.lane_width, 24.0)
+	assert_eq(LAYOUT.lane_length, 48.0)
+	assert_almost_eq(LAYOUT.lane_width / LAYOUT.lane_length, 1.0 / 2.0, 0.001, "1:2 (width:length)")
 
 
 func test_the_minimap_has_exactly_the_streets_ratio() -> void:
@@ -18,7 +18,7 @@ func test_the_minimap_has_exactly_the_streets_ratio() -> void:
 	var corner: Vector2 = minimap.to_map(LAYOUT.lane_rect().position)
 	var far: Vector2 = minimap.to_map(LAYOUT.lane_rect().end)
 	var drawn: Vector2 = (far - corner).abs()
-	assert_almost_eq(drawn.x / drawn.y, 3.0 / 4.0, 0.0001, "the street drawn inside the frame is exactly 3:4")
+	assert_almost_eq(drawn.x / drawn.y, 1.0 / 2.0, 0.0001, "the street drawn inside the frame is exactly 1:2")
 
 
 func test_own_post_bottom_left_enemy_post_top_right() -> void:
@@ -110,6 +110,21 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "your post is always blue")
 	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		var zone: Array[Color] = map.zone_colors(side)
+		assert_eq(zone[0], zone[2], "the base rim has the same tape as the tagged box")
+		assert_eq(zone[1], zone[3], "and the same faint fill")
+		assert_lt(zone[1].a, 0.5, "the fill stays faint")
+
+
+func test_tagged_box_corners_are_rounded() -> void:
+	var box: Rect2 = Rect2(0.0, 0.0, 3.0, 4.0)
+	var outline: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.JAIL_CORNER_RADIUS)
+	assert_eq(outline.size(), 4 * (StreetMap.CORNER_STEPS + 1))
+	for point: Vector2 in outline:
+		assert_true(box.grow(0.001).has_point(point), "the outline stays in the box")
+		assert_gt(point.distance_to(box.position), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
+		assert_gt(point.distance_to(box.end), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
 
 
 func test_props_stay_low_poly() -> void:
@@ -124,7 +139,8 @@ func test_props_stay_low_poly() -> void:
 
 
 func test_the_model_props_are_light_and_standing_on_the_ground() -> void:
-	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300}
+	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300,
+		"ironing_board": 2600, "fishball_cart": 2100, "basketball_pole": 1900, "truck_wheels": 5100, "crates": 4600}
 	for id: String in limits:
 		var model: Node3D = autofree(PropModel.make(id)) as Node3D
 		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
@@ -168,3 +184,25 @@ func test_the_enemy_post_faces_the_middle_and_your_own_is_turned_round() -> void
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_lt(_post_front(map, MapLayout.SIDE_ENEMY), -0.99, "the other team: their own post is the turned one")
 	assert_gt(_post_front(map, MapLayout.SIDE_OWN), 0.99)
+
+
+func test_the_end_rows_mix_every_street_thing_and_stay_out_of_the_play_area() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	var seen: Dictionary = {}
+	var half_l: float = LAYOUT.lane_length / 2.0
+	for child: Node in map.get_node("%Geometry").get_children():
+		var node: Node3D = child as Node3D
+		if node == null or not node.scene_file_path.begins_with("res://assets/models/props/"):
+			continue
+		var id: String = node.scene_file_path.get_file().get_basename()
+		if not StreetMap.BARRIER_HEIGHTS.has(id) or absf(node.position.z) < half_l:
+			continue
+		seen[id] = int(seen.get(id, 0)) + 1
+		var mesh: MeshInstance3D = node.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		var depth: float = mesh.mesh.get_aabb().size.z * node.scale.z
+		assert_gt(absf(node.position.z) - depth / 2.0, half_l, "%s stays behind the end line" % id)
+		assert_lte(absf(node.position.x), LAYOUT.lane_width / 2.0, "%s across the street" % id)
+	for id: String in StreetMap.BARRIER_HEIGHTS:
+		assert_true(seen.has(id), "%s is in an end row" % id)
+	assert_lte(int(seen.get("rooster_tent", 0)), 4, "at most two A-frames per row, not a row of them")

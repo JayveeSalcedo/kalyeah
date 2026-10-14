@@ -35,12 +35,13 @@ const RING_HEIGHT: float = 0.03
 ## The base chalk and the box tape are tinted toward a soft grey so they are calm, not neon.
 const SOFT_GREY: Color = Color(0.62, 0.64, 0.7)
 const BASE_SOFTEN: float = 0.3
-const BASE_ALPHA: float = 0.5
-const JAIL_FILL_ALPHA: float = 0.22
+## The base circle and the tagged box share one look: a faint team fill and team tape.
+const ZONE_FILL_ALPHA: float = 0.22
 const TAPE_WIDTH: float = 0.16
-const CHALK: Color = Color(0.96, 0.95, 0.9)
-const CHALK_WIDTH: float = 0.12
 const BASE_STEPS: int = 36
+## The tagged box has rounded corners (metres), each drawn with this many steps.
+const JAIL_CORNER_RADIUS: float = 0.6
+const CORNER_STEPS: int = 6
 const CURB_HEIGHT: float = 0.18
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
@@ -70,10 +71,20 @@ const POST_HEIGHT: float = 8.5
 ## How thick the team-colour outline round each base post is (m).
 const POST_OUTLINE: float = 0.07
 const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
-const BARRICADE_COUNT: int = 9
-const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
-const BARRICADE_DEPTH: float = 0.7
-const BARRICADE_HEIGHT: float = 1.1
+## The barrier rows across both ends: every street thing at its real height (m), side by side
+## in this order (the far end starts half way along, so the two rows differ).
+const BARRIER_HEIGHTS: Dictionary[String, float] = {
+	"fishball_cart": 2.1, "bench": 0.9, "crates": 1.1, "school_zone": 1.1, "basketball_pole": 3.2,
+	"truck_wheels": 0.8, "ironing_board": 0.9, "rooster_tent": 1.3,
+}
+## The smallest gap between two things in a row; the rest of the room is shared out unevenly.
+const BARRIER_GAP: float = 0.25
+## How far a thing may sit back from the line (m) and turn (degrees), so the row looks set down by hand.
+const BARRIER_JITTER: float = 0.5
+const BARRIER_TURN: float = 12.0
+const BARRIER_SEED: int = 7
+## The front of each row sits this far behind the end line of the play area.
+const BARRIER_SETBACK: float = 0.15
 
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
@@ -176,6 +187,14 @@ func base_color(side: int) -> Color:
 	return (materials[0] as StandardMaterial3D).albedo_color
 
 
+## [base tape, base fill, box tape, box fill] colours for `side`.
+func zone_colors(side: int) -> Array[Color]:
+	var colors: Array[Color] = []
+	for material: StandardMaterial3D in _base_materials[side].slice(1):
+		colors.append(material.albedo_color)
+	return colors
+
+
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO)
 	_add_ground_textures()
@@ -188,9 +207,9 @@ func _build_map() -> void:
 		_posts[side] = post
 		# a team-colour outline round the post so you can tell bases apart from afar
 		var outline: StandardMaterial3D = _add_post_outline(post, color)
-		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
+		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
-		_base_materials[side] = [outline, chalk, jail[0], jail[1]]
+		_base_materials[side] = [outline, base[0], base[1], jail[0], jail[1]]
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
 	_add_houses()
@@ -252,92 +271,153 @@ func _add_obstacle(index: int) -> void:
 	_add_prop(PropModel.fit(id, footprint, COVER_HEIGHT), at, PI / 2.0 if turned else 0.0)
 
 
-## The base: a chalk-coloured circle round the post, cut off by the street edges,
-## with a chalk line on its rim. Returns the fill material (recoloured per viewer).
-func _add_base_chalk(side: int, color: Color) -> StandardMaterial3D:
+## The base: a faint team-tinted circle round the post, cut off by the street edges,
+## with team tape on its curved rim (the same look as the tagged box).
+## Returns [tape, fill] materials (recoloured per viewer).
+func _add_base_zone(side: int, color: Color) -> Array[StandardMaterial3D]:
 	var center: Vector2 = layout.base_center(side)
 	var street: Rect2 = layout.lane_rect()
 	var rim: Array[Vector2] = []
+	var inner: Array[Vector2] = []
 	for i: int in BASE_STEPS:
 		var angle: float = TAU * float(i) / float(BASE_STEPS)
-		rim.append((center + Vector2(cos(angle), sin(angle)) * layout.base_radius).clamp(street.position, street.end))
-	var tool: SurfaceTool = SurfaceTool.new()
-	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	tool.set_normal(Vector3.UP)
-	for i: int in rim.size():
-		var a: Vector2 = rim[i]
-		var b: Vector2 = rim[(i + 1) % rim.size()]
-		for point: Vector2 in [center, b, a]:
-			tool.add_vertex(Vector3(point.x, RING_HEIGHT, point.y))
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	var soft: Color = color.lerp(SOFT_GREY, BASE_SOFTEN)
-	material.albedo_color = Color(soft.r, soft.g, soft.b, BASE_ALPHA)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# drawn first, so the kids and everything else stand on top of the tint, never under it
-	material.render_priority = -100
-	var mesh: ArrayMesh = tool.commit()
-	mesh.surface_set_material(0, material)
-	var fill: MeshInstance3D = _add(mesh, Vector3.ZERO)
-	fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# the chalk line along the curved rim (not along the street edges)
-	var kit: LowPoly = LowPoly.new()
-	for i: int in rim.size():
-		var a: Vector2 = rim[i]
-		var b: Vector2 = rim[(i + 1) % rim.size()]
-		if absf(a.distance_to(center) - layout.base_radius) > 0.01 or absf(b.distance_to(center) - layout.base_radius) > 0.01:
-			continue
-		var mid: Vector2 = (a + b) / 2.0
-		kit.set_transform(Transform3D(Basis(Vector3.UP, -(b - a).angle()), Vector3(mid.x, RING_HEIGHT + 0.004, mid.y)))
-		kit.box(Vector3.ZERO, Vector3(a.distance_to(b) + 0.04, 0.01, CHALK_WIDTH), CHALK)
-	kit.reset_transform()
-	_add(kit.commit(), Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return material
+		var direction: Vector2 = Vector2(cos(angle), sin(angle))
+		rim.append((center + direction * layout.base_radius).clamp(street.position, street.end))
+		inner.append(center + direction * (layout.base_radius - TAPE_WIDTH))
+	var materials: Array[StandardMaterial3D] = _zone_materials(color)
+	_add_fill(center, rim, materials[1])
+	# the tape runs along the curved rim only (not along the street edges)
+	var on_rim: Array[bool] = []
+	for point: Vector2 in rim:
+		on_rim.append(absf(point.distance_to(center) - layout.base_radius) < 0.01)
+	_add_tape(rim, inner, on_rim, materials[0])
+	return materials
 
 
-## The taped box where a team's tagged kids wait: team-coloured tape on the road
-## and a faint fill. Returns [tape, fill] materials (recoloured per viewer).
+## The taped box where a team's tagged kids wait: a rounded box of team tape on the
+## road and a faint fill. Returns [tape, fill] materials (recoloured per viewer).
 func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	var box: Rect2 = layout.jail_rect(side)
-	var center: Vector2 = box.get_center()
-	var fill_mesh: BoxMesh = BoxMesh.new()
-	fill_mesh.size = Vector3(box.size.x, 0.01, box.size.y)
-	var fill: StandardMaterial3D = StandardMaterial3D.new()
+	var radius: float = minf(JAIL_CORNER_RADIUS, minf(box.size.x, box.size.y) / 2.0)
+	var outline: Array[Vector2] = rounded_rect(box, radius)
+	var inner: Array[Vector2] = rounded_rect(box.grow(-TAPE_WIDTH), maxf(radius - TAPE_WIDTH, 0.0))
+	var materials: Array[StandardMaterial3D] = _zone_materials(color)
+	_add_fill(box.get_center(), outline, materials[1])
+	var on_rim: Array[bool] = []
+	on_rim.resize(outline.size())
+	on_rim.fill(true)
+	_add_tape(outline, inner, on_rim, materials[0])
+	return materials
+
+
+## [tape, fill] for a base or tagged box: soft team colour, the fill faint.
+func _zone_materials(color: Color) -> Array[StandardMaterial3D]:
 	var soft: Color = color.lerp(SOFT_GREY, BASE_SOFTEN)
-	fill.albedo_color = Color(soft.r, soft.g, soft.b, JAIL_FILL_ALPHA)
-	fill.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fill.render_priority = -100
-	fill_mesh.material = fill
-	_add(fill_mesh, Vector3(center.x, RING_HEIGHT, center.y)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var tape: StandardMaterial3D = StandardMaterial3D.new()
 	tape.albedo_color = soft
-	var pieces: Array[Rect2] = [
-		Rect2(box.position.x, box.position.y, box.size.x, TAPE_WIDTH),
-		Rect2(box.position.x, box.end.y - TAPE_WIDTH, box.size.x, TAPE_WIDTH),
-		Rect2(box.position.x, box.position.y, TAPE_WIDTH, box.size.y),
-		Rect2(box.end.x - TAPE_WIDTH, box.position.y, TAPE_WIDTH, box.size.y),
-	]
-	for piece: Rect2 in pieces:
-		var strip: BoxMesh = BoxMesh.new()
-		strip.size = Vector3(piece.size.x, 0.012, piece.size.y)
-		strip.material = tape
-		var at: Vector2 = piece.get_center()
-		_add(strip, Vector3(at.x, RING_HEIGHT + 0.006, at.y)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tape.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var fill: StandardMaterial3D = StandardMaterial3D.new()
+	fill.albedo_color = Color(soft.r, soft.g, soft.b, ZONE_FILL_ALPHA)
+	fill.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fill.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# drawn first, so the kids and everything else stand on top of the tint, never under it
+	fill.render_priority = -100
 	return [tape, fill]
 
 
-## The ends of the play area are walled off by a row of street things, the bench, the
-## SLOW DOWN SCHOOL ZONE sign and the wooden A-frame taking turns (the other end starts
-## one further along, so the two rows differ).
+## The outline of `box` with its corners rounded by `radius`, in order round the box.
+static func rounded_rect(box: Rect2, radius: float) -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	var corners: Array[Vector2] = [
+		Vector2(box.end.x - radius, box.end.y - radius),
+		Vector2(box.position.x + radius, box.end.y - radius),
+		Vector2(box.position.x + radius, box.position.y + radius),
+		Vector2(box.end.x - radius, box.position.y + radius),
+	]
+	for corner: int in corners.size():
+		for step: int in CORNER_STEPS + 1:
+			var angle: float = (float(corner) + float(step) / float(CORNER_STEPS)) * PI / 2.0
+			points.append(corners[corner] + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+
+## A flat fan from `center` out to the closed `outline`, just above the road.
+func _add_fill(center: Vector2, outline: Array[Vector2], material: StandardMaterial3D) -> void:
+	var tool: SurfaceTool = SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_normal(Vector3.UP)
+	for i: int in outline.size():
+		var a: Vector2 = outline[i]
+		var b: Vector2 = outline[(i + 1) % outline.size()]
+		for point: Vector2 in [center, b, a]:
+			tool.add_vertex(Vector3(point.x, RING_HEIGHT, point.y))
+	var mesh: ArrayMesh = tool.commit()
+	mesh.surface_set_material(0, material)
+	_add(mesh, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Tape between the closed `outer` line and the matching `inner` line, on the
+## segments whose both ends are marked in `keep`.
+func _add_tape(outer: Array[Vector2], inner: Array[Vector2], keep: Array[bool], material: StandardMaterial3D) -> void:
+	var tool: SurfaceTool = SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_normal(Vector3.UP)
+	var height: float = RING_HEIGHT + 0.006
+	for i: int in outer.size():
+		var j: int = (i + 1) % outer.size()
+		if not (keep[i] and keep[j]):
+			continue
+		for point: Vector2 in [outer[i], outer[j], inner[j], outer[i], inner[j], inner[i]]:
+			tool.add_vertex(Vector3(point.x, height, point.y))
+	var mesh: ArrayMesh = tool.commit()
+	mesh.surface_set_material(0, material)
+	_add(mesh, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## The ends of the play area are walled off by a row of street things (a fishball cart, a bench,
+## crates, the SLOW DOWN SCHOOL ZONE sign, a basketball hoop, stacked truck tyres, an ironing board
+## and the wooden A-frame), each at its true size (never stretched to fill a gap), facing the play
+## area, with uneven gaps and a little turned or set back, as if put down by hand.
 func _add_barricades() -> void:
-	var piece: float = layout.lane_width / BARRICADE_COUNT
+	var ids: Array = BARRIER_HEIGHTS.keys()
 	for end_index: int in 2:
 		var end: float = -1.0 if end_index == 0 else 1.0
-		for i: int in BARRICADE_COUNT:
-			var x: float = -layout.lane_width / 2.0 + piece * (i + 0.5)
-			var id: String = BARRICADE_MODELS[(i + end_index) % BARRICADE_MODELS.size()]
-			var model: Node3D = PropModel.fit(id, Vector2(piece * 0.92, BARRICADE_DEPTH), BARRICADE_HEIGHT)
-			_add_prop(model, Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.45)))
+		# the same street every match: a fixed seed per end
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		rng.seed = BARRIER_SEED + end_index
+		var picked: Array[String] = []
+		var widths: Array[float] = []
+		var used: float = 0.0
+		var i: int = end_index * (ids.size() / 2)
+		while true:
+			var id: String = ids[i % ids.size()]
+			var natural: Vector3 = PropModel.size_of(id)
+			var width: float = natural.x * BARRIER_HEIGHTS[id] / natural.y  # true size, never stretched
+			var need: float = width + (BARRIER_GAP if not picked.is_empty() else 0.0)
+			if used + need > layout.lane_width:
+				break
+			used += need
+			picked.append(id)
+			widths.append(width)
+			i += 1
+		# the room left over goes into uneven gaps (not into the things themselves)
+		var spare: float = layout.lane_width - used
+		var shares: Array[float] = []
+		var total: float = 0.0
+		for k: int in picked.size() + 1:
+			shares.append(rng.randf_range(0.4, 1.6))
+			total += shares[k]
+		var x: float = -layout.lane_width / 2.0 + spare * shares[0] / total
+		for k: int in picked.size():
+			var id: String = picked[k]
+			var model: Node3D = PropModel.by_height(id, BARRIER_HEIGHTS[id])
+			var depth: float = PropModel.size_of(id).z * model.scale.z
+			# set down by hand: a little in or out of line and a little turned
+			var setback: float = BARRIER_SETBACK + rng.randf_range(0.0, BARRIER_JITTER)
+			var at_z: float = end * (layout.lane_length / 2.0 + setback + depth / 2.0)
+			var turn: float = deg_to_rad(rng.randf_range(-BARRIER_TURN, BARRIER_TURN))
+			_add_prop(model, Vector3(x + widths[k] / 2.0, 0.0, at_z), (0.0 if end < 0.0 else PI) + turn)
+			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
 ## House fronts along both sides, a sari-sari store, and houses across both far ends.

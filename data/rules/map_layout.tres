@@ -4,15 +4,15 @@
 
 [resource]
 script = ExtResource("1_layout")
-lane_length = 40.0
-lane_width = 30.0
+lane_length = 48.0
+lane_width = 24.0
 post_inset = 2.5
 base_radius = 4.5
 spawn_offset = 2.0
 jail_size = Vector2(3, 4)
 jail_inset = Vector2(2.5, 4)
-obstacles = Array[Rect2]([Rect2(-3, 13.1, 3, 0.5), Rect2(-9.1, 9.45, 2.6, 0.5), Rect2(7, 7, 2.4, 0.5)])
+obstacles = Array[Rect2]([Rect2(-2.7, 15.75, 3, 0.5), Rect2(-7.54, 11.39, 2.6, 0.5), Rect2(5.36, 8.45, 2.4, 0.5)])
 obstacle_props = Array[StringName]([&"cardboard_wall", &"cardboard_wall", &"cardboard_wall"])
 boundary_thickness = 0.6
 overview_height = 60.0
-overview_size = 52.0
+overview_size = 58.0

@@ -1,7 +1,7 @@
 class_name LaneMinimap
 extends Control
 ## Minimap in the top left corner (docs/GDD.md "HUD"): the whole playing area at
-## exactly its own 3:4 shape, seen from above with your end at the bottom. Your base
+## exactly its own 1:2 shape, seen from above with your end at the bottom. Your base
 ## is the blue corner at the bottom left, theirs the red corner at the top right;
 ## the taped boxes are where tagged kids wait (yours top left, theirs bottom right).
 ## Obstacles are dark blocks, players are dots (you are white-ringed).
