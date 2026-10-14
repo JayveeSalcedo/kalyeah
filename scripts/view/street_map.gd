@@ -294,13 +294,28 @@ func _add_base_zone(side: int, color: Color) -> Array[StandardMaterial3D]:
 	return materials
 
 
-## The taped box where a team's tagged kids wait: a rounded box of team tape on the
-## road and a faint fill. Returns [tape, fill] materials (recoloured per viewer).
+## The taped box where a team's tagged kids wait: team tape on the road and a faint fill.
+## The box sits flush in a corner of the street, so only its inner corner is rounded and
+## the two sides on the street edges have no tape (owner): yours (top left) keeps its
+## bottom-right corner, tape on its right and bottom; theirs (bottom right) keeps its
+## top-left corner, tape on its top and left. Returns [tape, fill] materials.
 func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	var box: Rect2 = layout.jail_rect(side)
-	var radius: float = minf(JAIL_CORNER_RADIUS, minf(box.size.x, box.size.y) / 2.0)
-	var outline: Array[Vector2] = rounded_rect(box, radius)
-	var inner: Array[Vector2] = rounded_rect(box.grow(-TAPE_WIDTH), maxf(radius - TAPE_WIDTH, 0.0))
+	var radii: Array[float] = jail_radii(side, minf(box.size.x, box.size.y) / 2.0)
+	var open: Vector4 = jail_open_sides(side)
+	# the tape is TAPE_WIDTH wide on the taped sides and nothing on the open ones
+	var inner_box: Rect2 = Rect2(
+		box.position + Vector2(0.0 if open.x > 0.0 else TAPE_WIDTH, 0.0 if open.y > 0.0 else TAPE_WIDTH),
+		box.size - Vector2(
+			(0.0 if open.x > 0.0 else TAPE_WIDTH) + (0.0 if open.z > 0.0 else TAPE_WIDTH),
+			(0.0 if open.y > 0.0 else TAPE_WIDTH) + (0.0 if open.w > 0.0 else TAPE_WIDTH)
+		)
+	)
+	var inner_radii: Array[float] = []
+	for radius: float in radii:
+		inner_radii.append(maxf(radius - TAPE_WIDTH, 0.0))
+	var outline: Array[Vector2] = rounded_rect(box, radii)
+	var inner: Array[Vector2] = rounded_rect(inner_box, inner_radii)
 	var materials: Array[StandardMaterial3D] = _zone_materials(color)
 	_add_fill(box.get_center(), outline, materials[1])
 	var on_rim: Array[bool] = []
@@ -308,6 +323,21 @@ func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	on_rim.fill(true)
 	_add_tape(outline, inner, on_rim, materials[0])
 	return materials
+
+
+## Corner radii (bottom right, bottom left, top left, top right) of a side's tagged box:
+## only the corner that faces the middle of the street is rounded, at most `limit`.
+static func jail_radii(side: int, limit: float) -> Array[float]:
+	var radius: float = minf(JAIL_CORNER_RADIUS, limit)
+	var radii: Array[float] = [0.0, 0.0, 0.0, 0.0]
+	radii[0 if side == MapLayout.SIDE_OWN else 2] = radius
+	return radii
+
+
+## The sides of a side's tagged box that have no tape (they lie on the street edges):
+## x = left, y = top, z = right, w = bottom; 1.0 = no tape.
+static func jail_open_sides(side: int) -> Vector4:
+	return Vector4(1.0, 1.0, 0.0, 0.0) if side == MapLayout.SIDE_OWN else Vector4(0.0, 0.0, 1.0, 1.0)
 
 
 ## [tape, fill] for a base or tagged box: soft team colour, the fill faint.
@@ -325,19 +355,21 @@ func _zone_materials(color: Color) -> Array[StandardMaterial3D]:
 	return [tape, fill]
 
 
-## The outline of `box` with its corners rounded by `radius`, in order round the box.
-static func rounded_rect(box: Rect2, radius: float) -> Array[Vector2]:
+## The outline of `box` with its corners rounded by `radii` (bottom right, bottom left,
+## top left, top right; 0 = square), in order round the box. Every corner has
+## CORNER_STEPS + 1 points, so two outlines of different boxes line up point by point.
+static func rounded_rect(box: Rect2, radii: Array[float]) -> Array[Vector2]:
 	var points: Array[Vector2] = []
 	var corners: Array[Vector2] = [
-		Vector2(box.end.x - radius, box.end.y - radius),
-		Vector2(box.position.x + radius, box.end.y - radius),
-		Vector2(box.position.x + radius, box.position.y + radius),
-		Vector2(box.end.x - radius, box.position.y + radius),
+		Vector2(box.end.x - radii[0], box.end.y - radii[0]),
+		Vector2(box.position.x + radii[1], box.end.y - radii[1]),
+		Vector2(box.position.x + radii[2], box.position.y + radii[2]),
+		Vector2(box.end.x - radii[3], box.position.y + radii[3]),
 	]
 	for corner: int in corners.size():
 		for step: int in CORNER_STEPS + 1:
 			var angle: float = (float(corner) + float(step) / float(CORNER_STEPS)) * PI / 2.0
-			points.append(corners[corner] + Vector2(cos(angle), sin(angle)) * radius)
+			points.append(corners[corner] + Vector2(cos(angle), sin(angle)) * radii[corner])
 	return points
 
 
