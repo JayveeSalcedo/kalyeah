@@ -452,20 +452,23 @@ func test_an_enemy_in_its_box_has_no_bar_over_it() -> void:
 	assert_true(hud.bar_visible(ally), "even in your own box")
 
 
-func test_the_minimap_shows_each_players_face_in_a_circle() -> void:
+func test_the_minimap_shows_each_players_boot_art_face_in_a_circle() -> void:
 	var practice: PracticeMatch = _practice()
+	for def: CharacterDef in practice.sim.rules.characters:
+		var face: Texture2D = KidModel.minimap_face(def.id)
+		assert_not_null(face, "%s has a face cropped from the boot art" % def.id)
+		assert_eq(face.get_width(), face.get_height(), "square")
 	for id: int in practice.sim.players:
-		var texture: Texture2D = KidModel.portrait(practice.sim.players[id].character_id)
-		assert_not_null(texture, "player %d has a portrait" % id)
-		var uvs: PackedVector2Array = LaneMinimap.face_uvs(texture)
+		var face: Texture2D = KidModel.minimap_face(practice.sim.players[id].character_id)
+		var uvs: PackedVector2Array = LaneMinimap.face_uvs(face)
 		var points: PackedVector2Array = LaneMinimap.face_points(Vector2(50.0, 80.0), LaneMinimap.FACE)
 		assert_eq(points.size(), uvs.size())
 		assert_eq(points.size(), LaneMinimap.FACE_STEPS)
 		for i: int in points.size():
 			assert_almost_eq(points[i].distance_to(Vector2(50.0, 80.0)), LaneMinimap.FACE, 0.001, "a circle")
-			assert_between(uvs[i].x, 0.0, 1.0, "inside the portrait, across")
+			assert_between(uvs[i].x, 0.0, 1.0, "inside the face image, across")
 			assert_between(uvs[i].y, 0.0, 1.0, "and down")
-			assert_lt(uvs[i].y, 0.6, "only the top part: the face and shoulders")
+	assert_null(KidModel.minimap_face(&"nobody"), "no face for an unknown character")
 
 
 func test_minimap_puts_our_base_at_the_bottom() -> void:

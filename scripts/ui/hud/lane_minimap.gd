@@ -1,6 +1,6 @@
 class_name LaneMinimap
 extends Control
-## Minimap in the top left corner (docs/GDD.md "HUD"): the whole playing area at
+## Minimap in the top left corner (docs/GDD.md "HUD", no frame): the whole playing area at
 ## exactly its own 1:2 shape, seen from above with your end at the bottom. Your base
 ## is the blue corner at the bottom left, theirs the red corner at the top right;
 ## the taped boxes are where tagged kids wait (yours top left, theirs bottom right).
@@ -14,13 +14,10 @@ const OWN: Color = Color(0.3, 0.6, 1.0)
 const ENEMY: Color = Color(1.0, 0.35, 0.35)
 const BASE_ALPHA: float = 0.55
 const JAIL_ALPHA: float = 0.75
-## Gold frame, like the skill buttons.
-const FRAME: Color = Color(1.0, 0.8, 0.32)
 const CORNER: float = 12.0
-const FRAME_WIDTH: float = 4.0
 const INSET: float = 7.0
 ## A player's face circle: radius, the team ring round it and the white ring for you (px).
-const FACE: float = 7.0
+const FACE: float = 8.0
 const RING: float = 1.8
 const SELF_RING: float = 1.8
 const FACE_STEPS: int = 20
@@ -84,16 +81,9 @@ func _draw() -> void:
 	for id: int in ids:
 		if _sim.players.has(id):
 			_draw_player(_sim.players[id] as PlayerState)
-	# the gold frame last
-	var frame: StyleBoxFlat = StyleBoxFlat.new()
-	frame.draw_center = false
-	frame.set_corner_radius_all(int(CORNER))
-	frame.border_color = FRAME
-	frame.set_border_width_all(int(FRAME_WIDTH))
-	draw_style_box(frame, Rect2(Vector2.ZERO, size))
 
 
-## One player: the top of their character portrait (the face) cut to a circle, in a ring of the
+## One player: their face (cropped from the boot screen art; the top of the portrait without one) cut to a circle, in a ring of the
 ## team colour. Tagged kids, and enemies hiding in their box, are dimmed and ringed darker.
 func _draw_player(state: PlayerState) -> void:
 	var at: Vector2 = to_map(state.position)
@@ -102,7 +92,9 @@ func _draw_player(state: PlayerState) -> void:
 	if state.id == _local_id:
 		draw_circle(at, FACE + RING + SELF_RING, Color.WHITE)
 	draw_circle(at, FACE + RING, team_color.darkened(0.35) if dim else team_color)
-	var texture: Texture2D = KidModel.portrait(state.character_id)
+	var texture: Texture2D = KidModel.minimap_face(state.character_id)
+	if texture == null:
+		texture = KidModel.portrait(state.character_id)
 	draw_colored_polygon(face_points(at, FACE), Color.WHITE.darkened(TAGGED_DIM) if dim else Color.WHITE, face_uvs(texture), texture)
 
 
@@ -115,8 +107,8 @@ static func face_points(center: Vector2, radius: float) -> PackedVector2Array:
 	return points
 
 
-## The texture coordinates for those corners: the square at the top of the (tall) portrait,
-## which is the face and shoulders.
+## The texture coordinates for those corners: a square face fills the circle; for a tall
+## portrait it is the square at the top (the face and shoulders).
 static func face_uvs(texture: Texture2D) -> PackedVector2Array:
 	var height: float = minf(1.0, float(texture.get_width()) / float(texture.get_height()))
 	var uvs: PackedVector2Array = PackedVector2Array()
