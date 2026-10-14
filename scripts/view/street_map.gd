@@ -39,9 +39,8 @@ const BASE_SOFTEN: float = 0.3
 const ZONE_FILL_ALPHA: float = 0.22
 const TAPE_WIDTH: float = 0.16
 const BASE_STEPS: int = 36
-## The tagged box has rounded corners (metres), each drawn with this many steps.
-const JAIL_CORNER_RADIUS: float = 0.6
-const CORNER_STEPS: int = 6
+## The tagged box has no tint and no tape: cardboard walls close its sides.
+const JAIL_WALL_THICKNESS: float = 0.5
 const CURB_HEIGHT: float = 0.18
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
@@ -187,7 +186,7 @@ func base_color(side: int) -> Color:
 	return (materials[0] as StandardMaterial3D).albedo_color
 
 
-## [base tape, base fill, box tape, box fill] colours for `side`.
+## [base tape, base fill] colours for `side` (the tagged box has no tint).
 func zone_colors(side: int) -> Array[Color]:
 	var colors: Array[Color] = []
 	for material: StandardMaterial3D in _base_materials[side].slice(1):
@@ -208,8 +207,8 @@ func _build_map() -> void:
 		# a team-colour outline round the post so you can tell bases apart from afar
 		var outline: StandardMaterial3D = _add_post_outline(post, color)
 		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
-		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
-		_base_materials[side] = [outline, base[0], base[1], jail[0], jail[1]]
+		_add_jail(side)
+		_base_materials[side] = [outline, base[0], base[1]]
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
 	_add_houses()
@@ -294,50 +293,31 @@ func _add_base_zone(side: int, color: Color) -> Array[StandardMaterial3D]:
 	return materials
 
 
-## The taped box where a team's tagged kids wait: team tape on the road and a faint fill.
-## The box sits flush in a corner of the street, so only its inner corner is rounded and
-## the two sides on the street edges have no tape (owner): yours (top left) keeps its
-## bottom-right corner, tape on its right and bottom; theirs (bottom right) keeps its
-## top-left corner, tape on its top and left. Returns [tape, fill] materials.
-func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
-	var box: Rect2 = layout.jail_rect(side)
-	var radii: Array[float] = jail_radii(side, minf(box.size.x, box.size.y) / 2.0)
-	var open: Vector4 = jail_open_sides(side)
-	# the tape is TAPE_WIDTH wide on the taped sides and nothing on the open ones
-	var inner_box: Rect2 = Rect2(
-		box.position + Vector2(0.0 if open.x > 0.0 else TAPE_WIDTH, 0.0 if open.y > 0.0 else TAPE_WIDTH),
-		box.size - Vector2(
-			(0.0 if open.x > 0.0 else TAPE_WIDTH) + (0.0 if open.z > 0.0 else TAPE_WIDTH),
-			(0.0 if open.y > 0.0 else TAPE_WIDTH) + (0.0 if open.w > 0.0 else TAPE_WIDTH)
-		)
-	)
-	var inner_radii: Array[float] = []
-	for radius: float in radii:
-		inner_radii.append(maxf(radius - TAPE_WIDTH, 0.0))
-	var outline: Array[Vector2] = rounded_rect(box, radii)
-	var inner: Array[Vector2] = rounded_rect(inner_box, inner_radii)
-	var materials: Array[StandardMaterial3D] = _zone_materials(color)
-	_add_fill(box.get_center(), outline, materials[1])
-	var on_rim: Array[bool] = []
-	on_rim.resize(outline.size())
-	on_rim.fill(true)
-	_add_tape(outline, inner, on_rim, materials[0])
-	return materials
+## The box where a team's tagged kids wait: a square sitting flush in a corner of the street,
+## with no tint and no tape. Cardboard walls close its two sides that face the street (the
+## other two are the curb and the end line). They are scenery only: nothing is blocked, so a
+## teammate walks straight in to rescue.
+func _add_jail(side: int) -> void:
+	for wall: Rect2 in jail_wall_rects(layout.jail_rect(side), side):
+		var center: Vector2 = wall.get_center()
+		var turned: bool = wall.size.y > wall.size.x
+		var footprint: Vector2 = Vector2(maxf(wall.size.x, wall.size.y), minf(wall.size.x, wall.size.y))
+		_add_prop(PropModel.fit("cardboard_wall", footprint, COVER_HEIGHT), Vector3(center.x, 0.0, center.y), PI / 2.0 if turned else 0.0)
 
 
-## Corner radii (bottom right, bottom left, top left, top right) of a side's tagged box:
-## only the corner that faces the middle of the street is rounded, at most `limit`.
-static func jail_radii(side: int, limit: float) -> Array[float]:
-	var radius: float = minf(JAIL_CORNER_RADIUS, limit)
-	var radii: Array[float] = [0.0, 0.0, 0.0, 0.0]
-	radii[0 if side == MapLayout.SIDE_OWN else 2] = radius
-	return radii
-
-
-## The sides of a side's tagged box that have no tape (they lie on the street edges):
-## x = left, y = top, z = right, w = bottom; 1.0 = no tape.
-static func jail_open_sides(side: int) -> Vector4:
-	return Vector4(1.0, 1.0, 0.0, 0.0) if side == MapLayout.SIDE_OWN else Vector4(0.0, 0.0, 1.0, 1.0)
+## The two cardboard walls of a side's box, as rects inside it: yours (top left corner) has
+## them on its bottom and right, theirs (bottom right corner) on its top and left. The
+## side wall is one wall-thickness shorter so the two do not overlap at the corner.
+static func jail_wall_rects(box: Rect2, side: int) -> Array[Rect2]:
+	var thick: float = JAIL_WALL_THICKNESS
+	var walls: Array[Rect2] = []
+	if side == MapLayout.SIDE_OWN:
+		walls.append(Rect2(box.position.x, box.end.y - thick, box.size.x, thick))
+		walls.append(Rect2(box.end.x - thick, box.position.y, thick, box.size.y - thick))
+	else:
+		walls.append(Rect2(box.position.x, box.position.y, box.size.x, thick))
+		walls.append(Rect2(box.position.x, box.position.y + thick, thick, box.size.y - thick))
+	return walls
 
 
 ## [tape, fill] for a base or tagged box: soft team colour, the fill faint.
@@ -353,24 +333,6 @@ func _zone_materials(color: Color) -> Array[StandardMaterial3D]:
 	# drawn first, so the kids and everything else stand on top of the tint, never under it
 	fill.render_priority = -100
 	return [tape, fill]
-
-
-## The outline of `box` with its corners rounded by `radii` (bottom right, bottom left,
-## top left, top right; 0 = square), in order round the box. Every corner has
-## CORNER_STEPS + 1 points, so two outlines of different boxes line up point by point.
-static func rounded_rect(box: Rect2, radii: Array[float]) -> Array[Vector2]:
-	var points: Array[Vector2] = []
-	var corners: Array[Vector2] = [
-		Vector2(box.end.x - radii[0], box.end.y - radii[0]),
-		Vector2(box.position.x + radii[1], box.end.y - radii[1]),
-		Vector2(box.position.x + radii[2], box.position.y + radii[2]),
-		Vector2(box.end.x - radii[3], box.position.y + radii[3]),
-	]
-	for corner: int in corners.size():
-		for step: int in CORNER_STEPS + 1:
-			var angle: float = (float(corner) + float(step) / float(CORNER_STEPS)) * PI / 2.0
-			points.append(corners[corner] + Vector2(cos(angle), sin(angle)) * radii[corner])
-	return points
 
 
 ## A flat fan from `center` out to the closed `outline`, just above the road.

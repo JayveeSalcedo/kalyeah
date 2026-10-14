@@ -39,8 +39,8 @@ func test_tagged_boxes_own_top_left_enemy_bottom_right() -> void:
 	assert_lt(own.get_center().y, 0.0, "your team's box: top")
 	assert_gt(enemy.get_center().x, 0.0, "their box: right")
 	assert_gt(enemy.get_center().y, 0.0, "their box: bottom")
-	assert_true(LAYOUT.lane_rect().encloses(own))
-	assert_true(LAYOUT.lane_rect().encloses(enemy))
+	assert_true(LAYOUT.lane_rect().grow(0.001).encloses(own))
+	assert_true(LAYOUT.lane_rect().grow(0.001).encloses(enemy))
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		for other: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 			assert_false(LAYOUT.in_base(other, LAYOUT.jail_rect(side).get_center()), "boxes are clear of the bases")
@@ -50,11 +50,11 @@ func test_each_tagged_box_sits_flush_in_a_corner_of_the_play_area() -> void:
 	var lane: Rect2 = LAYOUT.lane_rect()
 	var own: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
 	var enemy: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_ENEMY)
-	assert_eq(own.position, lane.position, "yours: the top left corner, no margin")
-	assert_eq(enemy.end, lane.end, "theirs: the bottom right corner, no margin")
-	assert_eq(own.size, Vector2(2.4, 6.0), "1.5x the tight fit for four kids")
-	assert_true(lane.encloses(own))
-	assert_true(lane.encloses(enemy))
+	assert_almost_eq(own.position, lane.position, Vector2(0.001, 0.001), "yours: the top left corner, no margin")
+	assert_almost_eq(enemy.end, lane.end, Vector2(0.001, 0.001), "theirs: the bottom right corner, no margin")
+	assert_eq(own.size.x, own.size.y, "a square box (owner)")
+	assert_true(lane.grow(0.001).encloses(own))
+	assert_true(lane.grow(0.001).encloses(enemy))
 
 
 func test_jail_slots_stay_inside_the_box() -> void:
@@ -75,9 +75,7 @@ func test_the_box_fits_four_kids_and_no_more_room() -> void:
 		for other: Vector2 in slots:
 			assert_gte(slot.distance_to(other), kid, "kids don't overlap")
 		slots.append(slot)
-	assert_lte(box.size.y, kid * LAYOUT.jail_rows * 2.0, "the box is not much longer than four padded kids in a row")
-	# the camera looks down the street at 40 degrees, so its length shows at about 0.64x
-	assert_gt(box.size.y * 0.64, box.size.x * 1.2, "the box looks tall (portrait) on screen")
+	assert_lte(box.size.y, kid * LAYOUT.jail_rows * 2.5, "the box is not much bigger than four padded kids")
 
 
 func test_base_is_a_circle_round_the_post() -> void:
@@ -140,42 +138,30 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var zone: Array[Color] = map.zone_colors(side)
-		assert_eq(zone[0], zone[2], "the base rim has the same tape as the tagged box")
-		assert_eq(zone[1], zone[3], "and the same faint fill")
-		assert_lt(zone[1].a, 0.5, "the fill stays faint")
+		assert_eq(zone.size(), 2, "only the base is tinted: the tagged box has no tint")
+		assert_lt(zone[1].a, 0.5, "the base fill stays faint")
 
 
-func test_each_tagged_box_keeps_only_its_inner_corner_rounded() -> void:
-	var box: Rect2 = Rect2(0.0, 0.0, 2.4, 6.0)
-	var steps: int = StreetMap.CORNER_STEPS + 1
-	# yours (top left): the bottom-right corner is rounded, the other three are square
-	var own: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.jail_radii(MapLayout.SIDE_OWN, 1.2))
-	assert_eq(own.size(), 4 * steps)
-	assert_true(own.has(box.position), "top left is square")
-	assert_true(own.has(Vector2(box.end.x, box.position.y)), "top right is square")
-	assert_true(own.has(Vector2(box.position.x, box.end.y)), "bottom left is square")
-	assert_false(own.has(box.end), "bottom right is rounded")
-	for point: Vector2 in own:
-		assert_true(box.grow(0.001).has_point(point), "the outline stays in the box")
-	# theirs (bottom right): only the top-left corner is rounded
-	var enemy: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.jail_radii(MapLayout.SIDE_ENEMY, 1.2))
-	assert_false(enemy.has(box.position), "top left is rounded")
-	assert_true(enemy.has(box.end), "bottom right is square")
-	assert_true(enemy.has(Vector2(box.end.x, box.position.y)), "top right is square")
-	assert_true(enemy.has(Vector2(box.position.x, box.end.y)), "bottom left is square")
-	assert_almost_eq(StreetMap.jail_radii(MapLayout.SIDE_OWN, 0.2)[0], 0.2, 0.0001, "never rounder than the box allows")
-
-
-func test_the_tape_leaves_out_the_sides_on_the_street_edges() -> void:
-	# yours is flush in the top left corner: no tape on its left and top
-	assert_eq(StreetMap.jail_open_sides(MapLayout.SIDE_OWN), Vector4(1.0, 1.0, 0.0, 0.0))
-	# theirs is flush in the bottom right corner: no tape on its bottom and right
-	assert_eq(StreetMap.jail_open_sides(MapLayout.SIDE_ENEMY), Vector4(0.0, 0.0, 1.0, 1.0))
-	var lane: Rect2 = LAYOUT.lane_rect()
+func test_each_tagged_box_has_two_cardboard_walls_on_its_street_side() -> void:
 	var own: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
 	var enemy: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_ENEMY)
-	assert_eq(own.position, lane.position, "the open sides are the street edges")
-	assert_eq(enemy.end, lane.end)
+	# yours (top left corner): walls on its bottom and right
+	var own_walls: Array[Rect2] = StreetMap.jail_wall_rects(own, MapLayout.SIDE_OWN)
+	assert_eq(own_walls.size(), 2)
+	assert_eq(own_walls[0].end.y, own.end.y, "a wall on the bottom edge")
+	assert_eq(own_walls[1].end.x, own.end.x, "and one on the right edge")
+	# theirs (bottom right corner): walls on its top and left
+	var enemy_walls: Array[Rect2] = StreetMap.jail_wall_rects(enemy, MapLayout.SIDE_ENEMY)
+	assert_eq(enemy_walls[0].position.y, enemy.position.y, "a wall on the top edge")
+	assert_eq(enemy_walls[1].position.x, enemy.position.x, "and one on the left edge")
+	for walls: Array[Rect2] in [own_walls, enemy_walls]:
+		assert_false(walls[0].intersects(walls[1]), "the two walls meet at the corner without overlapping")
+	var radius: float = (load("res://data/rules/game_rules.tres") as GameRules).player_radius
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		for wall: Rect2 in StreetMap.jail_wall_rects(LAYOUT.jail_rect(side), side):
+			assert_true(LAYOUT.jail_rect(side).encloses(wall), "the walls are inside the box")
+			for index: int in 4:
+				assert_false(wall.grow(radius - 0.001).has_point(LAYOUT.jail_slot(side, index)), "a tagged kid does not stand in a wall")
 
 
 func test_props_stay_low_poly() -> void:
