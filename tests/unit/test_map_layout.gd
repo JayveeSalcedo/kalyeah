@@ -4,10 +4,10 @@ const LAYOUT: MapLayout = preload("res://data/rules/map_layout.tres")
 const MAP_SCENE: PackedScene = preload("res://scenes/map/street_map.tscn")
 
 
-func test_the_playing_area_is_3_by_4() -> void:
-	assert_eq(LAYOUT.lane_width, 30.0)
-	assert_eq(LAYOUT.lane_length, 40.0)
-	assert_almost_eq(LAYOUT.lane_width / LAYOUT.lane_length, 3.0 / 4.0, 0.001, "3:4 (width:length)")
+func test_the_playing_area_is_1_by_2() -> void:
+	assert_eq(LAYOUT.lane_width, 24.0)
+	assert_eq(LAYOUT.lane_length, 48.0)
+	assert_almost_eq(LAYOUT.lane_width / LAYOUT.lane_length, 1.0 / 2.0, 0.001, "1:2 (width:length)")
 
 
 func test_the_minimap_has_exactly_the_streets_ratio() -> void:
@@ -18,7 +18,7 @@ func test_the_minimap_has_exactly_the_streets_ratio() -> void:
 	var corner: Vector2 = minimap.to_map(LAYOUT.lane_rect().position)
 	var far: Vector2 = minimap.to_map(LAYOUT.lane_rect().end)
 	var drawn: Vector2 = (far - corner).abs()
-	assert_almost_eq(drawn.x / drawn.y, 3.0 / 4.0, 0.0001, "the street drawn inside the frame is exactly 3:4")
+	assert_almost_eq(drawn.x / drawn.y, 1.0 / 2.0, 0.0001, "the street drawn inside the frame is exactly 1:2")
 
 
 func test_own_post_bottom_left_enemy_post_top_right() -> void:
