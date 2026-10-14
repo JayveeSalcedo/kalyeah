@@ -1,5 +1,5 @@
 """Crops each character's face out of the boot screen key art (assets/ui/boot/boot_bg.webp)
-for the minimap (assets/portraits/faces/<id>.png, 48 x 48 squares, shown in a circle).
+for the minimap (assets/portraits/faces/<id>.png, 96 x 96 squares, shown in a circle).
 
 usage: python tools/art/crop_minimap_faces.py
 Needs Pillow. The boxes are (left, top, right, bottom) in the 941 x 1672 key art.
@@ -11,8 +11,8 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "assets/ui/boot/boot_bg.webp"
 OUT = ROOT / "assets/portraits/faces"
-SIZE = 48
-# each box is shrunk toward its centre: the face is only about 14 px wide on the minimap
+SIZE = 96
+# each box is shrunk toward its centre: the face is only about 16 px wide on the minimap
 TIGHTEN = 0.9
 
 # the six kids in the key art, left to right

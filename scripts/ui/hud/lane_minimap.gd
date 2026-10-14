@@ -13,16 +13,18 @@ const OWN: Color = Color(0.3, 0.6, 1.0)
 const ENEMY: Color = Color(1.0, 0.35, 0.35)
 const BASE_ALPHA: float = 0.55
 const JAIL_ALPHA: float = 0.75
-## The street fills the whole minimap (no panel or frame round it), with small rounded corners (px).
-const CORNER: int = 4
+## The street fills the whole minimap (no panel or frame round it). Everything drawn is cropped
+## to rounded corners of this radius (px) by shaders/minimap_crop.gdshader, with a smooth edge.
+const CORNER: float = 12.0
+const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 ## A player's face circle: radius, the team ring round it and the white ring for you (px).
 const FACE: float = 8.0
 const RING: float = 1.8
 const SELF_RING: float = 1.8
-const FACE_STEPS: int = 20
+const FACE_STEPS: int = 40
 ## A tagged kid's face is dimmed.
 const TAGGED_DIM: float = 0.5
-const BASE_STEPS: int = 18
+const BASE_STEPS: int = 48
 
 var _sim: MatchSim
 var _local_id: int = -1
@@ -34,6 +36,18 @@ func setup(sim: MatchSim, local_id: int, local_team: int) -> void:
 	_local_id = local_id
 	_local_team = local_team
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# smooth, not pixelated: filtered (mip-mapped) face images and an anti-aliased crop
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var crop: ShaderMaterial = ShaderMaterial.new()
+	crop.shader = CROP_SHADER
+	crop.set_shader_parameter("radius", CORNER)
+	material = crop
+	resized.connect(_update_crop)
+	_update_crop()
+
+
+func _update_crop() -> void:
+	(material as ShaderMaterial).set_shader_parameter("rect_size", size)
 
 
 ## Street x/z to minimap pixels, turned so the local team's end is at the bottom.
@@ -58,15 +72,12 @@ func _draw() -> void:
 	if _sim == null:
 		return
 	var layout: MapLayout = _sim.layout
-	var road: StyleBoxFlat = StyleBoxFlat.new()
-	road.bg_color = ROAD
-	road.set_corner_radius_all(CORNER)
-	draw_style_box(road, _inner())
+	draw_rect(_inner(), ROAD)
 	var own_side: int = _sim.side_for_team(_local_team)
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN if side == own_side else ENEMY
 		_draw_base(side, Color(color, BASE_ALPHA))
-		_draw_jail(layout.jail_rect(side), Color(color, JAIL_ALPHA), side == own_side)
+		_draw_world_rect(layout.jail_rect(side), Color(color, JAIL_ALPHA))
 	for rect: Rect2 in _sim.obstacles:
 		_draw_world_rect(rect, OBSTACLE)
 	# the local player last, so you are never covered by another face
@@ -84,13 +95,15 @@ func _draw_player(state: PlayerState) -> void:
 	var at: Vector2 = to_map(state.position)
 	var dim: bool = state.tagged or _sim.hides_in_box(state, _local_team)
 	var team_color: Color = OWN if state.team == _local_team else ENEMY
-	if state.id == _local_id:
-		draw_circle(at, FACE + RING + SELF_RING, Color.WHITE)
-	draw_circle(at, FACE + RING, team_color.darkened(0.35) if dim else team_color)
+	var ring: Color = team_color.darkened(0.35) if dim else team_color
 	var texture: Texture2D = KidModel.minimap_face(state.character_id)
 	if texture == null:
 		texture = KidModel.portrait(state.character_id)
-	draw_colored_polygon(face_points(at, FACE), Color.WHITE.darkened(TAGGED_DIM) if dim else Color.WHITE, face_uvs(texture), texture)
+	draw_colored_polygon(face_points(at, FACE + 0.5), Color.WHITE.darkened(TAGGED_DIM) if dim else Color.WHITE, face_uvs(texture), texture)
+	# anti-aliased rings drawn over the face's edge: the team colour, and white round you
+	draw_arc(at, FACE + RING * 0.5, 0.0, TAU, FACE_STEPS, ring, RING + 0.8, true)
+	if state.id == _local_id:
+		draw_arc(at, FACE + RING + SELF_RING * 0.5, 0.0, TAU, FACE_STEPS, Color.WHITE, SELF_RING + 0.4, true)
 
 
 ## The corners of a circle of `radius` round `center`.
@@ -111,20 +124,6 @@ static func face_uvs(texture: Texture2D) -> PackedVector2Array:
 		var angle: float = TAU * float(i) / float(FACE_STEPS)
 		uvs.append(Vector2(0.5 + 0.5 * cos(angle), height * (0.5 + 0.5 * sin(angle))))
 	return uvs
-
-
-## A tagged box: it sits in a corner of the street, so that corner is rounded like the street's
-## (yours is at the top left of the screen, theirs at the bottom right).
-func _draw_jail(rect: Rect2, color: Color, top_left: bool) -> void:
-	var a: Vector2 = to_map(rect.position)
-	var b: Vector2 = to_map(rect.end)
-	var box: StyleBoxFlat = StyleBoxFlat.new()
-	box.bg_color = color
-	if top_left:
-		box.corner_radius_top_left = CORNER
-	else:
-		box.corner_radius_bottom_right = CORNER
-	draw_style_box(box, Rect2(a, b - a).abs())
 
 
 func _draw_world_rect(rect: Rect2, color: Color) -> void:
