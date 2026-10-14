@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.4.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.3.0...kalyeah-v0.4.0) (2026-10-14)
+
+
+### Features
+
+* **camera,hud,map:** free-following camera, head-height bars, boxes flush in the corners ([2ee9310](https://github.com/earl-gh/kalyeah/commit/2ee93109bca95e1753e310fcd7dc1743ac5d916d))
+* **camera:** 20 degree pitch and a bit lower (10 m visible width) ([880780a](https://github.com/earl-gh/kalyeah/commit/880780a7dbb8a367dcc43e93e1af1eb1ccf99657))
+* **hud,map:** free kids hide their bar in their own box; no outline round the posts ([4a100b9](https://github.com/earl-gh/kalyeah/commit/4a100b9d1a786a7430aeb4cf899e78cbaf56478b))
+* **map:** a rescue area round each tagged box, only two cardboard walls on the street ([bfe7304](https://github.com/earl-gh/kalyeah/commit/bfe73047143104446046be8148022999fa63fe63))
+* **map:** square tagged boxes closed by cardboard walls, no tint or tape ([c2aa6f9](https://github.com/earl-gh/kalyeah/commit/c2aa6f99212ce61082ae981cb073619d786c296f))
+* **map:** tagged boxes keep only their inner corner rounded and have no tape on the street edges ([821b2e2](https://github.com/earl-gh/kalyeah/commit/821b2e278e6febb114bc51ba86ec751b977b99dd))
+* **map:** the only cover walls are one by each base, against the side curbs ([6d0412c](https://github.com/earl-gh/kalyeah/commit/6d0412cf64cd7307eade4ac9f487fb4b17530d68))
+* **map:** the side cover walls stand 6 m from the base circles (was 2 m) ([9e3240d](https://github.com/earl-gh/kalyeah/commit/9e3240ddbba1baca88ab47d4b5d214946de0aee9))
+
+
+### Bug Fixes
+
+* **web:** keep the browser-tab icon after the game boots ([517e336](https://github.com/earl-gh/kalyeah/commit/517e3363434aad5fe52216eb3eba4a1d55bc82c9))
+
 ## [0.3.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.2.0...kalyeah-v0.3.0) (2026-10-14)
 
 
