@@ -66,25 +66,6 @@ static func tarpaulin(variant: int) -> ArrayMesh:
 		return kit.commit())
 
 
-## Banderitas: fiesta bunting strung across the street (x from -span/2 to span/2).
-static func banderitas(span: float, seed_value: int) -> ArrayMesh:
-	return cached("bunting%.1f_%d" % [span, seed_value], func() -> ArrayMesh:
-		var kit: LowPoly = LowPoly.new()
-		var colors: Array[Color] = [Palette.JEEP_RED, Palette.SARI_YELLOW, Palette.JEEP_BLUE, Palette.WHITE, Palette.LEAF, Palette.WALL_PINK]
-		var count: int = int(span / 0.55)
-		var sag: float = 0.6
-		for i: int in count:
-			var u: float = (float(i) + 0.5) / float(count)
-			var x: float = -span / 2.0 + span * u
-			var y: float = -sag * 4.0 * u * (1.0 - u)
-			var color: Color = colors[(i + seed_value) % colors.size()]
-			var center: Vector3 = Vector3(x, y, 0.0)
-			kit.tri(center + Vector3(-0.2, 0.0, 0.0), center + Vector3(0.2, 0.0, 0.0), center + Vector3(0.0, -0.42, 0.0), color, center + Vector3(0.0, -0.15, 0.08))
-			kit.tri(center + Vector3(-0.2, 0.0, 0.0), center + Vector3(0.2, 0.0, 0.0), center + Vector3(0.0, -0.42, 0.0), color.darkened(0.15), center + Vector3(0.0, -0.15, -0.08))
-			kit.box(center + Vector3(0.0, 0.01, 0.0), Vector3(0.55, 0.025, 0.025), Palette.WIRE)
-		return kit.commit())
-
-
 ## Chalk piko (hopscotch) drawn on the asphalt, long axis along Z.
 static func hopscotch() -> ArrayMesh:
 	return cached("piko", func() -> ArrayMesh:
