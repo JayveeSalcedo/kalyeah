@@ -4,8 +4,10 @@ extends Control
 ## exactly its own 1:2 shape, seen from above with your end at the bottom. Your base
 ## is the blue corner at the bottom left, theirs the red corner at the top right;
 ## the taped boxes are where tagged kids wait (yours top left, theirs bottom right).
-## Obstacles are dark blocks; every player is the face of their character in a circle, with a
-## ring in the team colour (you are white-ringed).
+## Obstacles are dark blocks; every player is the face of their character in a circle, with one
+## thin ring in the team colour. The drawing (MinimapCanvas) is rendered at SUPERSAMPLE times the
+## size in a SubViewport and shown scaled down, so every element is smooth, then cropped to rounded
+## corners by a shader.
 
 const ROAD: Color = Color(0.33, 0.33, 0.36, 0.95)
 const OBSTACLE: Color = Color(0.16, 0.15, 0.18)
@@ -17,10 +19,13 @@ const JAIL_ALPHA: float = 0.75
 ## to rounded corners of this radius (px) by shaders/minimap_crop.gdshader, with a smooth edge.
 const CORNER: float = 12.0
 const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
-## A player's face circle: radius, the team ring round it and the white ring for you (px).
+## A player's face circle: its radius, how thick the one team-colour ring on its edge is, and how
+## much bigger you are than the others (px).
 const FACE: float = 8.0
-const RING: float = 1.8
-const SELF_RING: float = 1.8
+const RING: float = 1.2
+const SELF_SCALE: float = 1.25
+## The minimap is drawn this many times bigger and scaled down, which smooths every edge.
+const SUPERSAMPLE: int = 3
 const FACE_STEPS: int = 40
 ## A tagged kid's face is dimmed.
 const TAGGED_DIM: float = 0.5
@@ -29,6 +34,9 @@ const BASE_STEPS: int = 48
 var _sim: MatchSim
 var _local_id: int = -1
 var _local_team: int = 0
+var _view: SubViewport
+var _canvas: MinimapCanvas
+var _shown: TextureRect
 
 
 func setup(sim: MatchSim, local_id: int, local_team: int) -> void:
@@ -36,74 +44,63 @@ func setup(sim: MatchSim, local_id: int, local_team: int) -> void:
 	_local_id = local_id
 	_local_team = local_team
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# smooth, not pixelated: filtered (mip-mapped) face images and an anti-aliased crop
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# the drawing is rendered big in its own viewport (smooth: no pixelated edges) ...
+	_view = SubViewport.new()
+	_view.transparent_bg = true
+	_view.disable_3d = true
+	_view.gui_disable_input = true
+	_view.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(_view)
+	_canvas = MinimapCanvas.new()
+	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_canvas.scale = Vector2.ONE * float(SUPERSAMPLE)
+	_view.add_child(_canvas)
+	_canvas.setup(self, sim, local_id, local_team)
+	# ... and shown scaled down, cropped to rounded corners with a smooth edge
+	_shown = TextureRect.new()
+	_shown.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_shown.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_shown.stretch_mode = TextureRect.STRETCH_SCALE
+	_shown.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+	_shown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shown.texture = _view.get_texture()
 	var crop: ShaderMaterial = ShaderMaterial.new()
 	crop.shader = CROP_SHADER
 	crop.set_shader_parameter("radius", CORNER)
-	material = crop
-	resized.connect(_update_crop)
-	_update_crop()
+	_shown.material = crop
+	add_child(_shown)
+	resized.connect(_update_size)
+	_update_size()
 
 
-func _update_crop() -> void:
-	(material as ShaderMaterial).set_shader_parameter("rect_size", size)
+func _update_size() -> void:
+	var pixels: Vector2i = Vector2i(maxi(1, ceili(size.x * SUPERSAMPLE)), maxi(1, ceili(size.y * SUPERSAMPLE)))
+	_view.size = pixels
+	_canvas.size = size
+	(_shown.material as ShaderMaterial).set_shader_parameter("rect_size", size)
+
+
+func _process(_delta: float) -> void:
+	if _canvas != null:
+		_canvas.queue_redraw()
 
 
 ## Street x/z to minimap pixels, turned so the local team's end is at the bottom.
 func to_map(world: Vector2) -> Vector2:
 	var layout: MapLayout = _sim.layout
 	var view: Vector2 = world * float(_sim.side_for_team(_local_team))
-	var inner: Rect2 = _inner()
+	var inner: Rect2 = street_rect()
 	return inner.get_center() + Vector2(
 		view.x / layout.lane_width * inner.size.x, view.y / layout.lane_length * inner.size.y
 	)
 
 
 ## The street's rectangle: as big as fits, at exactly the street's ratio.
-func _inner() -> Rect2:
+func street_rect() -> Rect2:
 	var room: Vector2 = size
 	var ratio: float = _sim.layout.lane_width / _sim.layout.lane_length
 	var fit: Vector2 = Vector2(room.y * ratio, room.y) if room.x / room.y > ratio else Vector2(room.x, room.x / ratio)
 	return Rect2((size - fit) / 2.0, fit)
-
-
-func _draw() -> void:
-	if _sim == null:
-		return
-	var layout: MapLayout = _sim.layout
-	draw_rect(_inner(), ROAD)
-	var own_side: int = _sim.side_for_team(_local_team)
-	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
-		var color: Color = OWN if side == own_side else ENEMY
-		_draw_base(side, Color(color, BASE_ALPHA))
-		_draw_world_rect(layout.jail_rect(side), Color(color, JAIL_ALPHA))
-	for rect: Rect2 in _sim.obstacles:
-		_draw_world_rect(rect, OBSTACLE)
-	# the local player last, so you are never covered by another face
-	var ids: Array = _sim.players.keys()
-	ids.erase(_local_id)
-	ids.append(_local_id)
-	for id: int in ids:
-		if _sim.players.has(id):
-			_draw_player(_sim.players[id] as PlayerState)
-
-
-## One player: their face (cropped from the boot screen art; the top of the portrait without one) cut to a circle, in a ring of the
-## team colour. Tagged kids, and enemies hiding in their box, are dimmed and ringed darker.
-func _draw_player(state: PlayerState) -> void:
-	var at: Vector2 = to_map(state.position)
-	var dim: bool = state.tagged or _sim.hides_in_box(state, _local_team)
-	var team_color: Color = OWN if state.team == _local_team else ENEMY
-	var ring: Color = team_color.darkened(0.35) if dim else team_color
-	var texture: Texture2D = KidModel.minimap_face(state.character_id)
-	if texture == null:
-		texture = KidModel.portrait(state.character_id)
-	draw_colored_polygon(face_points(at, FACE + 0.5), Color.WHITE.darkened(TAGGED_DIM) if dim else Color.WHITE, face_uvs(texture), texture)
-	# anti-aliased rings drawn over the face's edge: the team colour, and white round you
-	draw_arc(at, FACE + RING * 0.5, 0.0, TAU, FACE_STEPS, ring, RING + 0.8, true)
-	if state.id == _local_id:
-		draw_arc(at, FACE + RING + SELF_RING * 0.5, 0.0, TAU, FACE_STEPS, Color.WHITE, SELF_RING + 0.4, true)
 
 
 ## The corners of a circle of `radius` round `center`.
@@ -124,23 +121,3 @@ static func face_uvs(texture: Texture2D) -> PackedVector2Array:
 		var angle: float = TAU * float(i) / float(FACE_STEPS)
 		uvs.append(Vector2(0.5 + 0.5 * cos(angle), height * (0.5 + 0.5 * sin(angle))))
 	return uvs
-
-
-func _draw_world_rect(rect: Rect2, color: Color) -> void:
-	var a: Vector2 = to_map(rect.position)
-	var b: Vector2 = to_map(rect.end)
-	draw_rect(Rect2(Vector2(minf(a.x, b.x), minf(a.y, b.y)), (b - a).abs()), color)
-
-
-## The base circle, cut off where it meets the edges of the street.
-func _draw_base(side: int, color: Color) -> void:
-	var layout: MapLayout = _sim.layout
-	var center: Vector2 = layout.base_center(side)
-	var street: Rect2 = layout.lane_rect()
-	var points: PackedVector2Array = PackedVector2Array()
-	for i: int in BASE_STEPS:
-		var angle: float = TAU * float(i) / float(BASE_STEPS)
-		var point: Vector2 = center + Vector2(cos(angle), sin(angle)) * layout.base_radius
-		point = point.clamp(street.position, street.end)
-		points.append(to_map(point))
-	draw_colored_polygon(points, color)

@@ -436,7 +436,6 @@ func _sync_views(delta: float) -> void:
 	_sync_aim(player)
 	_fx.sync(sim, delta)
 	hud.overhead.tick(delta)
-	hud.minimap.queue_redraw()
 	hud.sync_score(sim, local_team, delta)
 	if sim.phase == MatchSim.Phase.INTRO:
 		_play_intro_shot()
