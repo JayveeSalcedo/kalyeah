@@ -9,7 +9,7 @@ extends Control
 ## size in a SubViewport and shown scaled down, so every element is smooth, then cropped to rounded
 ## corners by a shader.
 
-const ROAD: Color = Color(0.33, 0.33, 0.36, 0.95)
+const ROAD: Color = Color(0.33, 0.33, 0.36, 0.55)
 const OBSTACLE: Color = Color(0.16, 0.15, 0.18)
 const OWN: Color = Color(0.3, 0.6, 1.0)
 const ENEMY: Color = Color(1.0, 0.35, 0.35)
