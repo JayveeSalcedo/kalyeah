@@ -10,6 +10,8 @@ extends Node3D
 
 const MODEL_PATH: String = "res://assets/models/characters/%s.glb"
 const PORTRAIT_PATH: String = "res://assets/portraits/%s.png"
+## A kid's face cropped from the boot screen key art (tools/art/crop_minimap_faces.py), for the minimap.
+const FACE_PATH: String = "res://assets/portraits/faces/%s.png"
 const FALLBACK_SET: StringName = &"junjun"
 ## How tall the kid stands in the world, in metres (a little taller than life so the kids
 ## read through the wide lens).
@@ -50,6 +52,7 @@ const STAR_COUNT: int = 5
 static var _scenes: Dictionary[String, PackedScene] = {}
 static var _layers: Dictionary[String, AnimationLibrary] = {}
 static var _portraits: Dictionary[String, Texture2D] = {}
+static var _faces: Dictionary[String, Texture2D] = {}
 static var _shadow_texture: GradientTexture2D
 
 var character: CharacterDef
@@ -319,6 +322,16 @@ static func portrait(character_id: StringName) -> Texture2D:
 	if not _portraits.has(set_id):
 		_portraits[set_id] = load(PORTRAIT_PATH % set_id) as Texture2D
 	return _portraits[set_id]
+
+
+## The square face of a character from the boot screen art, or null when there is none.
+static func minimap_face(character_id: StringName) -> Texture2D:
+	var path: String = FACE_PATH % String(character_id)
+	if not ResourceLoader.exists(path):
+		return null
+	if not _faces.has(path):
+		_faces[path] = load(path) as Texture2D
+	return _faces[path]
 
 
 static func _scene(set_id: StringName) -> PackedScene:
