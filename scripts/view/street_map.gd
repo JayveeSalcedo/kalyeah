@@ -67,9 +67,6 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 }
 const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 8.5
-## How thick the team-colour outline round each base post is (m).
-const POST_OUTLINE: float = 0.07
-const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
 ## The barrier rows across both ends: every street thing at its real height (m), side by side
 ## in this order (the far end starts half way along, so the two rows differ).
 const BARRIER_HEIGHTS: Dictionary[String, float] = {
@@ -88,8 +85,10 @@ const BARRIER_SETBACK: float = 0.15
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
-## side -> [post outline, base chalk, box tape, box fill] materials (recoloured per viewer).
+## side -> [base tape, base fill, rescue tape, rescue fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
+## side -> that base's team colour as the viewer sees it (blue yours, red theirs).
+var _side_tint: Dictionary[int, Color] = {}
 ## side -> that base's electric post.
 var _posts: Dictionary[int, Node3D] = {}
 
@@ -163,10 +162,9 @@ func set_own_side(own_side: int) -> void:
 	_turn_posts(own_side)
 	for side: int in _base_materials:
 		var tint: Color = OWN_COLOR if side == own_side else ENEMY_COLOR
+		_side_tint[side] = tint
 		for material: StandardMaterial3D in _base_materials[side]:
-			var color: Color = tint
-			if material != _base_materials[side][0]:
-				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
+			var color: Color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
 
@@ -181,15 +179,15 @@ func _turn_posts(own_side: int) -> void:
 		_posts[side].rotation.y = inward + (PI if side == own_side else 0.0)
 
 
+## The team colour of base `side` as the viewer sees it: blue for yours, red for theirs.
 func base_color(side: int) -> Color:
-	var materials: Array = _base_materials[side]
-	return (materials[0] as StandardMaterial3D).albedo_color
+	return _side_tint[side]
 
 
 ## [base tape, base fill, rescue tape, rescue fill] colours for `side` (the tagged box itself has no tint).
 func zone_colors(side: int) -> Array[Color]:
 	var colors: Array[Color] = []
-	for material: StandardMaterial3D in _base_materials[side].slice(1):
+	for material: StandardMaterial3D in _base_materials[side]:
 		colors.append(material.albedo_color)
 	return colors
 
@@ -204,12 +202,11 @@ func _build_map() -> void:
 		var center: Vector2 = layout.base_center(side)
 		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
 		_posts[side] = post
-		# a team-colour outline round the post so you can tell bases apart from afar
-		var outline: StandardMaterial3D = _add_post_outline(post, color)
 		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
 		_add_jail(side)
 		var rescue: Array[StandardMaterial3D] = _add_rescue_area(side, color)
-		_base_materials[side] = [outline, base[0], base[1], rescue[0], rescue[1]]
+		_base_materials[side] = [base[0], base[1], rescue[0], rescue[1]]
+		_side_tint[side] = color
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
 	_add_houses()
@@ -527,34 +524,6 @@ func _add_prop(model: Node3D, at: Vector3, yaw: float = 0.0) -> Node3D:
 	model.rotation.y = yaw
 	_geometry.add_child(model)
 	return model
-
-
-## A team-colour outline all round a base post: an inverted hull of the post's smooth outline
-## shell (assets/models/props/electric_pole_outline.glb, tools/blender/build_outline_shell.py),
-## pushed out along its normals. A hull made from the detailed post itself breaks up into
-## jagged bits on its rough, decimated surface.
-func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
-	var outline: StandardMaterial3D = StandardMaterial3D.new()
-	outline.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	outline.cull_mode = BaseMaterial3D.CULL_FRONT
-	outline.grow = true
-	outline.grow_amount = POST_OUTLINE / post.scale.y  # the model is scaled up: grow in its own units
-	outline.albedo_color = color
-	var source: Node3D = (load(POST_OUTLINE_SHELL) as PackedScene).instantiate() as Node3D
-	var shell_mesh: MeshInstance3D = source.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
-	var shell: MeshInstance3D = MeshInstance3D.new()
-	shell.name = "Outline"
-	shell.mesh = shell_mesh.mesh
-	shell.material_override = outline
-	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	source.free()
-	post.add_child(shell)
-	return outline
-
-
-## The colour of the outline round base `side`'s post.
-func post_outline_color(side: int) -> Color:
-	return (_base_materials[side][0] as StandardMaterial3D).albedo_color
 
 
 func _setup_camera() -> void:

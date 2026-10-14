@@ -75,6 +75,12 @@ func tick(delta: float) -> void:
 	queue_redraw()
 
 
+## False for an enemy standing in its own team's tagged box: it blends in with the tagged kids
+## (owner), so no bar, status or spinner is drawn over it. Your own team always sees its kids.
+func bar_visible(state: PlayerState) -> bool:
+	return not _sim.hides_in_box(state, _local_team)
+
+
 func bar_color(state: PlayerState) -> Color:
 	if state.id == _local_id:
 		return SELF_COLOR
@@ -98,7 +104,7 @@ func _draw() -> void:
 	for id: int in _sim.players:
 		var state: PlayerState = _sim.players[id]
 		var at: Variant = _head(state)
-		if at != null:
+		if at != null and bar_visible(state):
 			_draw_hero(state, at as Vector2)
 	for popup: Dictionary in _popups:
 		_draw_popup(popup)
