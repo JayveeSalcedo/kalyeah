@@ -7,15 +7,14 @@ extends Control
 ## Obstacles are dark blocks; every player is the face of their character in a circle, with a
 ## ring in the team colour (you are white-ringed).
 
-const PANEL: Color = Color(0.1, 0.08, 0.14, 0.78)
 const ROAD: Color = Color(0.33, 0.33, 0.36, 0.95)
 const OBSTACLE: Color = Color(0.16, 0.15, 0.18)
 const OWN: Color = Color(0.3, 0.6, 1.0)
 const ENEMY: Color = Color(1.0, 0.35, 0.35)
 const BASE_ALPHA: float = 0.55
 const JAIL_ALPHA: float = 0.75
-const CORNER: float = 12.0
-const INSET: float = 7.0
+## The street fills the whole minimap (no panel or frame round it), with small rounded corners (px).
+const CORNER: int = 4
 ## A player's face circle: radius, the team ring round it and the white ring for you (px).
 const FACE: float = 8.0
 const RING: float = 1.8
@@ -47,9 +46,9 @@ func to_map(world: Vector2) -> Vector2:
 	)
 
 
-## The street's rectangle inside the frame: as big as fits, at exactly the street's ratio.
+## The street's rectangle: as big as fits, at exactly the street's ratio.
 func _inner() -> Rect2:
-	var room: Vector2 = size - Vector2(INSET, INSET) * 2.0
+	var room: Vector2 = size
 	var ratio: float = _sim.layout.lane_width / _sim.layout.lane_length
 	var fit: Vector2 = Vector2(room.y * ratio, room.y) if room.x / room.y > ratio else Vector2(room.x, room.x / ratio)
 	return Rect2((size - fit) / 2.0, fit)
@@ -58,20 +57,16 @@ func _inner() -> Rect2:
 func _draw() -> void:
 	if _sim == null:
 		return
-	var back: StyleBoxFlat = StyleBoxFlat.new()
-	back.bg_color = PANEL
-	back.set_corner_radius_all(int(CORNER))
-	back.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
-	back.shadow_size = 4
-	back.shadow_offset = Vector2(0, 3)
-	draw_style_box(back, Rect2(Vector2.ZERO, size))
 	var layout: MapLayout = _sim.layout
-	_draw_world_rect(layout.lane_rect(), ROAD)
+	var road: StyleBoxFlat = StyleBoxFlat.new()
+	road.bg_color = ROAD
+	road.set_corner_radius_all(CORNER)
+	draw_style_box(road, _inner())
 	var own_side: int = _sim.side_for_team(_local_team)
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN if side == own_side else ENEMY
 		_draw_base(side, Color(color, BASE_ALPHA))
-		_draw_world_rect(layout.jail_rect(side), Color(color, JAIL_ALPHA))
+		_draw_jail(layout.jail_rect(side), Color(color, JAIL_ALPHA), side == own_side)
 	for rect: Rect2 in _sim.obstacles:
 		_draw_world_rect(rect, OBSTACLE)
 	# the local player last, so you are never covered by another face
@@ -116,6 +111,20 @@ static func face_uvs(texture: Texture2D) -> PackedVector2Array:
 		var angle: float = TAU * float(i) / float(FACE_STEPS)
 		uvs.append(Vector2(0.5 + 0.5 * cos(angle), height * (0.5 + 0.5 * sin(angle))))
 	return uvs
+
+
+## A tagged box: it sits in a corner of the street, so that corner is rounded like the street's
+## (yours is at the top left of the screen, theirs at the bottom right).
+func _draw_jail(rect: Rect2, color: Color, top_left: bool) -> void:
+	var a: Vector2 = to_map(rect.position)
+	var b: Vector2 = to_map(rect.end)
+	var box: StyleBoxFlat = StyleBoxFlat.new()
+	box.bg_color = color
+	if top_left:
+		box.corner_radius_top_left = CORNER
+	else:
+		box.corner_radius_bottom_right = CORNER
+	draw_style_box(box, Rect2(a, b - a).abs())
 
 
 func _draw_world_rect(rect: Rect2, color: Color) -> void:
