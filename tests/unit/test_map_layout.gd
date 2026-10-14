@@ -52,6 +52,21 @@ func test_jail_slots_stay_inside_the_box() -> void:
 	assert_ne(LAYOUT.jail_slot(MapLayout.SIDE_OWN, 0), LAYOUT.jail_slot(MapLayout.SIDE_OWN, 1), "kids stand side by side")
 
 
+func test_the_box_fits_four_kids_and_no_more_room() -> void:
+	var rules: GameRules = load("res://data/rules/game_rules.tres") as GameRules
+	var kid: float = rules.player_radius * 2.0
+	assert_eq(LAYOUT.jail_columns * LAYOUT.jail_rows, 4, "four slots")
+	var box: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
+	var slots: Array[Vector2] = []
+	for index: int in 4:
+		var slot: Vector2 = LAYOUT.jail_slot(MapLayout.SIDE_OWN, index)
+		assert_true(box.grow(-rules.player_radius).has_point(slot), "kid %d fits inside the tape" % index)
+		for other: Vector2 in slots:
+			assert_gte(slot.distance_to(other), kid, "kids don't overlap")
+		slots.append(slot)
+	assert_lt(box.size.y, kid * LAYOUT.jail_rows * 2.0, "the box is not much longer than two rows of kids")
+
+
 func test_base_is_a_circle_round_the_post() -> void:
 	var post: Vector2 = LAYOUT.base_center(MapLayout.SIDE_ENEMY)
 	assert_true(LAYOUT.in_base(MapLayout.SIDE_ENEMY, post))
