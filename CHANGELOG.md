@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.5.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.4.0...kalyeah-v0.5.0) (2026-10-14)
+
+
+### Features
+
+* **hud:** crop the minimap to 12 px rounded corners and make it smooth ([f66334a](https://github.com/earl-gh/kalyeah/commit/f66334a977f56561bf22c645e025b344b9484c07))
+* **hud:** lighter, see-through minimap background (55% opaque, was 95%) ([5b71f12](https://github.com/earl-gh/kalyeah/commit/5b71f12f81d74abdc4d9b222cf1b268a77686f1d))
+* **hud:** no frame on the minimap; faces cropped from the boot screen art ([cc54b07](https://github.com/earl-gh/kalyeah/commit/cc54b076b25a1e79b99e648b221a83587aef7f7b))
+* **hud:** smooth minimap (3x supersampled) and one thin team-colour ring ([049420f](https://github.com/earl-gh/kalyeah/commit/049420f4aac608d661608f224b9101b3b15656a5))
+* **hud:** the minimap has no dark panel round it, only small rounded corners ([943287d](https://github.com/earl-gh/kalyeah/commit/943287dabeeb01f723e7b1ec678f6320ca3ff42c))
+* **hud:** the minimap shows each player's character face in a circle ([a867760](https://github.com/earl-gh/kalyeah/commit/a8677606395640d390f1274b73f3fbfe8b636951))
+* **hud:** thinner minimap ring (0.6 px, was 1.2 px) ([174d174](https://github.com/earl-gh/kalyeah/commit/174d17470dac5b26f8b97104ac3a29f71ddb6d30))
+
 ## [0.4.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.3.0...kalyeah-v0.4.0) (2026-10-14)
 
 
