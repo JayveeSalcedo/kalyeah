@@ -92,14 +92,14 @@ func test_only_two_cardboard_walls_stand_in_the_play_area_one_by_each_base() -> 
 	var lane: Rect2 = LAYOUT.lane_rect()
 	var own_base: Vector2 = LAYOUT.base_center(MapLayout.SIDE_OWN)
 	var enemy_base: Vector2 = LAYOUT.base_center(MapLayout.SIDE_ENEMY)
-	# the left-most wall: against the left curb, 2 m above (toward the enemy end) the bottom-left base circle
+	# the left-most wall: against the left curb, 6 m above (toward the enemy end) the bottom-left base circle
 	var left: Rect2 = walls[0] if walls[0].position.x < 0.0 else walls[1]
 	assert_almost_eq(left.position.x, lane.position.x, 0.001, "against the left curb")
-	assert_almost_eq(left.end.y, own_base.y - LAYOUT.base_radius - 2.0, 0.001, "2 m above the bottom-left base")
-	# the right-most wall: against the right curb, 2 m below the top-right base circle
+	assert_almost_eq(left.end.y, own_base.y - LAYOUT.base_radius - 6.0, 0.001, "6 m above the bottom-left base")
+	# the right-most wall: against the right curb, 6 m below the top-right base circle
 	var right: Rect2 = walls[1] if walls[0].position.x < 0.0 else walls[0]
 	assert_almost_eq(right.end.x, lane.end.x, 0.001, "against the right curb")
-	assert_almost_eq(right.position.y, enemy_base.y + LAYOUT.base_radius + 2.0, 0.001, "2 m below the top-right base")
+	assert_almost_eq(right.position.y, enemy_base.y + LAYOUT.base_radius + 6.0, 0.001, "6 m below the top-right base")
 
 
 func test_jail_slots_stay_inside_the_box() -> void:
