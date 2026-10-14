@@ -13,8 +13,6 @@ func test_a_fixed_low_angle_with_a_wide_perspective_lens() -> void:
 
 func test_other_camera_numbers_come_from_data() -> void:
 	assert_eq(CAMERA.visible_width, 10.0, "owner: closer and a bit lower")
-	assert_eq(CAMERA.far_reach, 20.0)
-	assert_eq(CAMERA.end_margin, 2.0)
 	assert_eq(CAMERA.player_screen_y, 0.62)
 
 
@@ -61,26 +59,26 @@ func test_the_aim_point_is_far_enough_ahead_to_hold_the_hero_low_on_screen() -> 
 	var reach: float = CAMERA.distance(PHONE)
 	var ahead: float = CAMERA.look_ahead(reach)
 	assert_almost_eq(ahead, 4.5, 0.05, "about 4.5 m ahead")
-	assert_eq(CAMERA.clamp_target(Vector2(0.0, 10.0), LAYOUT, false, reach), Vector2(0.0, 10.0 - ahead), "own side looks toward -Z")
-	assert_eq(CAMERA.clamp_target(Vector2(0.0, -10.0), LAYOUT, true, reach), Vector2(0.0, -10.0 + ahead), "flipped looks toward +Z")
+	assert_eq(CAMERA.camera_target(Vector2(0.0, 10.0), false, reach), Vector2(0.0, 10.0 - ahead), "own side looks toward -Z")
+	assert_eq(CAMERA.camera_target(Vector2(0.0, -10.0), true, reach), Vector2(0.0, -10.0 + ahead), "flipped looks toward +Z")
 
 
-func test_the_view_stops_at_the_map_ends_and_the_hero_walks_on() -> void:
+func test_the_camera_follows_the_hero_everywhere_the_map_never_holds_it_back() -> void:
 	var reach: float = CAMERA.distance(PHONE)
-	var end: float = LAYOUT.lane_length / 2.0 + CAMERA.end_margin
-	# at our own end, the bottom edge of the view sits on the end of the map
-	var home: Vector2 = CAMERA.clamp_target(Vector2(0.0, LAYOUT.lane_length / 2.0 - 1.0), LAYOUT, false, reach)
-	assert_almost_eq(home.y + CAMERA.ground_offset(reach, 1.0), end, 0.001)
-	# walking further toward that end does not move the camera
-	var further: Vector2 = CAMERA.clamp_target(Vector2(0.0, LAYOUT.lane_length / 2.0 - 0.2), LAYOUT, false, reach)
-	assert_eq(further, home)
-	# at the enemy end, the view reaches `far_reach` ahead (the top of a low view is a far
-	# horizon, not a place on the street), which stops at the end of the map
-	var away: Vector2 = CAMERA.clamp_target(Vector2(0.0, -LAYOUT.lane_length / 2.0 + 1.0), LAYOUT, false, reach)
-	assert_almost_eq(away.y - minf(-CAMERA.ground_offset(reach, CAMERA.top_safe_y), CAMERA.far_reach), -end, 0.001)
-	# mirrored for the other team
-	var their_home: Vector2 = CAMERA.clamp_target(Vector2(0.0, -LAYOUT.lane_length / 2.0 + 1.0), LAYOUT, true, reach)
-	assert_almost_eq(their_home.y - CAMERA.ground_offset(reach, 1.0), -end, 0.001)
+	var ahead: float = CAMERA.look_ahead(reach)
+	var half_w: float = LAYOUT.lane_width / 2.0
+	var half_l: float = LAYOUT.lane_length / 2.0
+	# every corner, edge and the middle: the aim is always the hero's spot moved ahead
+	for x: float in [-half_w, 0.0, half_w]:
+		for z: float in [-half_l, 0.0, half_l]:
+			var hero: Vector2 = Vector2(x, z)
+			assert_eq(CAMERA.camera_target(hero, false, reach), Vector2(x, z - ahead), "own view at %s" % hero)
+			assert_eq(CAMERA.camera_target(hero, true, reach), Vector2(x, z + ahead), "flipped view at %s" % hero)
+	# walking on toward an edge always moves the camera on too (it is never stuck)
+	var near_edge: Vector2 = CAMERA.camera_target(Vector2(half_w - 1.0, -half_l + 1.0), false, reach)
+	var at_edge: Vector2 = CAMERA.camera_target(Vector2(half_w - 0.5, -half_l + 0.5), false, reach)
+	assert_gt(at_edge.x, near_edge.x)
+	assert_lt(at_edge.y, near_edge.y)
 
 
 func test_ground_offsets_cover_the_whole_screen() -> void:
@@ -90,21 +88,6 @@ func test_ground_offsets_cover_the_whole_screen() -> void:
 	assert_lt(CAMERA.ground_offset(reach, 0.0), 0.0, "the top edge is ahead of it (or the sky)")
 	assert_eq(CAMERA.ground_offset(reach, 0.0), -INF, "a low angle shows the sky at the very top")
 	assert_lt(CAMERA.ground_offset(reach, 1.0), reach, "the bottom edge is in front of the camera")
-
-
-func test_camera_follows_sideways_but_never_far_past_the_curb() -> void:
-	var half_visible: float = CAMERA.visible_width / 2.0
-	var room: float = LAYOUT.lane_width / 2.0 + CAMERA.edge_margin - half_visible
-	if room <= 0.0:
-		# the wide lens shows the whole lane across the screen: no sideways follow needed
-		assert_eq(CAMERA.clamp_target(Vector2(1.0, 0.0), LAYOUT).x, 0.0, "centred on the lane")
-		assert_gte(half_visible, LAYOUT.lane_width / 2.0, "the curbs are on screen")
-		return
-	assert_eq(CAMERA.clamp_target(Vector2(1.0, 0.0), LAYOUT).x, 1.0, "follows the hero")
-	for x: float in [LAYOUT.lane_width / 2.0, -LAYOUT.lane_width / 2.0]:
-		var shift: float = CAMERA.clamp_target(Vector2(x, 0.0), LAYOUT).x
-		assert_lte(absf(shift) + half_visible, LAYOUT.lane_width / 2.0 + CAMERA.edge_margin + 0.001)
-		assert_gte(absf(shift) + half_visible, LAYOUT.lane_width / 2.0, "the curb is on screen")
 
 
 func test_follow_weight_is_frame_rate_independent() -> void:

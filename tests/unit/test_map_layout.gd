@@ -46,6 +46,17 @@ func test_tagged_boxes_own_top_left_enemy_bottom_right() -> void:
 			assert_false(LAYOUT.in_base(other, LAYOUT.jail_rect(side).get_center()), "boxes are clear of the bases")
 
 
+func test_each_tagged_box_sits_flush_in_a_corner_of_the_play_area() -> void:
+	var lane: Rect2 = LAYOUT.lane_rect()
+	var own: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
+	var enemy: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_ENEMY)
+	assert_eq(own.position, lane.position, "yours: the top left corner, no margin")
+	assert_eq(enemy.end, lane.end, "theirs: the bottom right corner, no margin")
+	assert_eq(own.size, Vector2(2.4, 6.0), "1.5x the tight fit for four kids")
+	assert_true(lane.encloses(own))
+	assert_true(lane.encloses(enemy))
+
+
 func test_jail_slots_stay_inside_the_box() -> void:
 	for index: int in 6:
 		assert_true(LAYOUT.jail_rect(MapLayout.SIDE_OWN).has_point(LAYOUT.jail_slot(MapLayout.SIDE_OWN, index)))
