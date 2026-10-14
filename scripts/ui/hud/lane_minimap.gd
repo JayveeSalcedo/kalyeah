@@ -22,7 +22,7 @@ const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 ## A player's face circle: its radius, how thick the one team-colour ring on its edge is, and how
 ## much bigger you are than the others (px).
 const FACE: float = 8.0
-const RING: float = 1.2
+const RING: float = 0.6
 const SELF_SCALE: float = 1.25
 ## The minimap is drawn this many times bigger and scaled down, which smooths every edge.
 const SUPERSAMPLE: int = 3
