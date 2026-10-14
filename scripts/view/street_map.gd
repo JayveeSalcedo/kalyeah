@@ -71,10 +71,15 @@ const POST_HEIGHT: float = 6.0
 ## How thick the team-colour outline round each base post is (m).
 const POST_OUTLINE: float = 0.07
 const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
-const BARRICADE_COUNT: int = 9
-const BARRICADE_MODELS: Array[String] = ["bench", "school_zone", "rooster_tent"]
-const BARRICADE_DEPTH: float = 0.7
-const BARRICADE_HEIGHT: float = 1.1
+## The barrier rows across both ends: every street thing at its real height (m), side by side
+## in this order (the far end starts half way along, so the two rows differ).
+const BARRIER_HEIGHTS: Dictionary[String, float] = {
+	"fishball_cart": 2.1, "bench": 0.9, "crates": 1.1, "school_zone": 1.1, "basketball_pole": 3.2,
+	"truck_wheels": 0.8, "ironing_board": 0.9, "rooster_tent": 1.3,
+}
+const BARRIER_GAP: float = 0.35
+## The front of each row sits this far behind the end line of the play area.
+const BARRIER_SETBACK: float = 0.15
 
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
@@ -319,18 +324,34 @@ func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 	return [tape, fill]
 
 
-## The ends of the play area are walled off by a row of street things, the bench, the
-## SLOW DOWN SCHOOL ZONE sign and the wooden A-frame taking turns (the other end starts
-## one further along, so the two rows differ).
+## The ends of the play area are walled off by a row of street things (a fishball cart, a bench,
+## crates, the SLOW DOWN SCHOOL ZONE sign, a basketball hoop, stacked truck tyres, an ironing board
+## and the wooden A-frame), each at its own size and facing the play area.
 func _add_barricades() -> void:
-	var piece: float = layout.lane_width / BARRICADE_COUNT
+	var ids: Array = BARRIER_HEIGHTS.keys()
 	for end_index: int in 2:
 		var end: float = -1.0 if end_index == 0 else 1.0
-		for i: int in BARRICADE_COUNT:
-			var x: float = -layout.lane_width / 2.0 + piece * (i + 0.5)
-			var id: String = BARRICADE_MODELS[(i + end_index) % BARRICADE_MODELS.size()]
-			var model: Node3D = PropModel.fit(id, Vector2(piece * 0.92, BARRICADE_DEPTH), BARRICADE_HEIGHT)
-			_add_prop(model, Vector3(x, 0.0, end * (layout.lane_length / 2.0 + 0.45)))
+		var row: Array[Node3D] = []
+		var widths: Array[float] = []
+		var used: float = -BARRIER_GAP
+		var i: int = end_index * (ids.size() / 2)
+		while true:
+			var id: String = ids[i % ids.size()]
+			var natural: Vector3 = PropModel.size_of(id)
+			var width: float = natural.x * BARRIER_HEIGHTS[id] / natural.y
+			if used + BARRIER_GAP + width > layout.lane_width:
+				break
+			used += BARRIER_GAP + width
+			row.append(PropModel.by_height(id, BARRIER_HEIGHTS[id]))
+			widths.append(width)
+			i += 1
+		# centred across the street, fronts on one line, every front facing the play area
+		var x: float = -used / 2.0
+		for k: int in row.size():
+			var depth: float = PropModel.size_of(String(ids[(end_index * (ids.size() / 2) + k) % ids.size()])).z * row[k].scale.z
+			var at_z: float = end * (layout.lane_length / 2.0 + BARRIER_SETBACK + depth / 2.0)
+			_add_prop(row[k], Vector3(x + widths[k] / 2.0, 0.0, at_z), 0.0 if end < 0.0 else PI)
+			x += widths[k] + BARRIER_GAP
 
 
 ## House fronts along both sides, a sari-sari store, and houses across both far ends.

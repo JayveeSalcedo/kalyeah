@@ -124,7 +124,8 @@ func test_props_stay_low_poly() -> void:
 
 
 func test_the_model_props_are_light_and_standing_on_the_ground() -> void:
-	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300}
+	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300,
+		"ironing_board": 2600, "fishball_cart": 2100, "basketball_pole": 1900, "truck_wheels": 5100, "crates": 4600}
 	for id: String in limits:
 		var model: Node3D = autofree(PropModel.make(id)) as Node3D
 		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
@@ -163,3 +164,25 @@ func test_each_base_post_faces_the_middle_of_the_play_area() -> void:
 		var front: Vector3 = post.global_basis.z.normalized()
 		var to_middle: Vector3 = Vector3(-center.x, 0.0, -center.y).normalized()
 		assert_gt(front.dot(to_middle), 0.99, "the flyers face the play area")
+
+
+func test_the_end_rows_mix_every_street_thing_and_stay_out_of_the_play_area() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	var seen: Dictionary = {}
+	var half_l: float = LAYOUT.lane_length / 2.0
+	for child: Node in map.get_node("%Geometry").get_children():
+		var node: Node3D = child as Node3D
+		if node == null or not node.scene_file_path.begins_with("res://assets/models/props/"):
+			continue
+		var id: String = node.scene_file_path.get_file().get_basename()
+		if not StreetMap.BARRIER_HEIGHTS.has(id) or absf(node.position.z) < half_l:
+			continue
+		seen[id] = int(seen.get(id, 0)) + 1
+		var mesh: MeshInstance3D = node.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
+		var depth: float = mesh.mesh.get_aabb().size.z * node.scale.z
+		assert_gt(absf(node.position.z) - depth / 2.0, half_l, "%s stays behind the end line" % id)
+		assert_lte(absf(node.position.x), LAYOUT.lane_width / 2.0, "%s across the street" % id)
+	for id: String in StreetMap.BARRIER_HEIGHTS:
+		assert_true(seen.has(id), "%s is in an end row" % id)
+	assert_lt(int(seen.get("rooster_tent", 0)), 4, "not a row of A-frames")
