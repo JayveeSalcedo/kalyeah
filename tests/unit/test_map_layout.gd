@@ -145,14 +145,37 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 		assert_lt(zone[1].a, 0.5, "the fill stays faint")
 
 
-func test_tagged_box_corners_are_rounded() -> void:
-	var box: Rect2 = Rect2(0.0, 0.0, 3.0, 4.0)
-	var outline: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.JAIL_CORNER_RADIUS)
-	assert_eq(outline.size(), 4 * (StreetMap.CORNER_STEPS + 1))
-	for point: Vector2 in outline:
+func test_each_tagged_box_keeps_only_its_inner_corner_rounded() -> void:
+	var box: Rect2 = Rect2(0.0, 0.0, 2.4, 6.0)
+	var steps: int = StreetMap.CORNER_STEPS + 1
+	# yours (top left): the bottom-right corner is rounded, the other three are square
+	var own: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.jail_radii(MapLayout.SIDE_OWN, 1.2))
+	assert_eq(own.size(), 4 * steps)
+	assert_true(own.has(box.position), "top left is square")
+	assert_true(own.has(Vector2(box.end.x, box.position.y)), "top right is square")
+	assert_true(own.has(Vector2(box.position.x, box.end.y)), "bottom left is square")
+	assert_false(own.has(box.end), "bottom right is rounded")
+	for point: Vector2 in own:
 		assert_true(box.grow(0.001).has_point(point), "the outline stays in the box")
-		assert_gt(point.distance_to(box.position), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
-		assert_gt(point.distance_to(box.end), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
+	# theirs (bottom right): only the top-left corner is rounded
+	var enemy: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.jail_radii(MapLayout.SIDE_ENEMY, 1.2))
+	assert_false(enemy.has(box.position), "top left is rounded")
+	assert_true(enemy.has(box.end), "bottom right is square")
+	assert_true(enemy.has(Vector2(box.end.x, box.position.y)), "top right is square")
+	assert_true(enemy.has(Vector2(box.position.x, box.end.y)), "bottom left is square")
+	assert_almost_eq(StreetMap.jail_radii(MapLayout.SIDE_OWN, 0.2)[0], 0.2, 0.0001, "never rounder than the box allows")
+
+
+func test_the_tape_leaves_out_the_sides_on_the_street_edges() -> void:
+	# yours is flush in the top left corner: no tape on its left and top
+	assert_eq(StreetMap.jail_open_sides(MapLayout.SIDE_OWN), Vector4(1.0, 1.0, 0.0, 0.0))
+	# theirs is flush in the bottom right corner: no tape on its bottom and right
+	assert_eq(StreetMap.jail_open_sides(MapLayout.SIDE_ENEMY), Vector4(0.0, 0.0, 1.0, 1.0))
+	var lane: Rect2 = LAYOUT.lane_rect()
+	var own: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
+	var enemy: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_ENEMY)
+	assert_eq(own.position, lane.position, "the open sides are the street edges")
+	assert_eq(enemy.end, lane.end)
 
 
 func test_props_stay_low_poly() -> void:
