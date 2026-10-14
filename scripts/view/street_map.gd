@@ -80,6 +80,8 @@ const BARRICADE_HEIGHT: float = 1.1
 @export var show_overview_camera: bool = true
 ## side -> [post outline, base chalk, box tape, box fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
+## side -> that base's electric post.
+var _posts: Dictionary[int, Node3D] = {}
 
 @onready var _geometry: Node3D = %Geometry
 @onready var _camera: Camera3D = %Camera
@@ -148,6 +150,7 @@ static func _light_scene(parent: Node, sun: DirectionalLight3D) -> void:
 ## Colors the bases and boxes for the viewer: `own_side` is blue, the other red
 ## (teams switch ends every set).
 func set_own_side(own_side: int) -> void:
+	_turn_posts(own_side)
 	for side: int in _base_materials:
 		var tint: Color = OWN_COLOR if side == own_side else ENEMY_COLOR
 		for material: StandardMaterial3D in _base_materials[side]:
@@ -156,6 +159,16 @@ func set_own_side(own_side: int) -> void:
 				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
+
+
+## The post's front (the side with the flyers, the model's +Z): the enemy post faces the middle
+## of the play area; your own (blue) post is turned the other way round (owner), so from your
+## end you see its flyers too.
+func _turn_posts(own_side: int) -> void:
+	for side: int in _posts:
+		var center: Vector2 = layout.base_center(side)
+		var inward: float = atan2(-center.x, -center.y)
+		_posts[side].rotation.y = inward + (PI if side == own_side else 0.0)
 
 
 func base_color(side: int) -> Color:
@@ -171,14 +184,14 @@ func _build_map() -> void:
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var color: Color = OWN_COLOR if side == MapLayout.SIDE_OWN else ENEMY_COLOR
 		var center: Vector2 = layout.base_center(side)
-		# the post's front (the side with the flyers, the model's +Z) faces the middle of the play area
-		var inward: float = atan2(-center.x, -center.y)
-		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y), inward)
+		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+		_posts[side] = post
 		# a team-colour outline round the post so you can tell bases apart from afar
 		var outline: StandardMaterial3D = _add_post_outline(post, color)
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
 		_base_materials[side] = [outline, chalk, jail[0], jail[1]]
+	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
 	_add_houses()
 	_add_details()
