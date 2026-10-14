@@ -439,6 +439,19 @@ func test_overhead_bars_use_ml_colours() -> void:
 	assert_eq(hud.bar_color(practice.sim.players[PracticeMatch.ENEMY_STAND_ID]), OverheadHud.ENEMY_COLOR)
 
 
+func test_an_enemy_in_its_box_has_no_bar_over_it() -> void:
+	var practice: PracticeMatch = _practice()
+	var hud: OverheadHud = practice.overhead()
+	var enemy: PlayerState = practice.sim.players[PracticeMatch.ENEMY_STAND_ID]
+	assert_true(hud.bar_visible(enemy), "out in the street it has a bar")
+	enemy.position = LAYOUT.jail_rect(-practice.own_side()).get_center()
+	assert_false(hud.bar_visible(enemy), "inside its team's box it blends in with the tagged kids")
+	assert_true(hud.bar_visible(practice.sim.players[PracticeMatch.ALLY_ID]), "your own team is always shown")
+	var ally: PlayerState = practice.sim.players[PracticeMatch.ALLY_ID]
+	ally.position = LAYOUT.jail_rect(practice.own_side()).get_center()
+	assert_true(hud.bar_visible(ally), "even in your own box")
+
+
 func test_minimap_puts_our_base_at_the_bottom() -> void:
 	var practice: PracticeMatch = _practice()
 	var minimap: LaneMinimap = practice.hud.minimap

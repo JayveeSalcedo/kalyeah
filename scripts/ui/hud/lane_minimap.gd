@@ -76,7 +76,8 @@ func _draw() -> void:
 		if id == _local_id:
 			draw_circle(at, DOT + 2.0, Color.WHITE)
 		var color: Color = OWN if state.team == _local_team else ENEMY
-		draw_circle(at, DOT, color.darkened(0.35) if state.tagged else color)
+		# an enemy hiding in its box looks tagged, like the tagged kids there
+		draw_circle(at, DOT, color.darkened(0.35) if state.tagged or _sim.hides_in_box(state, _local_team) else color)
 	# the gold frame last
 	var frame: StyleBoxFlat = StyleBoxFlat.new()
 	frame.draw_center = false

@@ -176,11 +176,11 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	assert_gt(geometry.get_child_count(), 60, "street, cover, 2 bases, 2 boxes, houses and props")
 	assert_eq(map.base_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR)
-	assert_eq(map.post_outline_color(MapLayout.SIDE_OWN), StreetMap.OWN_COLOR, "a blue outline round your post")
-	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.ENEMY_COLOR, "a red one round theirs")
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		for node: Node in map.get_node("%Geometry").find_children("Outline", "MeshInstance3D", true, false):
+			fail_test("no outline round the posts (owner), found one at base %d" % side)
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "your post is always blue")
-	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var zone: Array[Color] = map.zone_colors(side)
 		assert_eq(zone.size(), 4, "base and rescue area are tinted: the tagged box has no tint")
