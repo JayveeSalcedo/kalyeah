@@ -4,7 +4,8 @@ extends Control
 ## exactly its own 1:2 shape, seen from above with your end at the bottom. Your base
 ## is the blue corner at the bottom left, theirs the red corner at the top right;
 ## the taped boxes are where tagged kids wait (yours top left, theirs bottom right).
-## Obstacles are dark blocks, players are dots (you are white-ringed).
+## Obstacles are dark blocks; every player is the face of their character in a circle, with a
+## ring in the team colour (you are white-ringed).
 
 const PANEL: Color = Color(0.1, 0.08, 0.14, 0.78)
 const ROAD: Color = Color(0.33, 0.33, 0.36, 0.95)
@@ -18,7 +19,13 @@ const FRAME: Color = Color(1.0, 0.8, 0.32)
 const CORNER: float = 12.0
 const FRAME_WIDTH: float = 4.0
 const INSET: float = 7.0
-const DOT: float = 4.5
+## A player's face circle: radius, the team ring round it and the white ring for you (px).
+const FACE: float = 7.0
+const RING: float = 1.8
+const SELF_RING: float = 1.8
+const FACE_STEPS: int = 20
+## A tagged kid's face is dimmed.
+const TAGGED_DIM: float = 0.5
 const BASE_STEPS: int = 18
 
 var _sim: MatchSim
@@ -70,14 +77,13 @@ func _draw() -> void:
 		_draw_world_rect(layout.jail_rect(side), Color(color, JAIL_ALPHA))
 	for rect: Rect2 in _sim.obstacles:
 		_draw_world_rect(rect, OBSTACLE)
-	for id: int in _sim.players:
-		var state: PlayerState = _sim.players[id]
-		var at: Vector2 = to_map(state.position)
-		if id == _local_id:
-			draw_circle(at, DOT + 2.0, Color.WHITE)
-		var color: Color = OWN if state.team == _local_team else ENEMY
-		# an enemy hiding in its box looks tagged, like the tagged kids there
-		draw_circle(at, DOT, color.darkened(0.35) if state.tagged or _sim.hides_in_box(state, _local_team) else color)
+	# the local player last, so you are never covered by another face
+	var ids: Array = _sim.players.keys()
+	ids.erase(_local_id)
+	ids.append(_local_id)
+	for id: int in ids:
+		if _sim.players.has(id):
+			_draw_player(_sim.players[id] as PlayerState)
 	# the gold frame last
 	var frame: StyleBoxFlat = StyleBoxFlat.new()
 	frame.draw_center = false
@@ -85,6 +91,39 @@ func _draw() -> void:
 	frame.border_color = FRAME
 	frame.set_border_width_all(int(FRAME_WIDTH))
 	draw_style_box(frame, Rect2(Vector2.ZERO, size))
+
+
+## One player: the top of their character portrait (the face) cut to a circle, in a ring of the
+## team colour. Tagged kids, and enemies hiding in their box, are dimmed and ringed darker.
+func _draw_player(state: PlayerState) -> void:
+	var at: Vector2 = to_map(state.position)
+	var dim: bool = state.tagged or _sim.hides_in_box(state, _local_team)
+	var team_color: Color = OWN if state.team == _local_team else ENEMY
+	if state.id == _local_id:
+		draw_circle(at, FACE + RING + SELF_RING, Color.WHITE)
+	draw_circle(at, FACE + RING, team_color.darkened(0.35) if dim else team_color)
+	var texture: Texture2D = KidModel.portrait(state.character_id)
+	draw_colored_polygon(face_points(at, FACE), Color.WHITE.darkened(TAGGED_DIM) if dim else Color.WHITE, face_uvs(texture), texture)
+
+
+## The corners of a circle of `radius` round `center`.
+static func face_points(center: Vector2, radius: float) -> PackedVector2Array:
+	var points: PackedVector2Array = PackedVector2Array()
+	for i: int in FACE_STEPS:
+		var angle: float = TAU * float(i) / float(FACE_STEPS)
+		points.append(center + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+
+## The texture coordinates for those corners: the square at the top of the (tall) portrait,
+## which is the face and shoulders.
+static func face_uvs(texture: Texture2D) -> PackedVector2Array:
+	var height: float = minf(1.0, float(texture.get_width()) / float(texture.get_height()))
+	var uvs: PackedVector2Array = PackedVector2Array()
+	for i: int in FACE_STEPS:
+		var angle: float = TAU * float(i) / float(FACE_STEPS)
+		uvs.append(Vector2(0.5 + 0.5 * cos(angle), height * (0.5 + 0.5 * sin(angle))))
+	return uvs
 
 
 func _draw_world_rect(rect: Rect2, color: Color) -> void:
