@@ -77,7 +77,12 @@ const BARRIER_HEIGHTS: Dictionary[String, float] = {
 	"fishball_cart": 2.1, "bench": 0.9, "crates": 1.1, "school_zone": 1.1, "basketball_pole": 3.2,
 	"truck_wheels": 0.8, "ironing_board": 0.9, "rooster_tent": 1.3,
 }
-const BARRIER_GAP: float = 0.35
+## The smallest gap between two things in a row; the rest of the room is shared out unevenly.
+const BARRIER_GAP: float = 0.25
+## How far a thing may sit back from the line (m) and turn (degrees), so the row looks set down by hand.
+const BARRIER_JITTER: float = 0.5
+const BARRIER_TURN: float = 12.0
+const BARRIER_SEED: int = 7
 ## The front of each row sits this far behind the end line of the play area.
 const BARRIER_SETBACK: float = 0.15
 
@@ -326,32 +331,48 @@ func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
 
 ## The ends of the play area are walled off by a row of street things (a fishball cart, a bench,
 ## crates, the SLOW DOWN SCHOOL ZONE sign, a basketball hoop, stacked truck tyres, an ironing board
-## and the wooden A-frame), each at its own size and facing the play area.
+## and the wooden A-frame), each at its true size (never stretched to fill a gap), facing the play
+## area, with uneven gaps and a little turned or set back, as if put down by hand.
 func _add_barricades() -> void:
 	var ids: Array = BARRIER_HEIGHTS.keys()
 	for end_index: int in 2:
 		var end: float = -1.0 if end_index == 0 else 1.0
-		var row: Array[Node3D] = []
+		# the same street every match: a fixed seed per end
+		var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+		rng.seed = BARRIER_SEED + end_index
+		var picked: Array[String] = []
 		var widths: Array[float] = []
-		var used: float = -BARRIER_GAP
+		var used: float = 0.0
 		var i: int = end_index * (ids.size() / 2)
 		while true:
 			var id: String = ids[i % ids.size()]
 			var natural: Vector3 = PropModel.size_of(id)
-			var width: float = natural.x * BARRIER_HEIGHTS[id] / natural.y
-			if used + BARRIER_GAP + width > layout.lane_width:
+			var width: float = natural.x * BARRIER_HEIGHTS[id] / natural.y  # true size, never stretched
+			var need: float = width + (BARRIER_GAP if not picked.is_empty() else 0.0)
+			if used + need > layout.lane_width:
 				break
-			used += BARRIER_GAP + width
-			row.append(PropModel.by_height(id, BARRIER_HEIGHTS[id]))
+			used += need
+			picked.append(id)
 			widths.append(width)
 			i += 1
-		# centred across the street, fronts on one line, every front facing the play area
-		var x: float = -used / 2.0
-		for k: int in row.size():
-			var depth: float = PropModel.size_of(String(ids[(end_index * (ids.size() / 2) + k) % ids.size()])).z * row[k].scale.z
-			var at_z: float = end * (layout.lane_length / 2.0 + BARRIER_SETBACK + depth / 2.0)
-			_add_prop(row[k], Vector3(x + widths[k] / 2.0, 0.0, at_z), 0.0 if end < 0.0 else PI)
-			x += widths[k] + BARRIER_GAP
+		# the room left over goes into uneven gaps (not into the things themselves)
+		var spare: float = layout.lane_width - used
+		var shares: Array[float] = []
+		var total: float = 0.0
+		for k: int in picked.size() + 1:
+			shares.append(rng.randf_range(0.4, 1.6))
+			total += shares[k]
+		var x: float = -layout.lane_width / 2.0 + spare * shares[0] / total
+		for k: int in picked.size():
+			var id: String = picked[k]
+			var model: Node3D = PropModel.by_height(id, BARRIER_HEIGHTS[id])
+			var depth: float = PropModel.size_of(id).z * model.scale.z
+			# set down by hand: a little in or out of line and a little turned
+			var setback: float = BARRIER_SETBACK + rng.randf_range(0.0, BARRIER_JITTER)
+			var at_z: float = end * (layout.lane_length / 2.0 + setback + depth / 2.0)
+			var turn: float = deg_to_rad(rng.randf_range(-BARRIER_TURN, BARRIER_TURN))
+			_add_prop(model, Vector3(x + widths[k] / 2.0, 0.0, at_z), (0.0 if end < 0.0 else PI) + turn)
+			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
 ## House fronts along both sides, a sari-sari store, and houses across both far ends.
