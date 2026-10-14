@@ -21,7 +21,8 @@ const SIDE_ENEMY: int = -1
 ## Where a side's players start and come back to after a rescue: this far from the
 ## post toward the middle of the street (along each axis).
 @export var spawn_offset: float = 0.0
-## The tagged box (a taped rectangle on the road) and its center's inset from its corner.
+## The tagged box (a taped rectangle on the road) and its center's inset from its corner of
+## the play area; half the size puts the box flush in the corner (no margin).
 ## It is just big enough for its slots: columns across, rows along the street.
 @export var jail_size: Vector2 = Vector2.ZERO
 @export var jail_inset: Vector2 = Vector2.ZERO

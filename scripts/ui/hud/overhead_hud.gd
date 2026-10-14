@@ -7,7 +7,8 @@ extends Control
 ## and projects through the match camera.
 
 const BAR_SIZE: Vector2 = Vector2(92.0, 13.0)
-const HEAD_HEIGHT: float = 3.9
+## The bar sits just above the top of the head (the kid's model is KID_HEIGHT tall).
+const HEAD_HEIGHT: float = KidModel.KID_HEIGHT + 0.2
 const SEGMENT_HP: int = 20
 const POPUP_TIME: float = 0.9
 const POPUP_RISE: float = 56.0

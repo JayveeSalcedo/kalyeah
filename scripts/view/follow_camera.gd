@@ -45,7 +45,7 @@ func distance() -> float:
 
 ## Where the camera wants to be for a hero at `world_pos`.
 func desired_position(world_pos: Vector2, flip: bool) -> Vector3:
-	var target: Vector2 = rules.clamp_target(world_pos, layout, flip, distance())
+	var target: Vector2 = rules.camera_target(world_pos, flip, distance())
 	return Vector3(target.x, 0.0, target.y) + rules.camera_offset(distance(), flip)
 
 
