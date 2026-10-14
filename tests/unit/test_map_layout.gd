@@ -110,6 +110,21 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	map.set_own_side(MapLayout.SIDE_ENEMY)
 	assert_eq(map.base_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "your post is always blue")
 	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		var zone: Array[Color] = map.zone_colors(side)
+		assert_eq(zone[0], zone[2], "the base rim has the same tape as the tagged box")
+		assert_eq(zone[1], zone[3], "and the same faint fill")
+		assert_lt(zone[1].a, 0.5, "the fill stays faint")
+
+
+func test_tagged_box_corners_are_rounded() -> void:
+	var box: Rect2 = Rect2(0.0, 0.0, 3.0, 4.0)
+	var outline: Array[Vector2] = StreetMap.rounded_rect(box, StreetMap.JAIL_CORNER_RADIUS)
+	assert_eq(outline.size(), 4 * (StreetMap.CORNER_STEPS + 1))
+	for point: Vector2 in outline:
+		assert_true(box.grow(0.001).has_point(point), "the outline stays in the box")
+		assert_gt(point.distance_to(box.position), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
+		assert_gt(point.distance_to(box.end), StreetMap.JAIL_CORNER_RADIUS * 0.4, "no sharp corner")
 
 
 func test_props_stay_low_poly() -> void:

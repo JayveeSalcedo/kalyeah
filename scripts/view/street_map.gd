@@ -35,12 +35,13 @@ const RING_HEIGHT: float = 0.03
 ## The base chalk and the box tape are tinted toward a soft grey so they are calm, not neon.
 const SOFT_GREY: Color = Color(0.62, 0.64, 0.7)
 const BASE_SOFTEN: float = 0.3
-const BASE_ALPHA: float = 0.5
-const JAIL_FILL_ALPHA: float = 0.22
+## The base circle and the tagged box share one look: a faint team fill and team tape.
+const ZONE_FILL_ALPHA: float = 0.22
 const TAPE_WIDTH: float = 0.16
-const CHALK: Color = Color(0.96, 0.95, 0.9)
-const CHALK_WIDTH: float = 0.12
 const BASE_STEPS: int = 36
+## The tagged box has rounded corners (metres), each drawn with this many steps.
+const JAIL_CORNER_RADIUS: float = 0.6
+const CORNER_STEPS: int = 6
 const CURB_HEIGHT: float = 0.18
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
@@ -178,6 +179,14 @@ func base_color(side: int) -> Color:
 	return (materials[0] as StandardMaterial3D).albedo_color
 
 
+## [base tape, base fill, box tape, box fill] colours for `side`.
+func zone_colors(side: int) -> Array[Color]:
+	var colors: Array[Color] = []
+	for material: StandardMaterial3D in _base_materials[side].slice(1):
+		colors.append(material.albedo_color)
+	return colors
+
+
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO)
 	_add_ground_textures()
@@ -191,9 +200,9 @@ func _build_map() -> void:
 		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y), inward)
 		# a team-coloured band on the post so you can tell bases apart from afar
 		var band: StandardMaterial3D = _add_band(post, color)
-		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
+		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
-		_base_materials[side] = [band, chalk, jail[0], jail[1]]
+		_base_materials[side] = [band, base[0], base[1], jail[0], jail[1]]
 		_post_outlines[side] = _add_post_outline(post, color)
 	_add_barricades()
 	_add_houses()
@@ -255,78 +264,107 @@ func _add_obstacle(index: int) -> void:
 	_add_prop(PropModel.fit(id, footprint, COVER_HEIGHT), at, PI / 2.0 if turned else 0.0)
 
 
-## The base: a chalk-coloured circle round the post, cut off by the street edges,
-## with a chalk line on its rim. Returns the fill material (recoloured per viewer).
-func _add_base_chalk(side: int, color: Color) -> StandardMaterial3D:
+## The base: a faint team-tinted circle round the post, cut off by the street edges,
+## with team tape on its curved rim (the same look as the tagged box).
+## Returns [tape, fill] materials (recoloured per viewer).
+func _add_base_zone(side: int, color: Color) -> Array[StandardMaterial3D]:
 	var center: Vector2 = layout.base_center(side)
 	var street: Rect2 = layout.lane_rect()
 	var rim: Array[Vector2] = []
+	var inner: Array[Vector2] = []
 	for i: int in BASE_STEPS:
 		var angle: float = TAU * float(i) / float(BASE_STEPS)
-		rim.append((center + Vector2(cos(angle), sin(angle)) * layout.base_radius).clamp(street.position, street.end))
+		var direction: Vector2 = Vector2(cos(angle), sin(angle))
+		rim.append((center + direction * layout.base_radius).clamp(street.position, street.end))
+		inner.append(center + direction * (layout.base_radius - TAPE_WIDTH))
+	var materials: Array[StandardMaterial3D] = _zone_materials(color)
+	_add_fill(center, rim, materials[1])
+	# the tape runs along the curved rim only (not along the street edges)
+	var on_rim: Array[bool] = []
+	for point: Vector2 in rim:
+		on_rim.append(absf(point.distance_to(center) - layout.base_radius) < 0.01)
+	_add_tape(rim, inner, on_rim, materials[0])
+	return materials
+
+
+## The taped box where a team's tagged kids wait: a rounded box of team tape on the
+## road and a faint fill. Returns [tape, fill] materials (recoloured per viewer).
+func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
+	var box: Rect2 = layout.jail_rect(side)
+	var radius: float = minf(JAIL_CORNER_RADIUS, minf(box.size.x, box.size.y) / 2.0)
+	var outline: Array[Vector2] = rounded_rect(box, radius)
+	var inner: Array[Vector2] = rounded_rect(box.grow(-TAPE_WIDTH), maxf(radius - TAPE_WIDTH, 0.0))
+	var materials: Array[StandardMaterial3D] = _zone_materials(color)
+	_add_fill(box.get_center(), outline, materials[1])
+	var on_rim: Array[bool] = []
+	on_rim.resize(outline.size())
+	on_rim.fill(true)
+	_add_tape(outline, inner, on_rim, materials[0])
+	return materials
+
+
+## [tape, fill] for a base or tagged box: soft team colour, the fill faint.
+func _zone_materials(color: Color) -> Array[StandardMaterial3D]:
+	var soft: Color = color.lerp(SOFT_GREY, BASE_SOFTEN)
+	var tape: StandardMaterial3D = StandardMaterial3D.new()
+	tape.albedo_color = soft
+	tape.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var fill: StandardMaterial3D = StandardMaterial3D.new()
+	fill.albedo_color = Color(soft.r, soft.g, soft.b, ZONE_FILL_ALPHA)
+	fill.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fill.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# drawn first, so the kids and everything else stand on top of the tint, never under it
+	fill.render_priority = -100
+	return [tape, fill]
+
+
+## The outline of `box` with its corners rounded by `radius`, in order round the box.
+static func rounded_rect(box: Rect2, radius: float) -> Array[Vector2]:
+	var points: Array[Vector2] = []
+	var corners: Array[Vector2] = [
+		Vector2(box.end.x - radius, box.end.y - radius),
+		Vector2(box.position.x + radius, box.end.y - radius),
+		Vector2(box.position.x + radius, box.position.y + radius),
+		Vector2(box.end.x - radius, box.position.y + radius),
+	]
+	for corner: int in corners.size():
+		for step: int in CORNER_STEPS + 1:
+			var angle: float = (float(corner) + float(step) / float(CORNER_STEPS)) * PI / 2.0
+			points.append(corners[corner] + Vector2(cos(angle), sin(angle)) * radius)
+	return points
+
+
+## A flat fan from `center` out to the closed `outline`, just above the road.
+func _add_fill(center: Vector2, outline: Array[Vector2], material: StandardMaterial3D) -> void:
 	var tool: SurfaceTool = SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 	tool.set_normal(Vector3.UP)
-	for i: int in rim.size():
-		var a: Vector2 = rim[i]
-		var b: Vector2 = rim[(i + 1) % rim.size()]
+	for i: int in outline.size():
+		var a: Vector2 = outline[i]
+		var b: Vector2 = outline[(i + 1) % outline.size()]
 		for point: Vector2 in [center, b, a]:
 			tool.add_vertex(Vector3(point.x, RING_HEIGHT, point.y))
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	var soft: Color = color.lerp(SOFT_GREY, BASE_SOFTEN)
-	material.albedo_color = Color(soft.r, soft.g, soft.b, BASE_ALPHA)
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	# drawn first, so the kids and everything else stand on top of the tint, never under it
-	material.render_priority = -100
 	var mesh: ArrayMesh = tool.commit()
 	mesh.surface_set_material(0, material)
-	var fill: MeshInstance3D = _add(mesh, Vector3.ZERO)
-	fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# the chalk line along the curved rim (not along the street edges)
-	var kit: LowPoly = LowPoly.new()
-	for i: int in rim.size():
-		var a: Vector2 = rim[i]
-		var b: Vector2 = rim[(i + 1) % rim.size()]
-		if absf(a.distance_to(center) - layout.base_radius) > 0.01 or absf(b.distance_to(center) - layout.base_radius) > 0.01:
+	_add(mesh, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Tape between the closed `outer` line and the matching `inner` line, on the
+## segments whose both ends are marked in `keep`.
+func _add_tape(outer: Array[Vector2], inner: Array[Vector2], keep: Array[bool], material: StandardMaterial3D) -> void:
+	var tool: SurfaceTool = SurfaceTool.new()
+	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	tool.set_normal(Vector3.UP)
+	var height: float = RING_HEIGHT + 0.006
+	for i: int in outer.size():
+		var j: int = (i + 1) % outer.size()
+		if not (keep[i] and keep[j]):
 			continue
-		var mid: Vector2 = (a + b) / 2.0
-		kit.set_transform(Transform3D(Basis(Vector3.UP, -(b - a).angle()), Vector3(mid.x, RING_HEIGHT + 0.004, mid.y)))
-		kit.box(Vector3.ZERO, Vector3(a.distance_to(b) + 0.04, 0.01, CHALK_WIDTH), CHALK)
-	kit.reset_transform()
-	_add(kit.commit(), Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return material
-
-
-## The taped box where a team's tagged kids wait: team-coloured tape on the road
-## and a faint fill. Returns [tape, fill] materials (recoloured per viewer).
-func _add_jail(side: int, color: Color) -> Array[StandardMaterial3D]:
-	var box: Rect2 = layout.jail_rect(side)
-	var center: Vector2 = box.get_center()
-	var fill_mesh: BoxMesh = BoxMesh.new()
-	fill_mesh.size = Vector3(box.size.x, 0.01, box.size.y)
-	var fill: StandardMaterial3D = StandardMaterial3D.new()
-	var soft: Color = color.lerp(SOFT_GREY, BASE_SOFTEN)
-	fill.albedo_color = Color(soft.r, soft.g, soft.b, JAIL_FILL_ALPHA)
-	fill.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fill.render_priority = -100
-	fill_mesh.material = fill
-	_add(fill_mesh, Vector3(center.x, RING_HEIGHT, center.y)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tape: StandardMaterial3D = StandardMaterial3D.new()
-	tape.albedo_color = soft
-	var pieces: Array[Rect2] = [
-		Rect2(box.position.x, box.position.y, box.size.x, TAPE_WIDTH),
-		Rect2(box.position.x, box.end.y - TAPE_WIDTH, box.size.x, TAPE_WIDTH),
-		Rect2(box.position.x, box.position.y, TAPE_WIDTH, box.size.y),
-		Rect2(box.end.x - TAPE_WIDTH, box.position.y, TAPE_WIDTH, box.size.y),
-	]
-	for piece: Rect2 in pieces:
-		var strip: BoxMesh = BoxMesh.new()
-		strip.size = Vector3(piece.size.x, 0.012, piece.size.y)
-		strip.material = tape
-		var at: Vector2 = piece.get_center()
-		_add(strip, Vector3(at.x, RING_HEIGHT + 0.006, at.y)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	return [tape, fill]
+		for point: Vector2 in [outer[i], outer[j], inner[j], outer[i], inner[j], inner[i]]:
+			tool.add_vertex(Vector3(point.x, height, point.y))
+	var mesh: ArrayMesh = tool.commit()
+	mesh.surface_set_material(0, material)
+	_add(mesh, Vector3.ZERO).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## The ends of the play area are walled off by a row of street things (a fishball cart, a bench,
