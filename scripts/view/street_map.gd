@@ -186,7 +186,7 @@ func base_color(side: int) -> Color:
 	return (materials[0] as StandardMaterial3D).albedo_color
 
 
-## [base tape, base fill] colours for `side` (the tagged box has no tint).
+## [base tape, base fill, rescue tape, rescue fill] colours for `side` (the tagged box itself has no tint).
 func zone_colors(side: int) -> Array[Color]:
 	var colors: Array[Color] = []
 	for material: StandardMaterial3D in _base_materials[side].slice(1):
@@ -208,7 +208,8 @@ func _build_map() -> void:
 		var outline: StandardMaterial3D = _add_post_outline(post, color)
 		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
 		_add_jail(side)
-		_base_materials[side] = [outline, base[0], base[1]]
+		var rescue: Array[StandardMaterial3D] = _add_rescue_area(side, color)
+		_base_materials[side] = [outline, base[0], base[1], rescue[0], rescue[1]]
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
 	_add_houses()
@@ -303,6 +304,41 @@ func _add_jail(side: int) -> void:
 		var turned: bool = wall.size.y > wall.size.x
 		var footprint: Vector2 = Vector2(maxf(wall.size.x, wall.size.y), minf(wall.size.x, wall.size.y))
 		_add_prop(PropModel.fit("cardboard_wall", footprint, COVER_HEIGHT), Vector3(center.x, 0.0, center.y), PI / 2.0 if turned else 0.0)
+
+
+## The rescue area round the box: the same look as the base circle (a faint team fill and team
+## tape), on the strips round the box and with tape only on its outer sides that face the street
+## (yours: bottom and right; theirs: top and left). Returns [tape, fill] materials.
+func _add_rescue_area(side: int, color: Color) -> Array[StandardMaterial3D]:
+	var materials: Array[StandardMaterial3D] = _zone_materials(color)
+	for strip: Rect2 in layout.rescue_strips(side):
+		_add_flat_rect(strip, 0.0, materials[1])
+	for tape: Rect2 in rescue_tape_rects(layout.rescue_rect(side), side):
+		_add_flat_rect(tape, 0.006, materials[0])
+	return materials
+
+
+## The tape round a rescue area: on the two sides that face the street, TAPE_WIDTH wide.
+static func rescue_tape_rects(area: Rect2, side: int) -> Array[Rect2]:
+	var tape: float = TAPE_WIDTH
+	if side == MapLayout.SIDE_OWN:
+		return [
+			Rect2(area.position.x, area.end.y - tape, area.size.x, tape),
+			Rect2(area.end.x - tape, area.position.y, tape, area.size.y - tape),
+		]
+	return [
+		Rect2(area.position.x, area.position.y, area.size.x, tape),
+		Rect2(area.position.x, area.position.y + tape, tape, area.size.y - tape),
+	]
+
+
+## A flat, thin rectangle lying on the road (`lift` above the fill height), casting no shadow.
+func _add_flat_rect(rect: Rect2, lift: float, material: StandardMaterial3D) -> void:
+	var mesh: BoxMesh = BoxMesh.new()
+	mesh.size = Vector3(rect.size.x, 0.01 + lift, rect.size.y)
+	mesh.material = material
+	var center: Vector2 = rect.get_center()
+	_add(mesh, Vector3(center.x, RING_HEIGHT + lift / 2.0, center.y)).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## The two cardboard walls of a side's box, as rects inside it: yours (top left corner) has

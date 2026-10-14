@@ -340,14 +340,14 @@ func _tag(state: PlayerState) -> void:
 	player_tagged.emit(state.id)
 
 
-## A free teammate stepping into the box frees whoever waits there (everyone, or
-## one per touch when `rescue_frees_all` is off).
+## A free teammate stepping into the rescue area round the box (or the box) frees whoever
+## waits there (everyone, or one per touch when `rescue_frees_all` is off).
 func _check_rescues() -> void:
 	for id: int in players:
 		var rescuer: PlayerState = players[id]
 		if rescuer.tagged:
 			continue
-		var box: Rect2 = layout.jail_rect(side_for_team(rescuer.team)).grow(rescuer.radius)
+		var box: Rect2 = layout.rescue_rect(side_for_team(rescuer.team)).grow(rescuer.radius)
 		if not box.has_point(rescuer.position):
 			continue
 		for other_id: int in players:

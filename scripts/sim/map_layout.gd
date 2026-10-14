@@ -28,6 +28,9 @@ const SIDE_ENEMY: int = -1
 @export var jail_inset: Vector2 = Vector2.ZERO
 @export var jail_columns: int = 1
 @export var jail_rows: int = 1
+## The rescue area round the tagged box: it reaches this fraction of the box size past the
+## box on its two sides that face the street (0.5 = the box and its area together are 1.5x).
+@export var rescue_scale: float = 0.0
 ## Cover on the own half of the street (x, z rects); the enemy half gets the same
 ## pieces turned around the center. They block walking and throws for both teams.
 @export var obstacles: Array[Rect2] = []
@@ -59,6 +62,32 @@ func jail_rect(side: int) -> Rect2:
 		-side * (lane_width / 2.0 - jail_inset.x), -side * (lane_length / 2.0 - jail_inset.y)
 	)
 	return Rect2(center - jail_size / 2.0, jail_size)
+
+
+## The rescue area of a side's box: the box grown by `rescue_scale` of its size on the two
+## sides that face the street (yours, top left: bottom and right; theirs: top and left). A
+## free teammate stepping into it frees the tagged kids.
+func rescue_rect(side: int) -> Rect2:
+	var box: Rect2 = jail_rect(side)
+	var extra: Vector2 = jail_size * rescue_scale
+	if side == SIDE_OWN:
+		return Rect2(box.position, box.size + extra)
+	return Rect2(box.position - extra, box.size + extra)
+
+
+## The rescue area without the box: the two strips round it (a tinted L).
+func rescue_strips(side: int) -> Array[Rect2]:
+	var box: Rect2 = jail_rect(side)
+	var area: Rect2 = rescue_rect(side)
+	if side == SIDE_OWN:
+		return [
+			Rect2(box.end.x, area.position.y, area.end.x - box.end.x, area.size.y),
+			Rect2(area.position.x, box.end.y, box.size.x, area.end.y - box.end.y),
+		]
+	return [
+		Rect2(area.position.x, area.position.y, box.position.x - area.position.x, area.size.y),
+		Rect2(box.position.x, area.position.y, box.size.x, box.position.y - area.position.y),
+	]
 
 
 ## Where the `index`-th tagged player of a side stands in its box (a grid of
