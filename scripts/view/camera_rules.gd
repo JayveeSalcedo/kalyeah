@@ -34,6 +34,9 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 ## The top of the screen under the HUD (minimap, score), as a fraction of the height.
 ## The far end of the map stops here, so a hero at the enemy end stays in sight.
 @export var top_safe_y: float = 0.0
+## Most ground (m) ahead of the aim point that counts as seen. At a low angle the top of
+## the screen shows a far horizon (or sky), so this caps how far the view is said to reach.
+@export var far_reach: float = 0.0
 ## How fast the camera catches up (1/s). Higher = snappier.
 @export var follow_rate: float = 0.0
 ## Fraction of the hero's sideways position the camera follows.
@@ -93,7 +96,7 @@ func clamp_target(world_pos: Vector2, layout: MapLayout, flip: bool = false, cam
 	var reach: float = camera_distance if camera_distance > 0.0 else distance(DESIGN_ASPECT)
 	var forward: float = 1.0 if flip else -1.0  # toward the enemy base, in world Z
 	var behind: float = ground_offset(reach, 1.0)
-	var ahead: float = -ground_offset(reach, top_safe_y)
+	var ahead: float = minf(-ground_offset(reach, top_safe_y), far_reach)
 	var end: float = layout.lane_length / 2.0 + end_margin
 	var z: float = world_pos.y + forward * look_ahead(reach)
 	# the view spans [z - forward * behind ... z + forward * ahead] along Z
