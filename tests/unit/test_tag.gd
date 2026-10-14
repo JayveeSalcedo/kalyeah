@@ -103,6 +103,24 @@ func test_a_teammate_stepping_into_the_box_rescues_you_back_to_your_post() -> vo
 	assert_signal_emitted_with_parameters(sim, "player_rescued", [1, 2])
 
 
+func test_stepping_into_the_rescue_area_round_the_box_is_enough() -> void:
+	var sim: MatchSim = _sim()
+	var me: PlayerState = sim.add_player(1, 0)
+	var friend: PlayerState = sim.add_player(2, 0)
+	sim.kill(1)
+	var area: Rect2 = LAYOUT.rescue_rect(sim.side_for_team(0))
+	var box: Rect2 = _box(sim, 0)
+	# just outside the area: nothing happens
+	friend.position = Vector2(area.end.x + friend.radius + 0.3, box.get_center().y)
+	sim.step(DT)
+	assert_true(me.tagged, "outside the rescue area")
+	# in the strip beside the box (not in the box itself): rescued
+	friend.position = Vector2((box.end.x + area.end.x) / 2.0, box.get_center().y)
+	assert_false(box.has_point(friend.position))
+	sim.step(DT)
+	assert_false(me.tagged, "in the rescue area beside the box")
+
+
 func test_an_enemy_in_the_box_rescues_nobody() -> void:
 	var sim: MatchSim = _sim()
 	var me: PlayerState = sim.add_player(1, 0)

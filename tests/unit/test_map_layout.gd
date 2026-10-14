@@ -57,6 +57,39 @@ func test_each_tagged_box_sits_flush_in_a_corner_of_the_play_area() -> void:
 	assert_true(lane.grow(0.001).encloses(enemy))
 
 
+func test_the_rescue_area_is_half_a_box_wider_toward_the_street() -> void:
+	var lane: Rect2 = LAYOUT.lane_rect().grow(0.001)
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		var box: Rect2 = LAYOUT.jail_rect(side)
+		var area: Rect2 = LAYOUT.rescue_rect(side)
+		assert_true(area.grow(0.001).encloses(box), "the area holds the box")
+		assert_true(lane.encloses(area), "and stays in the play area")
+		assert_almost_eq(area.size.x / box.size.x, 1.5, 0.001, "box and area together are 1.5x")
+		assert_almost_eq(area.size.y / box.size.y, 1.5, 0.001)
+		var strips: Array[Rect2] = LAYOUT.rescue_strips(side)
+		var covered: float = 0.0
+		for strip: Rect2 in strips:
+			assert_false(strip.grow(-0.001).intersects(box), "the tinted strips stay out of the box")
+			covered += strip.get_area()
+		assert_almost_eq(covered, area.get_area() - box.get_area(), 0.01, "the strips are the area minus the box")
+	# yours is top left: the area grows to the right and down; theirs grows left and up
+	assert_eq(LAYOUT.rescue_rect(MapLayout.SIDE_OWN).position, LAYOUT.jail_rect(MapLayout.SIDE_OWN).position)
+	assert_almost_eq(LAYOUT.rescue_rect(MapLayout.SIDE_ENEMY).end, LAYOUT.jail_rect(MapLayout.SIDE_ENEMY).end, Vector2(0.001, 0.001))
+
+
+func test_the_rescue_tape_is_on_the_sides_facing_the_street() -> void:
+	var own: Array[Rect2] = StreetMap.rescue_tape_rects(LAYOUT.rescue_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN)
+	assert_eq(own[0].end.y, LAYOUT.rescue_rect(MapLayout.SIDE_OWN).end.y, "bottom")
+	assert_eq(own[1].end.x, LAYOUT.rescue_rect(MapLayout.SIDE_OWN).end.x, "right")
+	var enemy: Array[Rect2] = StreetMap.rescue_tape_rects(LAYOUT.rescue_rect(MapLayout.SIDE_ENEMY), MapLayout.SIDE_ENEMY)
+	assert_eq(enemy[0].position.y, LAYOUT.rescue_rect(MapLayout.SIDE_ENEMY).position.y, "top")
+	assert_eq(enemy[1].position.x, LAYOUT.rescue_rect(MapLayout.SIDE_ENEMY).position.x, "left")
+
+
+func test_only_two_cardboard_walls_stand_in_the_play_area() -> void:
+	assert_eq(LAYOUT.obstacle_rects().size(), 2, "one each way round (owner: 4 of the 6 removed)")
+
+
 func test_jail_slots_stay_inside_the_box() -> void:
 	for index: int in 6:
 		assert_true(LAYOUT.jail_rect(MapLayout.SIDE_OWN).has_point(LAYOUT.jail_slot(MapLayout.SIDE_OWN, index)))
@@ -138,8 +171,10 @@ func test_street_scene_builds_bases_boxes_cover_and_dressing() -> void:
 	assert_eq(map.post_outline_color(MapLayout.SIDE_ENEMY), StreetMap.OWN_COLOR, "and so is its outline")
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
 		var zone: Array[Color] = map.zone_colors(side)
-		assert_eq(zone.size(), 2, "only the base is tinted: the tagged box has no tint")
-		assert_lt(zone[1].a, 0.5, "the base fill stays faint")
+		assert_eq(zone.size(), 4, "base and rescue area are tinted: the tagged box has no tint")
+		assert_eq(zone[0], zone[2], "the rescue area has the same tape as the base")
+		assert_eq(zone[1], zone[3], "and the same faint fill")
+		assert_lt(zone[1].a, 0.5, "the fill stays faint")
 
 
 func test_each_tagged_box_has_two_cardboard_walls_on_its_street_side() -> void:
