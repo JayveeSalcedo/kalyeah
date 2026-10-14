@@ -49,7 +49,24 @@ func test_tagged_boxes_own_top_left_enemy_bottom_right() -> void:
 func test_jail_slots_stay_inside_the_box() -> void:
 	for index: int in 6:
 		assert_true(LAYOUT.jail_rect(MapLayout.SIDE_OWN).has_point(LAYOUT.jail_slot(MapLayout.SIDE_OWN, index)))
-	assert_ne(LAYOUT.jail_slot(MapLayout.SIDE_OWN, 0), LAYOUT.jail_slot(MapLayout.SIDE_OWN, 1), "kids stand side by side")
+	assert_ne(LAYOUT.jail_slot(MapLayout.SIDE_OWN, 0), LAYOUT.jail_slot(MapLayout.SIDE_OWN, 1), "kids don't stand on each other")
+
+
+func test_the_box_fits_four_kids_and_no_more_room() -> void:
+	var rules: GameRules = load("res://data/rules/game_rules.tres") as GameRules
+	var kid: float = rules.player_radius * 2.0
+	assert_eq(LAYOUT.jail_columns * LAYOUT.jail_rows, 4, "four slots")
+	var box: Rect2 = LAYOUT.jail_rect(MapLayout.SIDE_OWN)
+	var slots: Array[Vector2] = []
+	for index: int in 4:
+		var slot: Vector2 = LAYOUT.jail_slot(MapLayout.SIDE_OWN, index)
+		assert_true(box.grow(-rules.player_radius).has_point(slot), "kid %d fits inside the tape" % index)
+		for other: Vector2 in slots:
+			assert_gte(slot.distance_to(other), kid, "kids don't overlap")
+		slots.append(slot)
+	assert_lte(box.size.y, kid * LAYOUT.jail_rows * 2.0, "the box is not much longer than four padded kids in a row")
+	# the camera looks down the street at 40 degrees, so its length shows at about 0.64x
+	assert_gt(box.size.y * 0.64, box.size.x * 1.2, "the box looks tall (portrait) on screen")
 
 
 func test_base_is_a_circle_round_the_post() -> void:

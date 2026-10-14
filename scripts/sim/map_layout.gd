@@ -22,8 +22,11 @@ const SIDE_ENEMY: int = -1
 ## post toward the middle of the street (along each axis).
 @export var spawn_offset: float = 0.0
 ## The tagged box (a taped rectangle on the road) and its center's inset from its corner.
+## It is just big enough for its slots: columns across, rows along the street.
 @export var jail_size: Vector2 = Vector2.ZERO
 @export var jail_inset: Vector2 = Vector2.ZERO
+@export var jail_columns: int = 1
+@export var jail_rows: int = 1
 ## Cover on the own half of the street (x, z rects); the enemy half gets the same
 ## pieces turned around the center. They block walking and throws for both teams.
 @export var obstacles: Array[Rect2] = []
@@ -57,15 +60,14 @@ func jail_rect(side: int) -> Rect2:
 	return Rect2(center - jail_size / 2.0, jail_size)
 
 
-## Where the `index`-th tagged player of a side stands in its box (two rows of kids).
+## Where the `index`-th tagged player of a side stands in its box (a grid of
+## `jail_columns` x `jail_rows` kids; more than that share the first slots).
 func jail_slot(side: int, index: int) -> Vector2:
 	var box: Rect2 = jail_rect(side)
-	var columns: int = 2
-	var rows: int = 3
-	var column: int = index % columns
-	var row: int = (index / columns) % rows
+	var column: int = index % jail_columns
+	var row: int = (index / jail_columns) % jail_rows
 	return box.position + Vector2(
-		box.size.x * (column + 0.5) / columns, box.size.y * (row + 0.5) / rows
+		box.size.x * (column + 0.5) / jail_columns, box.size.y * (row + 0.5) / jail_rows
 	)
 
 
