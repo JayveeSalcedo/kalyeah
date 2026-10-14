@@ -3,7 +3,7 @@ extends Node3D
 ## The barangay street the game is played on (view only; reads MapLayout, holds no
 ## rules). The play area is one flat, dark grey cement slab (no tiles or
 ## markings) with curbs and sidewalks, house fronts, a sari-sari store with an
-## umbrella and bunting around it; the few cover
+## umbrella around it; the few cover
 ## pieces kids hide behind (cardboard walls); each team's electric post in its corner with a chalk base
 ## circle; and the taped box where each team's tagged kids wait.
 
@@ -46,7 +46,6 @@ const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
 const HOUSE_SPACING: float = 6.4
-const BUNTING_HEIGHT: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
 const PAVER_TILE: float = 2.4
@@ -67,7 +66,7 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 	&"bench": "bench", &"cardboard_wall": "cardboard_wall", &"school_zone": "school_zone", &"tent": "rooster_tent",
 }
 const COVER_HEIGHT: float = 1.15
-const POST_HEIGHT: float = 6.0
+const POST_HEIGHT: float = 8.5
 ## How thick the team-colour outline round each base post is (m).
 const POST_OUTLINE: float = 0.07
 const POST_OUTLINE_SHELL: String = "res://assets/models/props/electric_pole_outline.glb"
@@ -79,10 +78,8 @@ const BARRICADE_HEIGHT: float = 1.1
 @export var layout: MapLayout
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
-## side -> [post band, base chalk, box tape, box fill] materials (recoloured per viewer).
+## side -> [post outline, base chalk, box tape, box fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
-## The team-colour outline round each base post (full colour, not softened).
-var _post_outlines: Dictionary[int, StandardMaterial3D] = {}
 
 @onready var _geometry: Node3D = %Geometry
 @onready var _camera: Camera3D = %Camera
@@ -159,8 +156,6 @@ func set_own_side(own_side: int) -> void:
 				color = tint.lerp(SOFT_GREY, BASE_SOFTEN)
 			color.a = material.albedo_color.a
 			material.albedo_color = color
-		if _post_outlines.has(side):
-			_post_outlines[side].albedo_color = tint
 
 
 func base_color(side: int) -> Color:
@@ -179,12 +174,11 @@ func _build_map() -> void:
 		# the post's front (the side with the flyers, the model's +Z) faces the middle of the play area
 		var inward: float = atan2(-center.x, -center.y)
 		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y), inward)
-		# a team-coloured band on the post so you can tell bases apart from afar
-		var band: StandardMaterial3D = _add_band(post, color)
+		# a team-colour outline round the post so you can tell bases apart from afar
+		var outline: StandardMaterial3D = _add_post_outline(post, color)
 		var chalk: StandardMaterial3D = _add_base_chalk(side, color)
 		var jail: Array[StandardMaterial3D] = _add_jail(side, color)
-		_base_materials[side] = [band, chalk, jail[0], jail[1]]
-		_post_outlines[side] = _add_post_outline(post, color)
+		_base_materials[side] = [outline, chalk, jail[0], jail[1]]
 	_add_barricades()
 	_add_houses()
 	_add_details()
@@ -365,17 +359,12 @@ func _add_houses() -> void:
 			x += HOUSE_SPACING
 
 
-## Life around the street (no power poles along the sides, owner): bunting,
+## Life around the street (no power poles or bunting, owner):
 ## laundry, the store's umbrella and bench, drums and trees. The play area itself
 ## stays plain cement.
 func _add_details() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0
-	var span: float = layout.lane_width + 2.0 * (layout.boundary_thickness + SIDEWALK_WIDTH)
-	var bunting_index: int = 0
-	for bz: float in [-half_l * 0.55, half_l * 0.05, half_l * 0.6]:
-		_add(Props.banderitas(span, bunting_index), Vector3(0.0, BUNTING_HEIGHT, bz))
-		bunting_index += 1
 	var walk_x: float = half_w + layout.boundary_thickness + SIDEWALK_WIDTH / 2.0
 	var store_z: float = -layout.lane_length * 0.18
 	_add(Props.umbrella(), Vector3(-walk_x, CURB_HEIGHT, store_z + 1.6))
@@ -442,23 +431,7 @@ func _add_post_outline(post: Node3D, color: Color) -> StandardMaterial3D:
 
 ## The colour of the outline round base `side`'s post.
 func post_outline_color(side: int) -> Color:
-	return _post_outlines[side].albedo_color
-
-
-func _add_band(post: Node3D, color: Color) -> StandardMaterial3D:
-	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = 0.44
-	mesh.bottom_radius = 0.45
-	mesh.height = 0.35
-	mesh.radial_segments = 8
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = color
-	mesh.material = material
-	var band: MeshInstance3D = MeshInstance3D.new()
-	band.mesh = mesh
-	band.position.y = 3.2
-	post.add_child(band)
-	return material
+	return (_base_materials[side][0] as StandardMaterial3D).albedo_color
 
 
 func _setup_camera() -> void:
