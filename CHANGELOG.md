@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.3.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.2.0...kalyeah-v0.3.0) (2026-10-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **map:** map_layout.tres sizes changed (server and clients must match).
+
+### Features
+
+* **art:** street props are the owner's Meshy models ([158a5ba](https://github.com/earl-gh/kalyeah/commit/158a5bafb1b92a9880926172ef1e4a2ef758fa6f))
+* **controls,map:** knob-sized skills, outlined stick, cardboard-only cover, mixed end barricades ([a42a961](https://github.com/earl-gh/kalyeah/commit/a42a9611b0d60007ab26ae5e671bc95ef3007770))
+* **controls:** auto-run ring around the stick ([e18f081](https://github.com/earl-gh/kalyeah/commit/e18f081fd8d4d7f3ffc4e12943a842ee9c780915))
+* **controls:** movement stick back at the bottom centre, skills on its left and right ([83aee78](https://github.com/earl-gh/kalyeah/commit/83aee784f806bdc6c7108926283f8b78edbb0e0f))
+* **controls:** outer ring as thick and white as the inner one, the lit ring is the bright one ([f381b5e](https://github.com/earl-gh/kalyeah/commit/f381b5e98eb29c27ba48da4b83b89ec92554432e))
+* **controls:** the outer ring appears only once the knob is held ([819ec20](https://github.com/earl-gh/kalyeah/commit/819ec207853099239b450421a50700be3af92d69))
+* **controls:** tint the band between the rings while the outer ring is lit ([8f14900](https://github.com/earl-gh/kalyeah/commit/8f1490039fa7f41e8adcc20c58118ed59a7b0b69))
+* **kids:** a portrait for every kid ([fbdfdb1](https://github.com/earl-gh/kalyeah/commit/fbdfdb1e1fe98cc878eee5091f8eea4c19a81aea))
+* **kids:** play each kid's own clips in game ([7e79134](https://github.com/earl-gh/kalyeah/commit/7e79134214f5d8384e657fc429b89f2b804f9646))
+* **kids:** rigged, animated models for all six kids ([e7fa74d](https://github.com/earl-gh/kalyeah/commit/e7fa74d52890ce69f7f8d3add56a7d443ac57312))
+* **map,camera:** no bunting, a closer camera, bigger base posts ([cf2205e](https://github.com/earl-gh/kalyeah/commit/cf2205e677ffbc4f491ef76ade8f3d14d5907b2b))
+* **map:** a team-colour outline round each base post ([a252ca6](https://github.com/earl-gh/kalyeah/commit/a252ca64f2a0e770f781efd3d9788d64d3a81172))
+* **map:** barrier rows set down naturally, never stretched ([ed460f5](https://github.com/earl-gh/kalyeah/commit/ed460f5ad4c440cb716df02d447bedba68935e99))
+* **map:** give the base the tagged box look and round the box corners ([bea09ff](https://github.com/earl-gh/kalyeah/commit/bea09ffbbc0fb387c73a36f601d2a6e55c7c8b67))
+* **map:** no Pillow-painted posters ([e20ad95](https://github.com/earl-gh/kalyeah/commit/e20ad959fac47ff3555a5290d69ca508b055c000))
+* **map:** no power poles along the left and right sides ([1801273](https://github.com/earl-gh/kalyeah/commit/180127395dc6f96da99a83b04ec894c3a10a1793))
+* **map:** scale the tagged box 1.5x for padding (2.4 x 6 m) ([0aab100](https://github.com/earl-gh/kalyeah/commit/0aab100a860d0b4598efe399fc25df98890d40a4))
+* **map:** the base posts' flyer side faces the middle of the play area ([881f002](https://github.com/earl-gh/kalyeah/commit/881f00214cbafa54f1a65f89cd333fb51add5fdd))
+* **map:** the end barrier rows mix eight of the owner's street models ([f199644](https://github.com/earl-gh/kalyeah/commit/f199644852756b760397b9205d82889aadf431d5))
+* **map:** the playing area is 1:2, 24 x 48 m (was 30 x 40, 3:4) ([8471e83](https://github.com/earl-gh/kalyeah/commit/8471e83ac5473ab4dc6d77c3ea70371010a2261e))
+* **map:** the tagged box fits four kids (3 x 2.4 m, 2 x 2 slots) ([6348f4c](https://github.com/earl-gh/kalyeah/commit/6348f4cb20c3386acf51dd4cbc3b29aabfecca04))
+* **map:** the tagged box is portrait, four kids in single file ([73c152a](https://github.com/earl-gh/kalyeah/commit/73c152a8ce534a94a2b16173994d8d6d44563fed))
+* **map:** your own (blue) base post is turned 180 degrees ([8e6768a](https://github.com/earl-gh/kalyeah/commit/8e6768a957a0ad4d3f96b68bbd8d23a1ccc2f18a))
+
+
+### Bug Fixes
+
+* **map:** smooth post outline from a remeshed shell, no jagged bits ([d654376](https://github.com/earl-gh/kalyeah/commit/d654376b8cee16f681aa830ca582b358050e17d4))
+
 ## [0.2.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.1.0...kalyeah-v0.2.0) (2026-10-12)
 
 
