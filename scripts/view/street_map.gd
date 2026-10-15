@@ -222,10 +222,10 @@ func _street() -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
-	kit.box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
+	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
-		kit.box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_EDGE)
+		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_EDGE)
 	return kit.commit()
 
 

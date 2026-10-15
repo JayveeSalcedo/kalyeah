@@ -290,3 +290,16 @@ func test_the_end_rows_mix_every_street_thing_and_stay_out_of_the_play_area() ->
 	for id: String in StreetMap.BARRIER_HEIGHTS:
 		assert_true(seen.has(id), "%s is in an end row" % id)
 	assert_lte(int(seen.get("rooster_tent", 0)), 4, "at most two A-frames per row, not a row of them")
+
+
+func test_the_street_slabs_are_plain_boxes_without_a_light_edge_line() -> void:
+	# `box` rounds its edges and lightens them: seen edge-on that is a thin white line along the street
+	var kit: LowPoly = LowPoly.new()
+	var colour: Color = Color(0.3, 0.3, 0.31)
+	kit.plain_box(Vector3.ZERO, Vector3(24.0, 0.1, 80.0), colour, colour)
+	assert_eq(kit.triangle_count(), 12, "a plain box is just six faces")
+	var mesh: ArrayMesh = kit.commit()
+	var colors: PackedColorArray = mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	for vertex_colour: Color in colors:
+		assert_lte(vertex_colour.get_luminance(), colour.get_luminance() + 0.001, "no face is lighter than the slab")
+
