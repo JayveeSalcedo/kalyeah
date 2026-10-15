@@ -11,6 +11,8 @@ var avatar_id: String = ""
 var room_code: String = ""
 ## LobbyScreen.Intent (CREATE or JOIN) chosen on the title screen.
 var lobby_intent: int = 0
+## True when the lobby was opened from the HOTSPOT button (it uses the hotspot address).
+var lobby_hotspot: bool = false
 var reconnect_token: String = ""
 var reconnect_url: String = ""
 

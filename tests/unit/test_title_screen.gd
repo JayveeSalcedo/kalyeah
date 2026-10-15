@@ -1,5 +1,5 @@
 extends GutTest
-## The main screen: profile, map model, Practice / Online / Settings / Quit, and the dialogs.
+## The main screen: profile, map model, Practice / Hotspot / Online / Quit (2x2), Settings and the dialogs.
 
 const TITLE_SCENE: PackedScene = preload("res://scenes/ui/title_screen.tscn")
 
@@ -7,6 +7,7 @@ var _saved_name: String
 var _saved_avatar: String
 var _saved_volume: float
 var _saved_url: String
+var _saved_hotspot: String
 var _saved_vibration: bool
 
 
@@ -15,6 +16,7 @@ func before_each() -> void:
 	_saved_avatar = Session.avatar_id
 	_saved_volume = Settings.volume
 	_saved_url = Settings.server_url
+	_saved_hotspot = Settings.hotspot_url
 	_saved_vibration = Settings.vibration
 
 
@@ -25,6 +27,8 @@ func after_each() -> void:
 	Settings.set_volume(_saved_volume)
 	Settings.set_vibration(_saved_vibration)
 	Settings.save_server_url(_saved_url)
+	Settings.save_hotspot_url(_saved_hotspot)
+	Session.lobby_hotspot = false
 
 
 func _screen() -> TitleScreen:
@@ -35,13 +39,6 @@ func _screen() -> TitleScreen:
 
 func _find(root: Node, node_name: String) -> Node:
 	return root.find_child(node_name, true, false)
-
-
-func test_version_label_matches_project_setting() -> void:
-	var screen: TitleScreen = _screen()
-	var label: Label = screen.get_node("%VersionLabel") as Label
-	var version: String = str(ProjectSettings.get_setting("application/config/version"))
-	assert_eq(label.text, "v" + version)
 
 
 func test_a_normal_run_is_not_the_server() -> void:
@@ -58,13 +55,46 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
 	assert_not_null(screen.profile_button, "username")
 	assert_not_null(screen.settings_button, "settings")
-	assert_not_null(screen.practice_button, "practice (offline)")
-	assert_not_null(screen.create_button, "online: create a room")
-	assert_not_null(screen.join_button, "online: join a room")
-	assert_not_null(screen.quit_button, "quit")
 	assert_not_null(screen.diorama, "the map model")
-	assert_string_contains(_all_text(screen.practice_button), "OFFLINE")
+	assert_eq(screen.practice_button.text, "PRACTICE")
+	assert_eq(screen.hotspot_button.text, "HOTSPOT")
+	assert_eq(screen.online_button.text, "ONLINE")
 	assert_eq(screen.quit_button.text, "QUIT")
+
+
+func test_the_four_buttons_are_a_2x2_grid_at_the_bottom() -> void:
+	var phone: Control = autofree(Control.new()) as Control
+	phone.custom_minimum_size = Vector2(720.0, 1280.0)
+	phone.size = Vector2(720.0, 1280.0)
+	add_child(phone)
+	var screen: TitleScreen = autofree(TITLE_SCENE.instantiate()) as TitleScreen
+	phone.add_child(screen)
+	await wait_frames(3)
+	var p: Rect2 = screen.practice_button.get_global_rect()
+	var h: Rect2 = screen.hotspot_button.get_global_rect()
+	var o: Rect2 = screen.online_button.get_global_rect()
+	var q: Rect2 = screen.quit_button.get_global_rect()
+	assert_almost_eq(p.position.y, h.position.y, 1.0, "practice and hotspot share the top row")
+	assert_almost_eq(o.position.y, q.position.y, 1.0, "online and quit share the bottom row")
+	assert_almost_eq(p.position.x, o.position.x, 1.0, "practice sits over online")
+	assert_almost_eq(h.position.x, q.position.x, 1.0, "hotspot sits over quit")
+	assert_lt(p.position.x, h.position.x)
+	assert_lt(p.end.y, o.position.y)
+	assert_gt(p.size.x, 200.0)
+	assert_lt(q.end.y, 1280.0)
+	assert_gt(o.position.y, 1280.0 * 0.6, "in the bottom part")
+	assert_gt(screen.diorama.get_global_rect().end.y, 0.0)
+	assert_lte(screen.diorama.get_global_rect().end.y, p.position.y + 1.0, "the map model is above the buttons")
+
+
+func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
+	var screen: TitleScreen = _screen()
+	var text: String = _all_text(screen)
+	assert_false(text.contains("ONLINE  "), "no ONLINE caption")
+	assert_false(text.contains("Server"), "no server line")
+	assert_false(text.contains("No server"), "no server hint")
+	assert_eq(text.count("v0."), 0, "no version")
+	assert_null(screen.find_child("VersionLabel", true, false))
 
 
 func _all_text(root: Node) -> String:
@@ -85,9 +115,8 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.practice_button, screen.create_button, screen.join_button, screen.settings_button, screen.profile_button]:
+	for button: Button in [screen.practice_button, screen.hotspot_button, screen.online_button, screen.quit_button, screen.settings_button, screen.profile_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
-	assert_gte(screen.quit_button.custom_minimum_size.y, 64.0)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
 
@@ -193,30 +222,77 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 		assert_between(value, 0.0, 120.0)
 
 
-func test_the_map_model_has_the_map_three_kids_and_fits_its_frame() -> void:
+func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
 	model.size = Vector2(690.0, 480.0)
 	await wait_frames(2)
-	assert_true(model.map.diorama, "the compact map model")
-	assert_eq(model.kids.size(), 3)
-	assert_eq(model.map.layout.lane_length, MenuDiorama.LANE_LENGTH)
-	assert_ne(model.map.layout.lane_length, (load("res://data/rules/map_layout.tres") as MapLayout).lane_length, "the real layout is not changed")
-	# every corner of the model stays in the camera's view, also at both ends of its swing
-	var half_x: float = model.map.layout.lane_width / 2.0 + model.map.layout.boundary_thickness + StreetMap.SIDEWALK_WIDTH
-	var half_z: float = model.map.layout.lane_length / 2.0 + StreetMap.DIORAMA_REACH
-	for yaw: float in [-MenuDiorama.TURN_DEGREES, 0.0, MenuDiorama.TURN_DEGREES]:
-		for cx: float in [-half_x, half_x]:
-			for cz: float in [-half_z, half_z]:
-				var corner: Vector3 = Vector3(cx, StreetMap.CURB_HEIGHT, cz).rotated(Vector3.UP, deg_to_rad(yaw))
-				assert_true(model.camera.is_position_in_frustum(corner), "corner %s at %d degrees is in view" % [corner, yaw])
+	var layout: MapLayout = model.map.layout
+	assert_true(model.map.diorama)
+	assert_eq(layout.lane_length, (load("res://data/rules/map_layout.tres") as MapLayout).lane_length, "the real play area")
+	# only the cement and its stone base: no kids, no props, no team colours, no sidewalks, no houses
+	var meshes: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
+	assert_eq(meshes.size(), 1, "one mesh: the cement slab on its base")
+	assert_eq(model.viewport.find_children("*", "KidModel", true, false).size(), 0, "no characters")
+	var street: AABB = (meshes[0] as MeshInstance3D).get_aabb()
+	assert_almost_eq(street.size.x, layout.lane_width + 0.8, 0.01, "no sidewalks")
+	assert_almost_eq(street.size.z, layout.lane_length + 0.8, 0.01, "no extra space at the ends")
+	for cx: float in [-layout.lane_width / 2.0, layout.lane_width / 2.0]:
+		for cz: float in [-layout.lane_length / 2.0, layout.lane_length / 2.0]:
+			assert_true(model.camera.is_position_in_frustum(Vector3(cx, 0.0, cz)), "corner %s is in view" % Vector2(cx, cz))
 
 
-func test_the_map_model_turns_by_itself() -> void:
+func test_the_map_model_stands_still() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
 	model.size = Vector2(690.0, 480.0)
-	var start: float = model.pivot.rotation_degrees.y
+	await wait_frames(2)
+	var before: Transform3D = model.camera.global_transform
 	await wait_frames(30)
-	assert_ne(model.pivot.rotation_degrees.y, start, "it is never a still picture")
-	assert_lte(absf(model.pivot.rotation_degrees.y), MenuDiorama.TURN_DEGREES + 0.01)
+	assert_eq(model.camera.global_transform, before)
+	assert_false(model.is_processing(), "nothing runs every frame")
+	assert_false(model.is_physics_processing())
+
+
+func test_online_offers_create_and_join_on_the_game_server() -> void:
+	var screen: TitleScreen = _screen()
+	var card: MenuDialog = screen.open_online()
+	assert_not_null(_find(card, "CreateRoomButton"))
+	assert_not_null(_find(card, "JoinRoomButton"))
+	assert_null(_find(card, "AddressField"), "the server is set in Settings")
+	card.close(false)
+
+
+func test_hotspot_remembers_the_address_and_opens_the_lobby_on_it() -> void:
+	var screen: TitleScreen = _screen()
+	var opened: Array = []
+	screen.open_lobby_action = func(intent: int) -> void: opened.append(intent)
+	var card: MenuDialog = screen.open_hotspot()
+	(_find(card, "AddressField") as LineEdit).text = "192.168.43.1:9080"
+	(_find(card, "JoinRoomButton") as Button).pressed.emit()
+	assert_eq(Settings.hotspot_url, "ws://192.168.43.1:9080")
+	assert_true(Session.lobby_hotspot, "the lobby uses the hotspot address")
+	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
+	assert_eq(opened.size(), 1)
+	assert_eq(Settings.lobby_url(true), "ws://192.168.43.1:9080")
+	assert_eq(Settings.lobby_url(false), Settings.server_url, "the online server is left alone")
+
+
+func test_online_opens_the_lobby_on_the_game_server() -> void:
+	var screen: TitleScreen = _screen()
+	var opened: Array = []
+	screen.open_lobby_action = func(intent: int) -> void: opened.append(intent)
+	var card: MenuDialog = screen.open_online()
+	(_find(card, "CreateRoomButton") as Button).pressed.emit()
+	assert_false(Session.lobby_hotspot)
+	assert_eq(Session.lobby_intent, LobbyScreen.Intent.CREATE)
+	assert_eq(opened.size(), 1)
+
+
+func test_private_addresses_use_plain_ws_and_public_ones_wss() -> void:
+	assert_eq(Settings.normalize_url("192.168.43.1:9080"), "ws://192.168.43.1:9080")
+	assert_eq(Settings.normalize_url("10.0.0.5:9080"), "ws://10.0.0.5:9080")
+	assert_eq(Settings.normalize_url("172.20.10.1:9080"), "ws://172.20.10.1:9080", "an iPhone hotspot")
+	assert_eq(Settings.normalize_url("172.32.0.1"), "wss://172.32.0.1", "not a private range")
+	assert_eq(Settings.normalize_url("example.org"), "wss://example.org")
+	assert_eq(Settings.normalize_url("wss://x"), "wss://x")

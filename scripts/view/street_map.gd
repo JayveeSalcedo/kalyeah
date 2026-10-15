@@ -46,9 +46,8 @@ const CURB_HEIGHT: float = 0.4
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
-## The main screen shows the map as a small model: the street ends just past the barricades, on a
-## chunky stone base, with no houses, no paving round it and no street furniture.
-const DIORAMA_REACH: float = 4.5
+## The main screen shows the play area alone as a small model: just the cement, on a chunky stone
+## base. No sidewalks, no team colours, no posts or props and no street past the ends.
 const PLINTH: Color = Color(0.4, 0.43, 0.54)
 const PLINTH_HEIGHT: float = 4.0
 const HOUSE_SPACING: float = 6.4
@@ -101,7 +100,7 @@ const BARRIER_SEED: int = 7
 const BARRIER_SETBACK: float = 0.15
 
 @export var layout: MapLayout
-## The main-screen map model (see DIORAMA_REACH).
+## The main-screen map model: only the play area's cement on a stone base.
 @export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
@@ -214,11 +213,13 @@ func zone_colors(side: int) -> Array[Color]:
 
 ## How far the street goes on past each end of the play area.
 func _reach() -> float:
-	return DIORAMA_REACH if diorama else END_REACH
+	return 0.0 if diorama else END_REACH
 
 
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO).material_override = street_material()
+	if diorama:
+		return
 	_add_ground_textures()
 	for index: int in layout.obstacle_rects().size():
 		_add_obstacle(index)
@@ -234,9 +235,8 @@ func _build_map() -> void:
 		_side_tint[side] = color
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
-	if not diorama:
-		_add_houses()
-		_add_details()
+	_add_houses()
+	_add_details()
 
 
 ## The look of the street and the sidewalks: code-drawn cement (shaders/street_cement.gdshader)
@@ -258,13 +258,13 @@ func _street() -> ArrayMesh:
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + _reach() * 2.0
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
+	if diorama:
+		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
+		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(layout.lane_width + 0.8, PLINTH_HEIGHT, length + 0.8), PLINTH, PLINTH)
+		return kit.commit()
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
 		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_CEMENT)
-	if diorama:
-		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
-		var width: float = layout.lane_width + (layout.boundary_thickness + SIDEWALK_WIDTH) * 2.0 + 0.8
-		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(width, PLINTH_HEIGHT, length + 0.8), PLINTH, PLINTH)
 	return kit.commit()
 
 
@@ -274,8 +274,6 @@ func _add_ground_textures() -> void:
 	var length: float = layout.lane_length + _reach() * 2.0
 	_add_cement_art()
 	add_sidewalk_art(_owner_art(SIDEWALK_TOP_ART), _owner_art(SIDEWALK_SIDE_ART))
-	if diorama:
-		return
 	var outer: MeshInstance3D = StreetArt.ground("pavers", Vector2(layout.lane_width + OUTER_MARGIN * 2.0, length + OUTER_MARGIN * 2.0), PAVER_TILE, OUTER_TINT)
 	outer.position = Vector3(0.0, OUTER_DROP, 0.0)
 	_geometry.add_child(outer)
