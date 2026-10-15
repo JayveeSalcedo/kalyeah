@@ -12,6 +12,8 @@ const LOCAL_TEAM: int = 0
 const ENEMY_STAND_ID: int = 2
 const ENEMY_PATROL_ID: int = 3
 const ALLY_ID: int = 4
+## A free enemy standing in its own tagged box (bottom right), to see its bar hide (owner).
+const ENEMY_BOX_ID: int = 5
 const MAX_STEPS_PER_FRAME: int = 8
 const AIRBORNE_LIFT: float = 1.0
 const WEAPON_SLOTS: int = 2
@@ -218,6 +220,8 @@ func _setup_practice() -> void:
 	sim.add_dummy(ENEMY_PATROL_ID, 1, Vector2(rules.dummy_patrol_x, rules.dummy_z), patrol)
 	var ally_spot: Vector2 = Vector2(rules.dummy_ally_x, rules.dummy_ally_z)
 	sim.add_dummy(ALLY_ID, local_team, ally_spot, DummyBrain.rescuer(ally_spot))
+	var box_spot: Vector2 = layout.jail_slot(sim.side_for_team(1), 0)
+	sim.add_dummy(ENEMY_BOX_ID, 1, box_spot, DummyBrain.standing())
 	sim.assign_characters()
 	var loadout: Array[StringName] = sim.random_loadout()
 	sim.set_loadout(local_id, loadout[0], loadout[1])
