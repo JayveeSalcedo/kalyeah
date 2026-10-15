@@ -97,9 +97,9 @@ func test_the_ally_dummy_runs_over_and_rescues_you() -> void:
 	assert_lt(ally.position.distance_to(home), 0.5, "and walks back to its spot")
 
 
-func test_practice_has_two_enemy_dummies_and_one_ally() -> void:
+func test_practice_has_three_enemy_dummies_and_one_ally() -> void:
 	var practice: PracticeMatch = _practice()
-	assert_eq(practice.sim.players.size(), 4)
+	assert_eq(practice.sim.players.size(), 5)
 	var stand: PlayerState = practice.sim.players[PracticeMatch.ENEMY_STAND_ID]
 	var patrol: PlayerState = practice.sim.players[PracticeMatch.ENEMY_PATROL_ID]
 	var ally: PlayerState = practice.sim.players[PracticeMatch.ALLY_ID]
@@ -113,6 +113,20 @@ func test_practice_has_two_enemy_dummies_and_one_ally() -> void:
 	assert_eq(stand.position, stand_start, "one enemy stands still")
 	assert_ne(patrol.position.x, patrol_start.x, "the other walks")
 	assert_eq(ally.position, Vector2(-6.0, 13.0))
+
+
+func test_a_free_enemy_stands_in_its_own_box_and_its_bar_is_hidden() -> void:
+	var practice: PracticeMatch = _practice()
+	var boxed: PlayerState = practice.sim.players[PracticeMatch.ENEMY_BOX_ID]
+	assert_eq(boxed.team, 1)
+	assert_false(boxed.tagged, "free, not tagged")
+	assert_true(LAYOUT.jail_rect(-practice.own_side()).has_point(boxed.position), "in the enemy's box (bottom right)")
+	var start: Vector2 = boxed.position
+	for i: int in 30:
+		practice.advance(DT)
+	assert_eq(boxed.position, start, "it stands still")
+	assert_false(practice.overhead().bar_visible(boxed), "its bar is hidden from you")
+	assert_true(practice.overhead().bar_visible(practice.sim.players[PracticeMatch.ENEMY_STAND_ID]), "the other enemies keep theirs")
 
 
 # ---- the movement stick ---------------------------------------------------------
@@ -591,7 +605,7 @@ func test_tagged_shows_a_grey_band_with_2_by_3_cards_of_everyone_else() -> void:
 	practice.advance(DT)
 	var panel: TaggedPanel = practice.hud.tagged_panel
 	assert_true(panel.visible)
-	assert_eq(panel.card_ids.size(), 3, "practice: the ally and the two enemy dummies")
+	assert_eq(panel.card_ids.size(), 4, "practice: the ally and the three enemy dummies")
 	assert_eq(panel.card_ids[0], PracticeMatch.ALLY_ID, "teammates first")
 	assert_almost_eq(TaggedPanel.CARD_SIZE.x / TaggedPanel.CARD_SIZE.y, 2.0 / 3.0, 0.001)
 	assert_eq(TaggedPanel.MAX_CARDS, 5, "room for everyone else in a 3v3")
