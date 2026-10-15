@@ -233,7 +233,7 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	# the cement and its stone base in the game's exact shape, plus the corner props only
 	assert_eq(model.map._posts.size(), 2, "an electric post at each base")
 	var street: AABB = (model.map.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
-	assert_almost_eq(street.size.x / street.size.z, layout.lane_width / layout.lane_length, 0.001, "the game's 1:2 ratio")
+	assert_almost_eq(street.size.x / street.size.z, layout.lane_width / layout.lane_length, 0.001, "the game's 3:4 ratio")
 	assert_almost_eq(street.size.x, layout.lane_width, 0.01, "no sidewalks")
 	assert_almost_eq(street.size.z, layout.lane_length, 0.01, "no extra space at the ends")
 	var props: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
