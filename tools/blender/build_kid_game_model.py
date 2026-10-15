@@ -17,6 +17,7 @@ import os
 import sys
 
 import bpy
+import bmesh  # noqa: E402 (needs bpy imported first)
 import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
@@ -25,6 +26,31 @@ DEFAULT_TRIANGLES = 9000
 ## Correctives kept for phones: elbow and knee bends show most (squat, run, throw).
 GAME_SHAPES = ("elbow", "knee")
 TEXTURE_SIZE = 1024
+
+
+# Welding distance as a fraction of the model's size: the glTF importer splits vertices at every
+# UV and normal seam, and decimating that split mesh tears it into open pieces (the kids came
+# out as ~1,200 loose parts with more open edges than triangles). Weld first.
+WELD = 1e-5
+
+
+def weld(obj):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=max(obj.dimensions) * WELD)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def open_edges(obj):
+    """Edges used by one face only: the holes and cracks of the mesh (after welding)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=max(obj.dimensions) * WELD)
+    count = sum(1 for e in bm.edges if len(e.link_faces) == 1)
+    bm.free()
+    return count
 
 
 def mesh_arrays(obj):
@@ -51,7 +77,7 @@ def bake_texture(mesh, ref):
     mesh.data.uv_layers.new(name="UVMap")
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.004)
+    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.012)
     bpy.ops.object.mode_set(mode="OBJECT")
     # the imported custom normals no longer fit the lighter mesh: plain smooth normals instead
     if mesh.data.has_custom_normals:
@@ -83,7 +109,10 @@ def bake_texture(mesh, ref):
     bake.use_selected_to_active = True
     bake.cage_extrusion = 0.015
     bake.max_ray_distance = 0.06
-    bake.margin = 6
+    # fill the gaps round every island with the island's own colour: empty gaps are dark and
+    # bleed into the model as speckles when it is small on screen
+    bake.margin_type = "EXTEND"
+    bake.margin = max(8, TEXTURE_SIZE // 32)
     ref.select_set(True)
     mesh.select_set(True)
     bpy.context.view_layer.objects.active = mesh
@@ -137,12 +166,17 @@ def main():
     bpy.context.view_layer.objects.active = mesh
     key_name = mesh.data.shape_keys.name if mesh.data.shape_keys else None
     mesh.shape_key_clear()
+    weld(mesh)
     before = sum(len(p.vertices) - 2 for p in mesh.data.polygons)
+    holes_before = open_edges(mesh)
     dec = mesh.modifiers.new("Decimate", "DECIMATE")
     dec.ratio = min(1.0, target / before)
+    dec.use_collapse_triangulate = True
     bpy.ops.object.modifier_move_to_index(modifier=dec.name, index=0)
     bpy.ops.object.modifier_apply(modifier=dec.name)
+    weld(mesh)
     after = sum(len(p.vertices) - 2 for p in mesh.data.polygons)
+    print("OPEN EDGES source", holes_before, "-> game model", open_edges(mesh), "TRIS", after)
 
     # re-sample weights and blend shapes from the nearest point on the full surface
     gco = mesh_arrays(mesh)
