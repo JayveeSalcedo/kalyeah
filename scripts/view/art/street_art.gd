@@ -17,8 +17,13 @@ static func texture(name: String) -> Texture2D:
 
 ## Matte, lit material showing `name`, repeated `repeat` times across the surface.
 static func material(name: String, repeat: Vector2 = Vector2.ONE, transparent: bool = false) -> StandardMaterial3D:
+	return material_for(texture(name), repeat, transparent)
+
+
+## The same matte material for any texture (for example an owner-made image loaded by path).
+static func material_for(art: Texture2D, repeat: Vector2 = Vector2.ONE, transparent: bool = false) -> StandardMaterial3D:
 	var result: StandardMaterial3D = StandardMaterial3D.new()
-	result.albedo_texture = texture(name)
+	result.albedo_texture = art
 	result.uv1_scale = Vector3(repeat.x, repeat.y, 1.0)
 	result.roughness = 1.0
 	result.specular_mode = BaseMaterial3D.SPECULAR_DISABLED

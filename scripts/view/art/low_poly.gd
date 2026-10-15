@@ -163,6 +163,12 @@ func box(center: Vector3, size: Vector3, color: Color, top: Color = Color(0, 0, 
 		tri(pts[0] as Vector3, pts[1] as Vector3, pts[2] as Vector3, cap, center)
 
 
+## A box with sharp edges and no highlight on them. `box` rounds and lightens its edges, which
+## shows as a thin light line along a long slab seen edge-on (the street and the sidewalk).
+func plain_box(center: Vector3, size: Vector3, color: Color, top: Color = Color(0, 0, 0, 0)) -> void:
+	_plain_box(center, size / 2.0, color, color if top.a == 0.0 else top)
+
+
 func _plain_box(center: Vector3, h: Vector3, color: Color, top_color: Color) -> void:
 	var p: Array[Vector3] = []
 	for i: int in 8:

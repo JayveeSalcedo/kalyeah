@@ -290,3 +290,50 @@ func test_the_end_rows_mix_every_street_thing_and_stay_out_of_the_play_area() ->
 	for id: String in StreetMap.BARRIER_HEIGHTS:
 		assert_true(seen.has(id), "%s is in an end row" % id)
 	assert_lte(int(seen.get("rooster_tent", 0)), 4, "at most two A-frames per row, not a row of them")
+
+
+func test_the_street_slabs_are_plain_boxes_without_a_light_edge_line() -> void:
+	# `box` rounds its edges and lightens them: seen edge-on that is a thin white line along the street
+	var kit: LowPoly = LowPoly.new()
+	var colour: Color = Color(0.3, 0.3, 0.31)
+	kit.plain_box(Vector3.ZERO, Vector3(24.0, 0.1, 80.0), colour, colour)
+	assert_eq(kit.triangle_count(), 12, "a plain box is just six faces")
+	var mesh: ArrayMesh = kit.commit()
+	var colors: PackedColorArray = mesh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	for vertex_colour: Color in colors:
+		assert_lte(vertex_colour.get_luminance(), colour.get_luminance() + 0.001, "no face is lighter than the slab")
+
+
+func test_the_sidewalks_take_the_owners_images_when_they_are_added() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	var geometry: Node3D = map.get_node("%Geometry") as Node3D
+	# no owner images in the repo yet: plain gray cement, no textured layers
+	assert_eq(geometry.find_children("SidewalkTop*", "", false, false).size(), 0)
+	assert_eq(geometry.find_children("SidewalkSide*", "", false, false).size(), 0)
+	var art: ImageTexture = ImageTexture.create_from_image(Image.create(8, 8, false, Image.FORMAT_RGB8))
+	map.add_sidewalk_art(art, art)
+	var tops: Array[Node] = geometry.find_children("SidewalkTop*", "", false, false)
+	assert_eq(tops.size(), 2, "one on each sidewalk top")
+	var faces: Array[Node] = geometry.find_children("SidewalkSide*", "", false, false)
+	assert_eq(faces.size(), 2, "one on each raised face")
+	var half_w: float = LAYOUT.lane_width / 2.0
+	for node: Node in faces:
+		var face: MeshInstance3D = node as MeshInstance3D
+		var normal: Vector3 = face.global_basis.z
+		assert_almost_eq(absf(face.position.x), half_w, 0.01, "on the street edge")
+		assert_lt(normal.x * face.position.x, 0.0, "facing the middle of the street")
+		assert_almost_eq((face.mesh as QuadMesh).size.y, StreetMap.CURB_HEIGHT, 0.001, "the full height of the step")
+
+
+func test_the_street_and_sidewalks_use_the_code_drawn_cement() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	var street: MeshInstance3D = map.get_node("%Geometry").get_child(0) as MeshInstance3D
+	var material: ShaderMaterial = street.material_override as ShaderMaterial
+	assert_not_null(material, "the street slab and sidewalks are drawn by the cement shader")
+	assert_eq(material.shader, StreetMap.STREET_SHADER)
+	assert_almost_eq(float(material.get_shader_parameter("lane_half_width")), LAYOUT.lane_width / 2.0, 0.001, "it knows where the sidewalks start")
+	assert_almost_eq(float(material.get_shader_parameter("curb_height")), StreetMap.CURB_HEIGHT, 0.001)
+	assert_false(ResourceLoader.exists("res://assets/textures/cement_generated.png"), "no generated image files")
+
