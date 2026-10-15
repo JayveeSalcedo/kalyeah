@@ -46,6 +46,11 @@ const CURB_HEIGHT: float = 0.4
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
+## The main screen shows the map as a small model: the street ends just past the barricades, on a
+## chunky stone base, with no houses, no paving round it and no street furniture.
+const DIORAMA_REACH: float = 4.5
+const PLINTH: Color = Color(0.4, 0.43, 0.54)
+const PLINTH_HEIGHT: float = 4.0
 const HOUSE_SPACING: float = 6.4
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -96,6 +101,8 @@ const BARRIER_SEED: int = 7
 const BARRIER_SETBACK: float = 0.15
 
 @export var layout: MapLayout
+## The main-screen map model (see DIORAMA_REACH).
+@export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
 ## side -> [base tape, base fill, rescue tape, rescue fill] materials (recoloured per viewer).
@@ -205,6 +212,11 @@ func zone_colors(side: int) -> Array[Color]:
 	return colors
 
 
+## How far the street goes on past each end of the play area.
+func _reach() -> float:
+	return DIORAMA_REACH if diorama else END_REACH
+
+
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO).material_override = street_material()
 	_add_ground_textures()
@@ -222,8 +234,9 @@ func _build_map() -> void:
 		_side_tint[side] = color
 	_turn_posts(MapLayout.SIDE_OWN)
 	_add_barricades()
-	_add_houses()
-	_add_details()
+	if not diorama:
+		_add_houses()
+		_add_details()
 
 
 ## The look of the street and the sidewalks: code-drawn cement (shaders/street_cement.gdshader)
@@ -233,6 +246,7 @@ func street_material() -> ShaderMaterial:
 	material.shader = STREET_SHADER
 	material.set_shader_parameter("lane_half_width", layout.lane_width / 2.0)
 	material.set_shader_parameter("curb_height", CURB_HEIGHT)
+	material.set_shader_parameter("wear", 0.3 if diorama else 1.0)
 	return material
 
 
@@ -242,20 +256,26 @@ func street_material() -> ShaderMaterial:
 func _street() -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
 	var half_w: float = layout.lane_width / 2.0
-	var length: float = layout.lane_length + END_REACH * 2.0
+	var length: float = layout.lane_length + _reach() * 2.0
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
 		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_CEMENT)
+	if diorama:
+		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
+		var width: float = layout.lane_width + (layout.boundary_thickness + SIDEWALK_WIDTH) * 2.0 + 0.8
+		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(width, PLINTH_HEIGHT, length + 0.8), PLINTH, PLINTH)
 	return kit.commit()
 
 
 ## The cement art if there is one and paving all around (the sidewalks are plain gray cement).
 func _add_ground_textures() -> void:
 	var half_w: float = layout.lane_width / 2.0
-	var length: float = layout.lane_length + END_REACH * 2.0
+	var length: float = layout.lane_length + _reach() * 2.0
 	_add_cement_art()
 	add_sidewalk_art(_owner_art(SIDEWALK_TOP_ART), _owner_art(SIDEWALK_SIDE_ART))
+	if diorama:
+		return
 	var outer: MeshInstance3D = StreetArt.ground("pavers", Vector2(layout.lane_width + OUTER_MARGIN * 2.0, length + OUTER_MARGIN * 2.0), PAVER_TILE, OUTER_TINT)
 	outer.position = Vector3(0.0, OUTER_DROP, 0.0)
 	_geometry.add_child(outer)
@@ -270,7 +290,7 @@ static func _owner_art(path: String) -> Texture2D:
 ## face of each sidewalk toward the street (its image covers the whole face height).
 func add_sidewalk_art(top: Texture2D, face: Texture2D) -> void:
 	var half_w: float = layout.lane_width / 2.0
-	var length: float = layout.lane_length + END_REACH * 2.0
+	var length: float = layout.lane_length + _reach() * 2.0
 	var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
 	for side: float in [-1.0, 1.0]:
 		if top != null:

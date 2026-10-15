@@ -96,6 +96,11 @@ Copied from the reference video (owner): one street. **The playing area is 1:2 (
 - Offscreen awareness: edge indicators for allies/enemies plus the street minimap. Aim previews and skill ranges must remain readable within the visible area (long-range weapons rely on drag-to-aim and edge indicators).
 - Ranges and speeds stay as specified; balance is re-checked in M6 with real play on phones.
 
+## Main screen (owner)
+- **Background:** the owner's blue diamond picture. **Top:** your profile (the face of a random character, picked once, and your name: tap to rename, 1 to 12 letters, a default like "Kalye482" for a new player) and **Settings**. Then the KALYEAH! wordmark and **the map model**: a small live copy of the playground street (bases, boxes, posts and props, no houses) on a stone base with three kids idling, turning slowly.
+- **PRACTICE** is the big button and is the **offline** mode (training dummies, no server needed). **ONLINE** is **Create room** and **Join room**; a line under them says which server is used, or that none is set. **Quit** (bottom right) asks "Leave Kalyeah?" first (in a browser it leaves the page). The version is bottom left.
+- **Settings:** sound volume (0 to 100%, saved; 0 is silent), vibration on button presses (only on phones), and the online server address (saved; used by Create / Join). Back / Escape closes a dialog, or asks to quit when none is open.
+
 ## HUD
 - **Over each hero:** a solid health bar with no partitions (owner; green you, blue ally, red enemy) **right above the head** (owner: not high up). **Hiding in the box (owner):** a free kid who walks into its own team's tagged box hides its bar (and status) from the **other team**, and its minimap dot looks tagged too, so it blends in with the tagged kids and the other team cannot tell who is free to rescue. Its own team always sees it. Tagged enemies there show no bar either, so they look the same. **No names.** A status (*Stunned*, *Tagged*, ...) is shown in *italic* above the bar. **No damage numbers**; heals pop a green +N. While a team holds the enemy base, a **spinner** over each of its kids fills as the 5 s run out.
 - **Skill buttons:** art only (weapon icons), the weapon's type as a small tag (ATK, CC or BLK), a cooldown number, a ready flash. Buttons on cooldown are disabled.

@@ -8,6 +8,9 @@ const SAVE_PATH: String = "user://settings.cfg"
 const PROJECT_KEY: String = "kalyeah/network/server_url"
 
 var server_url: String = ""
+## Master volume 0..1 and whether button presses buzz the phone (owner-facing settings screen).
+var volume: float = 1.0
+var vibration: bool = true
 
 var _ui_voice: AudioStreamPlayer
 
@@ -25,6 +28,9 @@ func _ready() -> void:
 		var saved: String = file.get_value("network", "server_url", "") as String
 		if not saved.is_empty():
 			server_url = saved
+		volume = clampf(float(file.get_value("audio", "volume", 1.0)), 0.0, 1.0)
+		vibration = bool(file.get_value("input", "vibration", true))
+	apply_volume()
 	if OS.has_feature("web"):
 		var search: Variant = JavaScriptBridge.eval("window.location.search", true)
 		var from_query: String = url_from_query(search as String if search is String else "")
@@ -61,11 +67,47 @@ func save_server_url(url: String) -> void:
 	file.save(SAVE_PATH)
 
 
+## Sets the master bus from `volume` (0 = silent).
+func apply_volume() -> void:
+	var bus: int = AudioServer.get_bus_index("Master")
+	AudioServer.set_bus_volume_db(bus, linear_to_db(maxf(volume, 0.0001)))
+	AudioServer.set_bus_mute(bus, volume <= 0.001)
+
+
+func set_volume(value: float) -> void:
+	volume = clampf(value, 0.0, 1.0)
+	apply_volume()
+	_save_value("audio", "volume", volume)
+
+
+func set_vibration(on: bool) -> void:
+	vibration = on
+	_save_value("input", "vibration", on)
+
+
+## True where the phone can buzz (a native Android or iOS build; not in a browser).
+static func can_vibrate() -> bool:
+	return (OS.has_feature("android") or OS.has_feature("ios")) and not OS.has_feature("web")
+
+
+func vibrate(milliseconds: int = 12) -> void:
+	if vibration and can_vibrate():
+		Input.vibrate_handheld(milliseconds)
+
+
+func _save_value(section: String, key: String, value: Variant) -> void:
+	var file: ConfigFile = ConfigFile.new()
+	file.load(SAVE_PATH)
+	file.set_value(section, key, value)
+	file.save(SAVE_PATH)
+
+
 func _on_node_added(node: Node) -> void:
 	if node is BaseButton:
 		(node as BaseButton).pressed.connect(play_ui, CONNECT_DEFERRED)
 
 
 func play_ui(id: StringName = &"ui_click") -> void:
+	vibrate()
 	_ui_voice.stream = SoundBank.get_sound(id)
 	_ui_voice.play()
