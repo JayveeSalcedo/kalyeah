@@ -8,7 +8,9 @@ extends Camera3D
 ## the view flips (new set).
 
 const SHAKE_DECAY: float = 1.4
-const NEAR: float = 4.0
+## Anything closer than this to the camera is cut away. The camera is low (about 5 m up), so a
+## bigger value slices off props near it (the end barricades, the hoop's pole).
+const NEAR: float = 0.4
 const FAR: float = 170.0
 
 @export var rules: CameraRules

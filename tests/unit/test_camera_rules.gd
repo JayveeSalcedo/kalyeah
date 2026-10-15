@@ -106,3 +106,17 @@ func test_the_follow_camera_uses_keep_height_and_the_data_angle() -> void:
 	assert_eq(camera.fov, CAMERA.vfov_degrees)
 	camera.follow(Vector2.ZERO, false)
 	assert_almost_eq(camera.rotation_degrees.x, -CAMERA.pitch_degrees, 0.001)
+
+
+func test_the_near_plane_is_close_enough_not_to_slice_models() -> void:
+	var camera: FollowCamera = autofree(FollowCamera.new()) as FollowCamera
+	camera.rules = CAMERA
+	camera.layout = LAYOUT
+	add_child(camera)
+	camera.follow(Vector2.ZERO, false)
+	# the camera is only about 5 m up: with a plane any further out, the ground and props
+	# directly beneath and in front of it are cut off
+	var height: float = CAMERA.camera_offset(CAMERA.distance(PHONE), false).y
+	assert_lt(camera.near, 1.0, "the near plane is about half a metre out")
+	assert_lt(camera.near, height / 4.0, "well inside the camera's height")
+	assert_lt(camera.far / camera.near, 1000.0, "the depth range is still sane")
