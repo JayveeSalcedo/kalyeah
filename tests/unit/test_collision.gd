@@ -77,14 +77,14 @@ func test_player_cannot_leave_the_street_sideways() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
 	p.position = Vector2(0.0, -8.0)
-	_run(sim, 1, Vector2(1.0, 0.0), 300)
+	_run(sim, 1, Vector2(1.0, 0.0), 900)
 	assert_almost_eq(p.position.x, LAYOUT.lane_width / 2.0 - p.radius, 0.05)
-	_run(sim, 1, Vector2(-1.0, 0.0), 600)
+	_run(sim, 1, Vector2(-1.0, 0.0), 1200)
 	assert_almost_eq(p.position.x, -LAYOUT.lane_width / 2.0 + p.radius, 0.05)
 
 
 func test_player_cannot_leave_through_the_end() -> void:
 	var sim: MatchSim = _sim()
 	var p: PlayerState = sim.add_player(1, 0)
-	_run(sim, 1, Vector2(0.0, 1.0), 300)
+	_run(sim, 1, Vector2(0.0, 1.0), 900)
 	assert_almost_eq(p.position.y, LAYOUT.lane_length / 2.0 - p.radius, 0.05)

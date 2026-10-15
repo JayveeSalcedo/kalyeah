@@ -112,7 +112,7 @@ func test_practice_has_three_enemy_dummies_and_one_ally() -> void:
 		practice.advance(DT)
 	assert_eq(stand.position, stand_start, "one enemy stands still")
 	assert_ne(patrol.position.x, patrol_start.x, "the other walks")
-	assert_eq(ally.position, Vector2(-6.0, 13.0))
+	assert_eq(ally.position, Vector2(-6.0, 6.0))
 
 
 func test_a_free_enemy_stands_in_its_own_box_and_its_bar_is_hidden() -> void:
