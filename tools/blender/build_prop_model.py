@@ -13,7 +13,32 @@ import os
 import sys
 
 import bpy
+import bmesh  # noqa: E402 (needs bpy imported first)
 from mathutils import Vector
+
+# Welding distance as a fraction of the model's size: the glTF importer splits vertices at every
+# UV and normal seam, and decimating that split mesh tears it into open pieces (holes, cracks,
+# thousands of open edges). Welding first keeps the surface connected.
+WELD = 1e-5
+
+
+def weld(obj):
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=max(obj.dimensions) * WELD)
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def open_edges(obj):
+    """Edges used by one face only: the holes and cracks of the mesh (after welding)."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=max(obj.dimensions) * WELD)
+    count = sum(1 for e in bm.edges if len(e.link_faces) == 1)
+    bm.free()
+    return count
 
 
 def bounds(obj):
@@ -25,7 +50,7 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:]
     src, out, target, px = argv[0], argv[1], int(argv[2]), int(argv[3])
     bpy.ops.wm.read_factory_settings(use_empty=True)
-    bpy.ops.import_scene.gltf(filepath=src)
+    bpy.ops.import_scene.gltf(filepath=src, merge_vertices=True)
     high = [o for o in bpy.data.objects if o.type == "MESH"][0]
     bpy.context.view_layer.objects.active = high
     high.select_set(True)
@@ -34,6 +59,8 @@ def main():
     high.data.transform(__import__("mathutils").Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))))
     high.data.update()
     high.name = "high"
+    weld(high)
+    holes_before = open_edges(high)
     tris = sum(len(p.vertices) - 2 for p in high.data.polygons)
 
     low = high.copy()
@@ -45,13 +72,15 @@ def main():
     low.select_set(True)
     mod = low.modifiers.new("Decimate", "DECIMATE")
     mod.ratio = min(1.0, target / tris)
+    mod.use_collapse_triangulate = True
     bpy.ops.object.modifier_apply(modifier=mod.name)
+    weld(low)
     for uv in list(low.data.uv_layers):
         low.data.uv_layers.remove(uv)
     low.data.uv_layers.new(name="UVMap")
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.006)
+    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.012)
     bpy.ops.object.mode_set(mode="OBJECT")
     if low.data.has_custom_normals:
         bpy.ops.mesh.customdata_custom_splitnormals_clear()
@@ -81,13 +110,17 @@ def main():
     scene.render.bake.use_selected_to_active = True
     scene.render.bake.cage_extrusion = 0.03
     scene.render.bake.max_ray_distance = 0.06
-    scene.render.bake.margin = 6
+    # fill the gaps round every island with the island's own colour, wide enough for the mip
+    # levels the game reads small props at (empty gaps are black and bleed in as dark seams)
+    scene.render.bake.margin_type = "EXTEND"
+    scene.render.bake.margin = max(8, px // 32)
     bpy.ops.object.select_all(action="DESELECT")
     high.select_set(True)
     low.select_set(True)
     bpy.context.view_layer.objects.active = low
     bpy.ops.object.bake(type="DIFFUSE")
     print("TRIS", sum(len(p.vertices) - 2 for p in low.data.polygons), "of", tris)
+    print("OPEN EDGES source", holes_before, "-> game model", open_edges(low))
 
     bpy.data.objects.remove(high)
     bpy.ops.object.select_all(action="DESELECT")
