@@ -1,7 +1,7 @@
 class_name OverheadHud
 extends Control
 ## MOBA-style overhead display drawn in screen space over each hero, like League
-## of Legends: a segmented health bar (green you, blue ally, red enemy), a status
+## of Legends: a solid health bar (green you, blue ally, red enemy), a status
 ## in *italic* above it ("Stunned", "Tagged"). No names and no damage numbers (heals still pop a green "+N"). While a
 ## team holds the enemy base, a spinner fills over its kids' heads. Reads the sim
 ## and projects through the match camera.
@@ -9,7 +9,6 @@ extends Control
 const BAR_SIZE: Vector2 = Vector2(92.0, 13.0)
 ## The bar sits just above the top of the head (the kid's model is KID_HEIGHT tall).
 const HEAD_HEIGHT: float = KidModel.KID_HEIGHT + 0.2
-const SEGMENT_HP: int = 20
 const POPUP_TIME: float = 0.9
 const POPUP_RISE: float = 56.0
 const STATUS_FONT: int = 19
@@ -127,10 +126,6 @@ func _draw_hero(state: PlayerState, head: Vector2) -> void:
 	var color: Color = bar_color(state)
 	draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y)), color)
 	draw_rect(Rect2(rect.position, Vector2(rect.size.x * fill, rect.size.y * 0.35)), color.lightened(0.35))
-	var segments: int = int(max_hp) / SEGMENT_HP
-	for i: int in range(1, segments):
-		var x: float = rect.position.x + rect.size.x * float(i) / float(segments)
-		draw_line(Vector2(x, rect.position.y), Vector2(x, rect.end.y), BACK, 1.5)
 	var status: String = _status_text(state)
 	var lift: float = 0.0
 	if not status.is_empty():
