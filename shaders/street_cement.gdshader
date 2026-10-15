@@ -10,6 +10,8 @@ uniform float curb_height = 0.4;
 // sidewalk slabs: a joint across the walk every this many metres
 uniform float slab_length = 1.5;
 uniform float joint_width = 0.025;
+// 1 = the full cement wear; less for the small main-screen model, where it would look busy
+uniform float wear = 1.0;
 uniform float crack_width = 0.008;
 // patched repairs on the street: the grid they are picked from (m)
 uniform float patch_size = 3.0;
@@ -86,6 +88,7 @@ void fragment() {
 		float along = abs(world_normal.x) > 0.5 ? world_position.z : world_position.x;
 		shade += (value_noise(vec2(along * 0.8, height * 3.0)) - 0.5) * 0.10;
 	}
+	shade = 1.0 + (shade - 1.0) * wear;
 	ALBEDO = COLOR.rgb * clamp(shade, 0.6, 1.2);
 	ROUGHNESS = 1.0;
 	RIM = 0.15;
