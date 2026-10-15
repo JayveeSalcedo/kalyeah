@@ -41,7 +41,8 @@ const TAPE_WIDTH: float = 0.16
 const BASE_STEPS: int = 36
 ## The tagged box has no tint and no tape: cardboard walls close its sides.
 const JAIL_WALL_THICKNESS: float = 0.5
-const CURB_HEIGHT: float = 0.18
+## How high the sidewalks stand above the street (owner: raised, was 0.18 m).
+const CURB_HEIGHT: float = 0.4
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
@@ -55,9 +56,10 @@ const CEMENT: Color = Color(0.3, 0.3, 0.31)
 ## file exists it is laid ONCE over the whole play area (stretched, never tiled).
 const CEMENT_ART: String = "res://assets/textures/cement.png"
 const CEMENT_LIFT: float = 0.004
-const SIDEWALK_TINT: Color = Color(0.8, 0.76, 0.7)
-## The sidewalk's raised edge facing the street is a dull paver tone, not a light line (owner).
-const SIDEWALK_EDGE: Color = Color(0.46, 0.43, 0.4)
+## The sidewalks are plain gray cement (owner), lighter than the dark street; their raised
+## edge facing the street is a darker gray, not a light line.
+const SIDEWALK_CEMENT: Color = Color(0.4, 0.4, 0.42)
+const SIDEWALK_EDGE: Color = Color(0.3, 0.3, 0.32)
 ## Paving around the whole map, so the street never ends in sky.
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
@@ -225,20 +227,15 @@ func _street() -> ArrayMesh:
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
-		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_EDGE)
+		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_CEMENT)
 	return kit.commit()
 
 
-## The cement art if there is one, pavers on the sidewalks and paving all around.
+## The cement art if there is one and paving all around (the sidewalks are plain gray cement).
 func _add_ground_textures() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
 	_add_cement_art()
-	for side: float in [-1.0, 1.0]:
-		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
-		var walk: MeshInstance3D = StreetArt.ground("pavers", Vector2(reach, length), PAVER_TILE, SIDEWALK_TINT)
-		walk.position = Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT - 0.015, 0.0)
-		_geometry.add_child(walk)
 	var outer: MeshInstance3D = StreetArt.ground("pavers", Vector2(layout.lane_width + OUTER_MARGIN * 2.0, length + OUTER_MARGIN * 2.0), PAVER_TILE, OUTER_TINT)
 	outer.position = Vector3(0.0, OUTER_DROP, 0.0)
 	_geometry.add_child(outer)
