@@ -60,6 +60,14 @@ const CEMENT_LIFT: float = 0.004
 ## edge facing the street is a darker gray, not a light line.
 const SIDEWALK_CEMENT: Color = Color(0.4, 0.4, 0.42)
 const SIDEWALK_EDGE: Color = Color(0.3, 0.3, 0.32)
+## Optional owner-made 2D images for the sidewalks (docs/ART.md "Ground art"): when a file exists
+## it is laid on the sidewalk top / on the raised face toward the street, repeated every
+## *_TILE metres along the street. Without them the sidewalks stay flat gray cement.
+const SIDEWALK_TOP_ART: String = "res://assets/textures/sidewalk_top.png"
+const SIDEWALK_SIDE_ART: String = "res://assets/textures/sidewalk_side.png"
+const SIDEWALK_TOP_TILE: float = 3.0
+const SIDEWALK_SIDE_TILE: float = 3.0
+const ART_LIFT: float = 0.003
 ## Paving around the whole map, so the street never ends in sky.
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
@@ -236,9 +244,46 @@ func _add_ground_textures() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + END_REACH * 2.0
 	_add_cement_art()
+	add_sidewalk_art(_owner_art(SIDEWALK_TOP_ART), _owner_art(SIDEWALK_SIDE_ART))
 	var outer: MeshInstance3D = StreetArt.ground("pavers", Vector2(layout.lane_width + OUTER_MARGIN * 2.0, length + OUTER_MARGIN * 2.0), PAVER_TILE, OUTER_TINT)
 	outer.position = Vector3(0.0, OUTER_DROP, 0.0)
 	_geometry.add_child(outer)
+
+
+## An owner-made image by path, or null while it does not exist yet.
+static func _owner_art(path: String) -> Texture2D:
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+## Lays the owner's sidewalk images, if given: `top` on both sidewalk tops, `face` on the raised
+## face of each sidewalk toward the street (its image covers the whole face height).
+func add_sidewalk_art(top: Texture2D, face: Texture2D) -> void:
+	var half_w: float = layout.lane_width / 2.0
+	var length: float = layout.lane_length + END_REACH * 2.0
+	var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
+	for side: float in [-1.0, 1.0]:
+		if top != null:
+			var plane: PlaneMesh = PlaneMesh.new()
+			plane.size = Vector2(reach, length)
+			plane.material = StreetArt.material_for(top, Vector2(reach, length) / SIDEWALK_TOP_TILE)
+			var top_art: MeshInstance3D = MeshInstance3D.new()
+			top_art.name = "SidewalkTopLeft" if side < 0.0 else "SidewalkTopRight"
+			top_art.mesh = plane
+			top_art.position = Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT - 0.02 + ART_LIFT, 0.0)
+			top_art.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_geometry.add_child(top_art)
+		if face != null:
+			var quad: QuadMesh = QuadMesh.new()
+			quad.size = Vector2(length, CURB_HEIGHT)
+			quad.material = StreetArt.material_for(face, Vector2(length / SIDEWALK_SIDE_TILE, 1.0))
+			var face_art: MeshInstance3D = MeshInstance3D.new()
+			face_art.name = "SidewalkSideLeft" if side < 0.0 else "SidewalkSideRight"
+			face_art.mesh = quad
+			# the quad faces +Z: turn it to face the middle of the street
+			face_art.rotation.y = -side * PI / 2.0
+			face_art.position = Vector3(side * (half_w - ART_LIFT), CURB_HEIGHT / 2.0 - 0.02, 0.0)
+			face_art.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_geometry.add_child(face_art)
 
 
 ## Lays the owner's cement image once across the play area (no tiling), if present.
