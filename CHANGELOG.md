@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.5.0...kalyeah-v0.5.1) (2026-10-15)
+
+
+### Bug Fixes
+
+* **art:** kid model build welds before decimating; audit test reports the torn kids ([3c054f6](https://github.com/earl-gh/kalyeah/commit/3c054f64f7834f1e296bf64408af4e9d883e2b54))
+* **art:** rebuild the street props whole: weld before decimating, extended bake margin ([8439124](https://github.com/earl-gh/kalyeah/commit/8439124f1bf88d1ed8f3c83460694916a4080a9b))
+* **camera:** near plane 0.4 m (was 4 m) so models near the camera are not sliced ([4413f9b](https://github.com/earl-gh/kalyeah/commit/4413f9b884e5cf534b360c6515da1196e31af4eb))
+
 ## [0.5.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.4.0...kalyeah-v0.5.0) (2026-10-14)
 
 
