@@ -68,6 +68,7 @@ const SIDEWALK_SIDE_ART: String = "res://assets/textures/sidewalk_side.png"
 const SIDEWALK_TOP_TILE: float = 3.0
 const SIDEWALK_SIDE_TILE: float = 3.0
 const ART_LIFT: float = 0.003
+const STREET_SHADER: Shader = preload("res://shaders/street_cement.gdshader")
 ## Paving around the whole map, so the street never ends in sky.
 const OUTER_MARGIN: float = 40.0
 const OUTER_DROP: float = -0.12
@@ -205,7 +206,7 @@ func zone_colors(side: int) -> Array[Color]:
 
 
 func _build_map() -> void:
-	_add(_street(), Vector3.ZERO)
+	_add(_street(), Vector3.ZERO).material_override = street_material()
 	_add_ground_textures()
 	for index: int in layout.obstacle_rects().size():
 		_add_obstacle(index)
@@ -223,6 +224,16 @@ func _build_map() -> void:
 	_add_barricades()
 	_add_houses()
 	_add_details()
+
+
+## The look of the street and the sidewalks: code-drawn cement (shaders/street_cement.gdshader)
+## over their vertex colours, no image files (owner rule: no generated assets).
+func street_material() -> ShaderMaterial:
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = STREET_SHADER
+	material.set_shader_parameter("lane_half_width", layout.lane_width / 2.0)
+	material.set_shader_parameter("curb_height", CURB_HEIGHT)
+	return material
 
 
 ## The cement street (past both ends of the play area) and the sidewalks. There is no white curb

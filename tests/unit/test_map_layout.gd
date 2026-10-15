@@ -325,3 +325,15 @@ func test_the_sidewalks_take_the_owners_images_when_they_are_added() -> void:
 		assert_lt(normal.x * face.position.x, 0.0, "facing the middle of the street")
 		assert_almost_eq((face.mesh as QuadMesh).size.y, StreetMap.CURB_HEIGHT, 0.001, "the full height of the step")
 
+
+func test_the_street_and_sidewalks_use_the_code_drawn_cement() -> void:
+	var map: StreetMap = autofree(MAP_SCENE.instantiate()) as StreetMap
+	add_child(map)
+	var street: MeshInstance3D = map.get_node("%Geometry").get_child(0) as MeshInstance3D
+	var material: ShaderMaterial = street.material_override as ShaderMaterial
+	assert_not_null(material, "the street slab and sidewalks are drawn by the cement shader")
+	assert_eq(material.shader, StreetMap.STREET_SHADER)
+	assert_almost_eq(float(material.get_shader_parameter("lane_half_width")), LAYOUT.lane_width / 2.0, 0.001, "it knows where the sidewalks start")
+	assert_almost_eq(float(material.get_shader_parameter("curb_height")), StreetMap.CURB_HEIGHT, 0.001)
+	assert_false(ResourceLoader.exists("res://assets/textures/cement_generated.png"), "no generated image files")
+
