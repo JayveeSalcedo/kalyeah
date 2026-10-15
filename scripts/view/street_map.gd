@@ -46,8 +46,9 @@ const CURB_HEIGHT: float = 0.4
 const SIDEWALK_WIDTH: float = 2.4
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
-## The main screen shows the play area alone as a small model: just the cement, on a chunky stone
-## base. No sidewalks, no team colours, no posts or props and no street past the ends.
+## The main screen shows the play area alone as a small model, the game's exact 1:2 shape: the
+## cement on a chunky stone base with only the corner props (the electric posts and the cardboard
+## walls of the tagged boxes). No sidewalks, no team colours and no street past the ends.
 const PLINTH: Color = Color(0.4, 0.43, 0.54)
 const PLINTH_HEIGHT: float = 4.0
 const HOUSE_SPACING: float = 6.4
@@ -100,7 +101,7 @@ const BARRIER_SEED: int = 7
 const BARRIER_SETBACK: float = 0.15
 
 @export var layout: MapLayout
-## The main-screen map model: only the play area's cement on a stone base.
+## The main-screen map model: the play area's cement on a stone base, with the corner props.
 @export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
@@ -219,6 +220,7 @@ func _reach() -> float:
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO).material_override = street_material()
 	if diorama:
+		_add_corner_props()
 		return
 	_add_ground_textures()
 	for index: int in layout.obstacle_rects().size():
@@ -237,6 +239,15 @@ func _build_map() -> void:
 	_add_barricades()
 	_add_houses()
 	_add_details()
+
+
+## The main-screen model's props: each base's electric post and each tagged box's cardboard walls.
+func _add_corner_props() -> void:
+	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
+		var center: Vector2 = layout.base_center(side)
+		_posts[side] = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+		_add_jail(side)
+	_turn_posts(MapLayout.SIDE_OWN)
 
 
 ## The look of the street and the sidewalks: code-drawn cement (shaders/street_cement.gdshader)
@@ -260,7 +271,7 @@ func _street() -> ArrayMesh:
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	if diorama:
 		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
-		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(layout.lane_width + 0.8, PLINTH_HEIGHT, length + 0.8), PLINTH, PLINTH)
+		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(layout.lane_width, PLINTH_HEIGHT, length), PLINTH, PLINTH)
 		return kit.commit()
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH

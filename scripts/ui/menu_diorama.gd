@@ -1,7 +1,8 @@
 class_name MenuDiorama
 extends SubViewportContainer
-## The main screen's map model: the play area alone (the real street's size and cement) on a
-## chunky stone base. No kids, no team colours, no props, no sidewalks and no movement. It lives
+## The main screen's map model: the play area alone, in the game's exact 1:2 shape, on a chunky
+## stone base. Only the corner props (electric posts, the tagged boxes' cardboard walls); no kids,
+## team colours, sidewalks or movement. It lives
 ## in its own 3D world inside a transparent SubViewport, so it floats over the screen background.
 
 const CAMERA_FOV: float = 34.0
@@ -61,8 +62,8 @@ func frame() -> void:
 	if camera == null or map == null:
 		return
 	var pitch: float = deg_to_rad(CAMERA_PITCH)
-	var half_x: float = map.layout.lane_width / 2.0 + 0.4
-	var half_z: float = map.layout.lane_length / 2.0 + 0.4
+	var half_x: float = map.layout.lane_width / 2.0
+	var half_z: float = map.layout.lane_length / 2.0
 	var aspect: float = maxf(0.2, size.x / maxf(size.y, 1.0))
 	var tan_h: float = tan(deg_to_rad(CAMERA_FOV) / 2.0)
 	var tan_v: float = tan_h / aspect
@@ -75,7 +76,7 @@ func frame() -> void:
 		var eye: Vector3 = -forward * distance
 		var fits: bool = true
 		for cx: float in [-half_x, half_x]:
-			for cy: float in [-StreetMap.PLINTH_HEIGHT - 0.1, 0.0]:
+			for cy: float in [-StreetMap.PLINTH_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
 				for cz: float in [-half_z, half_z]:
 					var rel: Vector3 = Vector3(cx, cy, cz) - eye
 					var depth: float = rel.dot(forward)
