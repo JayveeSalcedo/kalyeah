@@ -182,10 +182,10 @@ func test_tapping_two_weapons_and_ready_sets_the_loadout() -> void:
 	assert_eq(_weapon_button(practice, 0).sub_text, "CC")
 
 
-func test_pick_screen_groups_all_the_weapons() -> void:
+func test_pick_screen_has_a_card_for_every_weapon() -> void:
 	var practice: PracticeMatch = _picking()
-	var buttons: Array[Node] = _pick_screen(practice).find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 15, "14 weapons + Ready")
+	var cards: Array[Node] = _pick_screen(practice).find_children("Weapon_*", "Button", true, false)
+	assert_eq(cards.size(), 14, "14 weapons")
 
 
 func test_pick_timer_runs_out_and_auto_fills() -> void:
@@ -338,14 +338,15 @@ func test_aim_indicator_shows_range_and_landing_circle() -> void:
 	assert_eq(cone.size(), 2)
 
 
-func test_every_player_gets_a_different_character_and_no_name_over_their_head() -> void:
+func test_no_team_has_a_character_twice_and_no_name_over_their_head() -> void:
 	var practice: PracticeMatch = _practice()
-	var seen: Dictionary[StringName, bool] = {}
+	var seen: Dictionary[String, bool] = {}
 	for id: int in practice.sim.players:
-		var character: StringName = practice.sim.players[id].character_id
-		assert_ne(character, &"")
-		assert_false(seen.has(character))
-		seen[character] = true
+		var state: PlayerState = practice.sim.players[id]
+		assert_ne(state.character_id, &"")
+		var key: String = "%d:%s" % [state.team, state.character_id]
+		assert_false(seen.has(key), "%s twice on team %d" % [state.character_id, state.team])
+		seen[key] = true
 	for id: int in practice.sim.players:
 		assert_eq(practice.overhead().text_for(id), "", "no name text over a healthy hero")
 

@@ -55,8 +55,10 @@ func test_holding_one_skill_button_locks_every_other_one() -> void:
 	assert_true(plain.can_press())
 
 
-func test_stick_from_offset_scales_and_caps() -> void:
-	assert_eq(VirtualJoystick.stick_from_offset(Vector2(45.0, 0.0), 90.0, 0.1), Vector2(0.5, 0.0))
+func test_any_drag_past_the_dead_zone_is_a_full_speed_run() -> void:
+	assert_eq(VirtualJoystick.stick_from_offset(Vector2(45.0, 0.0), 90.0, 0.1), Vector2(1.0, 0.0), "half way is already full speed")
+	assert_eq(VirtualJoystick.stick_from_offset(Vector2(10.0, 0.0), 90.0, 0.1), Vector2(1.0, 0.0), "a slight drag runs too")
+	assert_almost_eq(VirtualJoystick.stick_from_offset(Vector2(20.0, 20.0), 90.0, 0.1).length(), 1.0, 0.0001, "diagonals too")
 	assert_eq(VirtualJoystick.stick_from_offset(Vector2(0.0, -300.0), 90.0, 0.1), Vector2(0.0, -1.0))
 	assert_eq(VirtualJoystick.stick_from_offset(Vector2(5.0, 0.0), 90.0, 0.1), Vector2.ZERO, "dead zone")
 	assert_eq(VirtualJoystick.stick_from_offset(Vector2.ZERO, 90.0, 0.1), Vector2.ZERO)
@@ -200,7 +202,7 @@ func test_a_touch_grabs_the_knob_at_once_out_of_auto_run() -> void:
 	press.position = stick.get_global_rect().position + centre + Vector2(-60.0, 0.0)
 	stick._input(press)
 	assert_false(stick.auto_run, "grabbed")
-	assert_almost_eq(stick.value.x, -60.0 / VirtualJoystick.MAX_RADIUS, 0.01, "follows the finger on the same touch")
+	assert_almost_eq(stick.value.x, -1.0, 0.01, "follows the finger on the same touch (full speed, the other way)")
 	assert_almost_eq(stick.value.y, 0.0, 0.01)
 
 

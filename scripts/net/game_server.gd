@@ -143,7 +143,7 @@ func _handle_match(from: int, message: Dictionary) -> void:
 		M.LOADED:
 			running.loaded(member.player_id)
 		M.PICK_WEAPONS:
-			running.pick(member.player_id, message.get("a", &"") as StringName, message.get("b", &"") as StringName)
+			running.pick(member.player_id, message.get("a", &"") as StringName, message.get("b", &"") as StringName, message.get("c", &"") as StringName)
 		M.SWAP_WEAPONS:
 			running.swap(member.player_id, message.get("a", &"") as StringName, message.get("b", &"") as StringName)
 		M.INPUT:
