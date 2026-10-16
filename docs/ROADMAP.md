@@ -56,5 +56,5 @@ Budgets (M6): 60 fps on a recommended Android phone, 30+ on the minimum; APK und
 - No basic attack (see `GDD.md`).
 - Tag street (owner): the map, the rules and the camera follow the reference video of the street game; portrait stays binding. The guava, the tricycle, breakable walls and the death delay were removed.
 - Game name: **Kalyeah**. Tagline: *Mga larong Pinoy sa kalye*. Android package `com.kalyeah.game`.
-- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged, animated GLB models from the owner; `tools/blender/build_kid_game_model.py` makes them light for phones (`build_junjun_model.py` was the first, Mixamo-based Junjun).
+- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged, animated GLB models from the owner; `tools/blender/build_kid_game_model.py` makes them light for phones (`build_junjun_model.py` was the first, Mixamo-based Junjun; the owner's rebuilt-rig boy now goes through the same script).
 - Multiplayer is built and tested; deploying the server and setting `KALYEAH_SERVER_URL` is the owner's step (`server/README.md`).
