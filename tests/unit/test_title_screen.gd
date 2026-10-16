@@ -109,7 +109,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 	var background: TextureRect = _find(screen, "Background") as TextureRect
 	assert_eq(background.texture, TitleScreen.BACKGROUND)
 	assert_eq(background.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED, "cropped, never stretched")
-	assert_eq(TitleScreen.BACKGROUND.get_size(), Vector2(1414.0, 2000.0))
+	assert_eq(TitleScreen.BACKGROUND.get_size(), Vector2(941.0, 1672.0))
 
 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:

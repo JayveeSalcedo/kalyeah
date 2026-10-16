@@ -21,6 +21,8 @@ enum Shape {
 @export var display_name: String = ""
 ## Short button label.
 @export var short_name: String = ""
+## One plain sentence for the weapon pick card.
+@export var description: String = ""
 ## Street game it belongs to (weapon pick grouping).
 @export var street_game: String = ""
 @export var kind: Kind = Kind.ATTACK
