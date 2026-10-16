@@ -88,9 +88,16 @@ const POST_HEIGHT: float = 8.5
 ## The barrier rows across both ends: every street thing at its real height (m), side by side
 ## in this order (the far end starts half way along, so the two rows differ).
 const BARRIER_HEIGHTS: Dictionary[String, float] = {
-	"fishball_cart": 2.1, "bench": 0.9, "crates": 1.1, "school_zone": 1.1, "basketball_pole": 3.2,
-	"truck_wheels": 0.8, "ironing_board": 0.9, "rooster_tent": 1.3,
+	"fishball_cart": 2.1, "tricycle": 2.0, "bench": 0.9, "crates": 1.1, "sacks": 1.2, "school_zone": 1.1,
+	"basketball_pole": 3.2, "ebike": 1.5, "truck_wheels": 0.8, "sewing_machine": 1.0, "ironing_board": 0.9,
+	"no_id_no_entry": 1.5, "rooster_tent": 1.3,
 }
+## Things whose long side is their depth: they are turned a quarter so the long side faces the play area.
+const BARRIER_TURNED: Array[String] = ["tricycle"]
+## The nanay on the sidewalk by the sari-sari store, outside the play area, facing the street.
+const NANAY_HEIGHT: float = 2.2
+const NANAY_SWAY_DEGREES: float = 4.0
+const NANAY_SWAY_SECONDS: float = 3.5
 ## The smallest gap between two things in a row; the rest of the room is shared out unevenly.
 const BARRIER_GAP: float = 0.25
 ## How far a thing may sit back from the line (m) and turn (degrees), so the row looks set down by hand.
@@ -105,6 +112,8 @@ const BARRIER_SETBACK: float = 0.15
 @export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
+## What stands in each end's barrier row (index 0 = the far end), for tests and the minimap.
+var barrier_rows: Array[Array] = []
 ## side -> [base tape, base fill, rescue tape, rescue fill] materials (recoloured per viewer).
 var _base_materials: Dictionary[int, Array] = {}
 ## side -> that base's team colour as the viewer sees it (blue yours, red theirs).
@@ -505,7 +514,8 @@ func _add_barricades() -> void:
 		while true:
 			var id: String = ids[i % ids.size()]
 			var natural: Vector3 = PropModel.size_of(id)
-			var width: float = natural.x * BARRIER_HEIGHTS[id] / natural.y  # true size, never stretched
+			var side: float = natural.z if BARRIER_TURNED.has(id) else natural.x
+			var width: float = side * BARRIER_HEIGHTS[id] / natural.y  # true size, never stretched
 			var need: float = width + (BARRIER_GAP if not picked.is_empty() else 0.0)
 			if used + need > layout.lane_width:
 				break
@@ -514,6 +524,7 @@ func _add_barricades() -> void:
 			widths.append(width)
 			i += 1
 		# the room left over goes into uneven gaps (not into the things themselves)
+		barrier_rows.append(picked.duplicate())
 		var spare: float = layout.lane_width - used
 		var shares: Array[float] = []
 		var total: float = 0.0
@@ -524,12 +535,15 @@ func _add_barricades() -> void:
 		for k: int in picked.size():
 			var id: String = picked[k]
 			var model: Node3D = PropModel.by_height(id, BARRIER_HEIGHTS[id])
-			var depth: float = PropModel.size_of(id).z * model.scale.z
+			var turned: bool = BARRIER_TURNED.has(id)
+			var natural: Vector3 = PropModel.size_of(id)
+			var depth: float = (natural.x if turned else natural.z) * model.scale.z
 			# set down by hand: a little in or out of line and a little turned
 			var setback: float = BARRIER_SETBACK + rng.randf_range(0.0, BARRIER_JITTER)
 			var at_z: float = end * (layout.lane_length / 2.0 + setback + depth / 2.0)
 			var turn: float = deg_to_rad(rng.randf_range(-BARRIER_TURN, BARRIER_TURN))
-			_add_prop(model, Vector3(x + widths[k] / 2.0, 0.0, at_z), (0.0 if end < 0.0 else PI) + turn)
+			var yaw: float = (0.0 if end < 0.0 else PI) + (PI / 2.0 if turned else 0.0)
+			_add_prop(model, Vector3(x + widths[k] / 2.0, 0.0, at_z), yaw + turn)
 			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
@@ -575,6 +589,13 @@ func _add_details() -> void:
 	var store_z: float = -layout.lane_length * 0.18
 	_add(Props.umbrella(), Vector3(-walk_x, CURB_HEIGHT, store_z + 1.6))
 	_add_prop(PropModel.fit("bench", Vector2(2.0, 0.7), 1.0), Vector3(-walk_x - 0.3, CURB_HEIGHT, store_z - 1.0), PI / 2.0)
+	# the nanay stands between the umbrella and the bench, a little swaying as she waits
+	var nanay: Node3D = _add_prop(PropModel.by_height("nanay", NANAY_HEIGHT), Vector3(-walk_x, CURB_HEIGHT, store_z + 0.3), PI / 2.0)
+	nanay.name = "Nanay"
+	var sway: Tween = nanay.create_tween().set_loops()
+	var turned_in: float = nanay.rotation.y
+	sway.tween_property(nanay, "rotation:y", turned_in + deg_to_rad(NANAY_SWAY_DEGREES), NANAY_SWAY_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	sway.tween_property(nanay, "rotation:y", turned_in - deg_to_rad(NANAY_SWAY_DEGREES), NANAY_SWAY_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	for lz: float in [-half_l * 0.7, half_l * 0.3]:
 		_add(Props.laundry_line(4.0), Vector3(-walk_x - 0.6, CURB_HEIGHT, lz))
 	for lz: float in [-half_l * 0.25, half_l * 0.75]:
