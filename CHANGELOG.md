@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.6.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.5.1...kalyeah-v0.6.0) (2026-10-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* **map:** playing area is square, 24 x 24 m, minimap 140 x 140
+* **map:** playing area is 3:4 (24 x 32 m), minimap 120 x 160
+
+### Features
+
+* **art:** real 3D models for the slipper, can, marble and paper skills; new menu background ([78f69b1](https://github.com/earl-gh/kalyeah/commit/78f69b101018ae17660cad28c3fa7ec7fb2ca0ca))
+* **art:** the nanay on the sidewalk and five more street things in the end barrier rows ([0099205](https://github.com/earl-gh/kalyeah/commit/00992054ee898014d82a62249bbf5c1930b125c4))
+* **hud:** solid health bars, no partitions ([f014b73](https://github.com/earl-gh/kalyeah/commit/f014b737598ce05e4fc8c5f75edc7ace19d8de74))
+* **input:** the stick only picks the direction, any drag past the dead zone is a full-speed run ([f0575dc](https://github.com/earl-gh/kalyeah/commit/f0575dc433a43524fb7584983ca42a9f41017f81))
+* **kids:** Junjun is the owner's rebuilt-rig boy ([a710424](https://github.com/earl-gh/kalyeah/commit/a7104248d1699915e28d159d78f2e919fb81f8a3))
+* **map:** code-drawn realistic cement on the street and raised sidewalks ([0c5322b](https://github.com/earl-gh/kalyeah/commit/0c5322ba921a82ef78cfb9c55b95766a05ba0068))
+* **map:** lay the owner's ground art on the sidewalk tops and raised faces ([659a41d](https://github.com/earl-gh/kalyeah/commit/659a41d1ebb5515c58e1626a40602262309747ef))
+* **map:** no white border along the left and right of the play area ([48581bb](https://github.com/earl-gh/kalyeah/commit/48581bbbe7926ced19648276a31214a32c081af6))
+* **map:** playing area is 3:4 (24 x 32 m), minimap 120 x 160 ([446c1d4](https://github.com/earl-gh/kalyeah/commit/446c1d47ba8126b24f98d315d8cd970d85496316))
+* **map:** playing area is square, 24 x 24 m, minimap 140 x 140 ([492481f](https://github.com/earl-gh/kalyeah/commit/492481f168a41b672981f39c4a7d76a674e07b6e))
+* **map:** raised gray cement sidewalks (0.4 m, was 0.18 m brick pavers) ([b1c5a43](https://github.com/earl-gh/kalyeah/commit/b1c5a43eb9f0d9fcd0b770c43f991276b2429a4f))
+* **practice:** a free enemy dummy stands in the enemy's tagged box ([5ef3be1](https://github.com/earl-gh/kalyeah/commit/5ef3be1d7156baf6a3bdcce3aba4b83cf87441cd))
+* **select:** a team never has the same kid twice, the other team may have it once ([6fc23cf](https://github.com/earl-gh/kalyeah/commit/6fc23cf997ae215ba9813d464cbd65b2102ebb65))
+* **select:** pick your kid and weapons on one fighting-game style screen ([16d2245](https://github.com/earl-gh/kalyeah/commit/16d2245030f0f983bc3f41bd3b7e39cfb644a811))
+* **ui:** main-screen model in the game's exact ratio with corner props only ([d42335b](https://github.com/earl-gh/kalyeah/commit/d42335b79dc42200ae6afc91a58bd21d42eec058))
+* **ui:** rebuilt main screen on the owner's blue diamond background ([ec1ca1b](https://github.com/earl-gh/kalyeah/commit/ec1ca1bcce1913666af841030fecfc93c666e1fa))
+* **ui:** scale the main-screen map model up by looking down at it more steeply ([fe38c92](https://github.com/earl-gh/kalyeah/commit/fe38c92f06a6203bbe6d80d20b14469295b57aa1))
+* **ui:** simpler main screen with a still play-area model and 2x2 buttons ([1c9c33e](https://github.com/earl-gh/kalyeah/commit/1c9c33e30cde1114178520470ab80e2f106996b6))
+
+
+### Bug Fixes
+
+* **map:** remove the thin white line along the street edges ([02756a6](https://github.com/earl-gh/kalyeah/commit/02756a6eab61c8b4c3245f683f704f5804f9f13f))
+
 ## [0.5.1](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.5.0...kalyeah-v0.5.1) (2026-10-15)
 
 
