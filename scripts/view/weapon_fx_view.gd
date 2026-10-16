@@ -7,8 +7,7 @@ extends Node3D
 const PROJECTILE_HEIGHT: float = 0.7
 const ZONE_HEIGHT: float = 0.04
 const SHIELD_HEIGHT: float = 1.6
-const SHIELD_THICKNESS: float = 0.15
-const TRAP_BALL_RADIUS: float = 0.3
+const PAPER_THICKNESS: float = 0.3
 const CONE_FLASH_TIME: float = 0.18
 const CONE_POINTS: int = 12
 const KIND_COLORS: Dictionary[WeaponDef.Kind, Color] = {
@@ -28,7 +27,7 @@ const ZONE_COLORS: Dictionary[WeaponSystem.ZoneKind, Color] = {
 	WeaponSystem.ZoneKind.FIELD: Color(1.0, 0.85, 0.3, 0.35),
 }
 
-var _nodes: Dictionary[int, MeshInstance3D] = {}
+var _nodes: Dictionary[int, Node3D] = {}
 var _zone_kinds: Dictionary[int, WeaponSystem.ZoneKind] = {}
 var _flashes: Array[MeshInstance3D] = []
 var _flash_time: Dictionary[MeshInstance3D, float] = {}
@@ -47,34 +46,34 @@ func sync(sim: MatchSim, delta: float) -> void:
 	var seen: Dictionary[int, bool] = {}
 	for projectile: WeaponSystem.Projectile in sim.weapons.projectiles:
 		seen[projectile.id] = true
-		var node: MeshInstance3D = _nodes.get(projectile.id) as MeshInstance3D
+		var node: Node3D = _nodes.get(projectile.id) as Node3D
 		if node == null:
-			node = _add(projectile.id, _projectile_mesh(projectile.def))
+			node = _add_node(projectile.id, _projectile_node(projectile.def))
 		node.position = Vector3(projectile.position.x, PROJECTILE_HEIGHT, projectile.position.y)
 		node.rotation.y += delta * TAU * 2.0
 	for zone: WeaponSystem.Zone in sim.weapons.zones:
 		seen[zone.id] = true
-		var node: MeshInstance3D = _nodes.get(zone.id) as MeshInstance3D
+		var node: Node3D = _nodes.get(zone.id) as Node3D
 		if node != null and _zone_kinds[zone.id] != zone.kind:
 			_remove(zone.id)
 			node = null
 		if node == null:
-			node = _add(zone.id, _zone_mesh(zone))
+			node = _add_node(zone.id, _zone_node(zone))
 			_zone_kinds[zone.id] = zone.kind
 		node.position = Vector3(zone.center.x, ZONE_HEIGHT, zone.center.y)
 	for shield: WeaponSystem.Shield in sim.weapons.shields:
 		seen[shield.id] = true
-		var node: MeshInstance3D = _nodes.get(shield.id) as MeshInstance3D
+		var node: Node3D = _nodes.get(shield.id) as Node3D
 		var soil: bool = shield.def != null and shield.def.look == &"soil"
 		if node == null:
-			var box: BoxMesh = BoxMesh.new()
 			if soil:
+				var box: BoxMesh = BoxMesh.new()
 				box.size = Vector3(shield.half_width * 2.0, SOIL_HEIGHT, shield.half_width * 2.0)
 				box.material = _material(SOIL_COLOR)
+				node = _add(shield.id, box)
 			else:
-				box.size = Vector3(shield.half_width * 2.0, SHIELD_HEIGHT, SHIELD_THICKNESS)
-				box.material = _material(KIND_COLORS[WeaponDef.Kind.BLOCK])
-			node = _add(shield.id, box)
+				# a standing sheet of paper (the owner's model); its base sits on the ground
+				node = _add_node(shield.id, WeaponModel.shield(shield.half_width * 2.0, SHIELD_HEIGHT, PAPER_THICKNESS))
 		var grown: float = 1.0
 		if soil:
 			# the block of earth rises, stands, then collapses back to the ground
@@ -82,7 +81,7 @@ func sync(sim: MatchSim, delta: float) -> void:
 			grown = clampf(minf(age / SOIL_RISE_TIME, shield.time_left / SOIL_COLLAPSE_TIME), 0.04, 1.0)
 		var height: float = SOIL_HEIGHT if soil else SHIELD_HEIGHT
 		node.scale.y = grown
-		node.position = Vector3(shield.center.x, height * grown / 2.0, shield.center.y)
+		node.position = Vector3(shield.center.x, 0.0 if not soil else height * grown / 2.0, shield.center.y)
 		node.rotation.y = -shield.along.angle()
 	for id: int in _nodes.keys():
 		if not seen.has(id):
@@ -93,6 +92,11 @@ func sync(sim: MatchSim, delta: float) -> void:
 func _add(id: int, mesh: Mesh) -> MeshInstance3D:
 	var node: MeshInstance3D = MeshInstance3D.new()
 	node.mesh = mesh
+	_add_node(id, node)
+	return node
+
+
+func _add_node(id: int, node: Node3D) -> Node3D:
 	add_child(node)
 	_nodes[id] = node
 	return node
@@ -104,15 +108,31 @@ func _remove(id: int) -> void:
 	_zone_kinds.erase(id)
 
 
+## A thrown object: the owner's model when there is one, else the code-drawn one.
+func _projectile_node(def: WeaponDef) -> Node3D:
+	if WeaponModel.has_model(def.id):
+		return WeaponModel.make(def.id, true)
+	var node: MeshInstance3D = MeshInstance3D.new()
+	node.mesh = _projectile_mesh(def)
+	return node
+
+
 func _projectile_mesh(def: WeaponDef) -> Mesh:
 	var size: float = def.radius if def.shape == WeaponDef.Shape.SPINNER or def.shape == WeaponDef.Shape.BOUNCER else def.projectile_radius
 	return Props.weapon_object(def.id, maxf(size, 0.25))
 
 
+## A placed zone: the trap is the crumpled paper ball, the rest are flat tinted discs.
+func _zone_node(zone: WeaponSystem.Zone) -> Node3D:
+	if zone.kind == WeaponSystem.ZoneKind.TRAP:
+		return WeaponModel.make(&"papel_trap", false)
+	var node: MeshInstance3D = MeshInstance3D.new()
+	node.mesh = _zone_mesh(zone)
+	return node
+
+
 func _zone_mesh(zone: WeaponSystem.Zone) -> Mesh:
 	var color: Color = ZONE_COLORS[zone.kind]
-	if zone.kind == WeaponSystem.ZoneKind.TRAP:
-		return Props.weapon_object(&"papel_trap", TRAP_BALL_RADIUS)
 	var disc: CylinderMesh = CylinderMesh.new()
 	disc.top_radius = zone.radius
 	disc.bottom_radius = zone.radius
