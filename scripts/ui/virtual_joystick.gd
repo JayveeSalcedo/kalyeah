@@ -42,12 +42,13 @@ var _origin: Vector2 = Vector2.ZERO
 var _thumb: Vector2 = Vector2.ZERO
 
 
-## Offset from the stick origin to a normalized stick vector (length <= 1, with deadzone).
+## Offset from the stick origin to the stick vector. It only picks the direction (owner: there is
+## no slow walk): any drag past the dead zone, however slight, is a full-speed run (length 1).
 static func stick_from_offset(offset: Vector2, radius: float, deadzone: float) -> Vector2:
 	var stick: Vector2 = (offset / radius).limit_length(1.0)
 	if stick.length() < deadzone:
 		return Vector2.ZERO
-	return stick
+	return stick.normalized()
 
 
 func _input(event: InputEvent) -> void:
