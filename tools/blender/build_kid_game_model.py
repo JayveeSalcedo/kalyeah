@@ -2,7 +2,9 @@
 
 usage: python build_kid_game_model.py -- rigged_kid.glb out.glb [target_triangles]
 The source GLB is the owner's full-resolution rigged kid (skeleton with .L/.R names, spring
-bones, 8 corrective blend shapes, 12 clips at 30 fps); it is not stored in the repo.
+bones, 8 corrective blend shapes, 12 clips at 30 fps); it is not stored in the repo. A Mixamo
+rig (`mixamorig:` bones, clips named Idle / Run / Throw ...; Junjun's "Boy_rebuilt_rig") is
+renamed to the same bone and clip names first (`normalize_mixamo`).
  * the mesh is welded and decimated to ~target triangles; skin weights (max 4, normalized)
    and the elbow / knee corrective blend shapes are re-sampled from the full mesh so they stay
    smooth (each blend shape is a full mesh copy in the game, so hip / shoulder ones are left out);
@@ -107,8 +109,8 @@ def bake_texture(mesh, ref):
     bake.use_pass_direct = bake.use_pass_indirect = False
     bake.use_pass_color = True
     bake.use_selected_to_active = True
-    bake.cage_extrusion = 0.015
-    bake.max_ray_distance = 0.06
+    bake.cage_extrusion = float(os.environ.get("KID_CAGE", "0.015"))
+    bake.max_ray_distance = float(os.environ.get("KID_RAY", "0.06"))
     # fill the gaps round every island with the island's own colour: empty gaps are dark and
     # bleed into the model as speckles when it is small on screen
     bake.margin_type = "EXTEND"
@@ -118,6 +120,55 @@ def bake_texture(mesh, ref):
     bpy.context.view_layer.objects.active = mesh
     bpy.ops.object.bake(type="DIFFUSE")
     image.pack()
+
+
+MIXAMO_CLIPS = {
+    "Idle": "idle_alert", "Run": "run", "Throw": "throw", "RunningThrow": "throw_run",
+    "Cast_OneHand": "cast_one_hand", "Cast_Run": "cast_run", "Stunned": "stunned",
+    "Airborne": "airborne_fall", "Knockdown": "knockdown", "Tripped": "trip",
+}
+MIXAMO_BONES = {
+    "Hips": "hips", "Spine": "spine.01", "Spine1": "spine.02", "Spine2": "spine.03", "Neck": "neck",
+    "Head": "head", "HeadTop_End": "head_end", "headfront": "head_front",
+    "Shoulder": "shoulder", "Arm": "upper_arm", "ForeArm": "forearm", "Hand": "hand",
+    "UpLeg": "thigh", "Leg": "shin", "Foot": "foot", "ToeBase": "toe", "Toe_End": "toe_end",
+    "LeftShorts": "shorts.L", "LeftShortsDrape": "shorts_drape.L",
+    "RightShorts": "shorts.R", "RightShortsDrape": "shorts_drape.R",
+}
+FINGERS = {"Thumb": "thumb", "Index": "index", "Middle": "middle", "Ring": "ring", "Pinky": "pinky"}
+
+
+def mixamo_bone_name(name):
+    """`mixamorig:LeftForeArm` -> `forearm.L`, `mixamorig:RightHandIndex2` -> `index.02.R`."""
+    base = name.split(":", 1)[-1]
+    if base in MIXAMO_BONES:
+        return MIXAMO_BONES[base]
+    for prefix, side in (("Left", ".L"), ("Right", ".R")):
+        if not base.startswith(prefix):
+            continue
+        rest = base[len(prefix):]
+        if rest in MIXAMO_BONES:
+            return MIXAMO_BONES[rest] + side
+        if rest.startswith("Hand") and rest != "Hand":
+            finger = rest[4:]
+            for long, short in FINGERS.items():
+                if finger.startswith(long):
+                    tail = finger[len(long):]
+                    number = 4 if tail == "Tip" else int(tail)
+                    # Mixamo's middle finger has a spare 4th joint besides its tip: a palm stub
+                    return "palm" + side if (long == "Middle" and tail == "4") else "%s.%02d%s" % (short, number, side)
+    raise ValueError("unknown bone " + name)
+
+
+def normalize_mixamo(rig):
+    """Gives a Mixamo rig the bone and clip names the game uses (a no-op for the .L/.R rigs)."""
+    if not any(b.name.startswith("mixamorig:") for b in rig.data.bones):
+        return
+    for bone in list(rig.data.bones):
+        bone.name = mixamo_bone_name(bone.name)
+    for act in bpy.data.actions:
+        if act.name in MIXAMO_CLIPS:
+            act.name = MIXAMO_CLIPS[act.name]
 
 
 def main():
@@ -133,6 +184,7 @@ def main():
         if o is not mesh:
             bpy.data.objects.remove(o)
     mesh.name = "Mesh0"
+    normalize_mixamo(rig)
 
     # the full-resolution reference: positions, weights and blend-shape offsets per vertex
     ref = mesh.copy()

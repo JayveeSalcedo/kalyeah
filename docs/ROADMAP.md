@@ -16,6 +16,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | Controls (owner) | The movement stick at the bottom centre with weapon 1 and 2 on its left and right (tilt was tried and removed), no dash and no pin; one-tier scoring, best of 3 / 5 / 7 picked by the host in the lobby, every point a new round; score at the top right |
 | Map 1:2 (owner) | The playing area is 24 × 48 m (1:2, was 30 × 40 m 3:4); the minimap is 90 × 180 px and draws the street at exactly 1:2; posts, boxes, cover and dummies re-placed |
 | Character select (owner) | A fighting-game style select at the start of every match: six 3:4 profile cards, then a tab per street game over weapon cards (art, name, description below); the kid you pick is the kid you play (also your main-screen face); online, the server settles swaps so nobody shares a kid |
+| Map 1:1 (owner) | The playing area is 24 × 24 m (square, was 24 × 32 m); the minimap is 140 × 140 px at exactly that shape; the cover wall keeps its distance from the base |
 
 ## Next: the Kalyeah visual overhaul
 
@@ -57,5 +58,5 @@ Budgets (M6): 60 fps on a recommended Android phone, 30+ on the minimum; APK und
 - No basic attack (see `GDD.md`).
 - Tag street (owner): the map, the rules and the camera follow the reference video of the street game; portrait stays binding. The guava, the tricycle, breakable walls and the death delay were removed.
 - Game name: **Kalyeah**. Tagline: *Mga larong Pinoy sa kalye*. Android package `com.kalyeah.game`.
-- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged, animated GLB models from the owner; `tools/blender/build_kid_game_model.py` makes them light for phones (`build_junjun_model.py` was the first, Mixamo-based Junjun).
+- Environment assets are made in Blender (the `bpy` Python module works in the cloud session). The kids are rigged, animated GLB models from the owner; `tools/blender/build_kid_game_model.py` makes them light for phones (`build_junjun_model.py` was the first, Mixamo-based Junjun; the owner's rebuilt-rig boy now goes through the same script).
 - Multiplayer is built and tested; deploying the server and setting `KALYEAH_SERVER_URL` is the owner's step (`server/README.md`).

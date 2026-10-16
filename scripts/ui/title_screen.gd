@@ -1,10 +1,10 @@
 class_name TitleScreen
 extends Control
 ## The main screen. A blue diamond background; your profile (face and name, tap to rename) and the
-## settings button on top; the KALYEAH wordmark; the map model (a small live copy of the
-## playground street with kids idling on it); then PRACTICE (offline, no server needed), the
-## ONLINE row (Create / Join room) and a footer with the version and Quit. Settings, rename and
-## quit open as dialogs. A dedicated server build goes straight to the server.
+## settings button on top; the KALYEAH wordmark; the map model (the play area alone, standing
+## still); then four buttons in a 2x2 grid at the bottom: PRACTICE (offline), HOTSPOT (a game on
+## a phone hotspot), ONLINE (Create / Join room on the game server) and QUIT. Settings, rename,
+## hotspot, online and quit open as dialogs. A dedicated server build goes straight to the server.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -24,21 +24,20 @@ const CREAM: Color = Color(1.0, 0.95, 0.82)
 
 ## The screen asks for the game to close (replaced in tests).
 var quit_action: Callable = _quit_game
+## The screen leaves for the lobby (replaced in tests).
+var open_lobby_action: Callable = _change_to_lobby
 
 var profile_button: Button
 var settings_button: Button
 var practice_button: Button
-var create_button: Button
-var join_button: Button
+var hotspot_button: Button
+var online_button: Button
 var quit_button: Button
 var diorama: MenuDiorama
 var dialog: MenuDialog
 
 var _name_label: Label
 var _avatar_texture: TextureRect
-var _server_label: Label
-var _version_label: Label
-var _wordmark: Control
 var _loading: bool = false
 var _loading_dots: Label
 
@@ -56,19 +55,16 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_background()
 	_build_layout()
-	# a node made in code is only found by %Name once the screen owns it
-	_version_label.owner = self
 	_refresh_profile()
-	_refresh_server_hint()
 	profile_button.pressed.connect(open_name_editor)
 	settings_button.pressed.connect(open_settings)
 	practice_button.pressed.connect(_on_practice_pressed)
-	create_button.pressed.connect(_open_lobby.bind(LobbyScreen.Intent.CREATE))
-	join_button.pressed.connect(_open_lobby.bind(LobbyScreen.Intent.JOIN))
+	hotspot_button.pressed.connect(open_hotspot)
+	online_button.pressed.connect(open_online)
 	quit_button.pressed.connect(open_quit_confirm)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
-	_animate_in.call_deferred()
+	_pop_in.call_deferred()
 
 
 # ---- layout ---------------------------------------------------------------------------
@@ -118,17 +114,15 @@ func _build_layout() -> void:
 	column.add_child(_build_top_bar())
 	column.add_child(_build_wordmark())
 	column.add_child(_build_map_model())
-	column.add_child(_build_practice())
-	column.add_child(_build_online())
-	column.add_child(_build_footer())
+	column.add_child(_build_buttons())
 
 
-## The map model, filling the space between the wordmark and the buttons.
+## The map model, filling the space between the wordmark and the buttons (nothing moves).
 func _build_map_model() -> Control:
 	diorama = MenuDiorama.new()
 	diorama.name = "MapModel"
 	diorama.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	diorama.custom_minimum_size = Vector2(0.0, 330.0)
+	diorama.custom_minimum_size = Vector2(0.0, 300.0)
 	return diorama
 
 
@@ -250,7 +244,6 @@ func _build_wordmark() -> Control:
 	box.name = "Wordmark"
 	box.add_theme_constant_override("separation", 4)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_wordmark = box
 	var word: HBoxContainer = HBoxContainer.new()
 	word.alignment = BoxContainer.ALIGNMENT_CENTER
 	word.add_theme_constant_override("separation", 6)
@@ -280,88 +273,27 @@ func _build_wordmark() -> Control:
 	return box
 
 
-## The big call to action: PRACTICE, played offline against training dummies.
-func _build_practice() -> Control:
-	practice_button = MenuDialog.make_button("", "orange", 40, Vector2(0.0, 132.0))
-	practice_button.name = "PracticeButton"
-	var stack: VBoxContainer = VBoxContainer.new()
-	stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	stack.alignment = BoxContainer.ALIGNMENT_CENTER
-	stack.add_theme_constant_override("separation", -4)
-	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	practice_button.add_child(stack)
-	var title: Label = Label.new()
-	title.text = "PRACTICE"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 58)
-	title.add_theme_constant_override("outline_size", 12)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(title)
-	var sub: Label = Label.new()
-	sub.text = "OFFLINE  ·  NO SERVER NEEDED"
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.add_theme_font_size_override("font_size", 21)
-	sub.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
-	sub.add_theme_constant_override("outline_size", 5)
-	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(sub)
-	return practice_button
+## The four buttons in a 2x2 grid at the bottom, all the same size.
+func _build_buttons() -> Control:
+	var grid: GridContainer = GridContainer.new()
+	grid.name = "Buttons"
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 18)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	practice_button = _grid_button(grid, "PracticeButton", "PRACTICE", "orange")
+	hotspot_button = _grid_button(grid, "HotspotButton", "HOTSPOT", "green")
+	online_button = _grid_button(grid, "OnlineButton", "ONLINE", "blue")
+	quit_button = _grid_button(grid, "QuitButton", "QUIT", "red")
+	return grid
 
 
-## ONLINE: a small caption, the two room buttons and which server they will use.
-func _build_online() -> Control:
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "Online"
-	box.add_theme_constant_override("separation", 8)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var caption: Label = Label.new()
-	caption.text = "ONLINE"
-	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	caption.add_theme_font_size_override("font_size", 22)
-	caption.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.85))
-	caption.add_theme_constant_override("outline_size", 0)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(caption)
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	create_button = MenuDialog.make_button("CREATE ROOM", "blue", 34, Vector2(0.0, 104.0))
-	create_button.name = "CreateRoomButton"
-	create_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	join_button = MenuDialog.make_button("JOIN ROOM", "green", 34, Vector2(0.0, 104.0))
-	join_button.name = "JoinRoomButton"
-	join_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(create_button)
-	row.add_child(join_button)
-	box.add_child(row)
-	_server_label = Label.new()
-	_server_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_server_label.add_theme_font_size_override("font_size", 20)
-	_server_label.add_theme_constant_override("outline_size", 0)
-	_server_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(_server_label)
-	return box
-
-
-func _build_footer() -> Control:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Footer"
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_version_label = Label.new()
-	_version_label.name = "VersionLabel"
-	_version_label.unique_name_in_owner = true
-	_version_label.text = "v%s" % ProjectSettings.get_setting("application/config/version", "0.0.0")
-	_version_label.add_theme_font_size_override("font_size", 20)
-	_version_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.6))
-	_version_label.add_theme_constant_override("outline_size", 0)
-	_version_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_version_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_version_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_version_label)
-	quit_button = MenuDialog.make_button("QUIT", "red", 26, Vector2(150.0, 68.0))
-	quit_button.name = "QuitButton"
-	row.add_child(quit_button)
-	return row
+func _grid_button(grid: GridContainer, button_name: String, text: String, color: String) -> Button:
+	var button: Button = MenuDialog.make_button(text, color, 42, Vector2(0.0, 124.0))
+	button.name = button_name
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(button)
+	return button
 
 
 # ---- what the screen shows ---------------------------------------------------------------
@@ -372,42 +304,17 @@ func _refresh_profile() -> void:
 	_avatar_texture.texture = face if face != null else KidModel.portrait(StringName(Session.avatar_id))
 
 
-## Which server Create / Join will use, or how to set one.
-func _refresh_server_hint() -> void:
-	if Settings.server_url.is_empty():
-		_server_label.text = "No server set  ·  add one in Settings"
-		_server_label.add_theme_color_override("font_color", Color(1.0, 0.8, 0.35))
-	else:
-		_server_label.text = "Server: %s" % Settings.server_url.trim_prefix("wss://").trim_prefix("ws://")
-		_server_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.7))
-
-
-## The map model turns by itself; the wordmark drops in with a bounce and the buttons pop up in turn.
-func _animate_in() -> void:
-	_wordmark.pivot_offset = _wordmark.size / 2.0
-	_wordmark.rotation_degrees = -2.5
-	_wordmark.scale = Vector2.ONE * 0.6
-	_wordmark.modulate.a = 0.0
-	var drop: Tween = create_tween().set_parallel(true)
-	drop.tween_property(_wordmark, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	drop.tween_property(_wordmark, "modulate:a", 1.0, 0.25)
-	var bob: Tween = create_tween().set_loops()
-	bob.tween_property(_wordmark, "rotation_degrees", 2.5, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	bob.tween_property(_wordmark, "rotation_degrees", -2.5, 2.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	var buttons: Array[Control] = [practice_button, create_button, join_button, quit_button]
+## The buttons pop up in turn when the screen opens.
+func _pop_in() -> void:
+	var buttons: Array[Control] = [practice_button, hotspot_button, online_button, quit_button]
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
 		button.scale = Vector2.ONE * 0.85
 		button.modulate.a = 0.0
 		var pop: Tween = create_tween().set_parallel(true)
-		pop.tween_property(button, "modulate:a", 1.0, 0.25).set_delay(0.2 + 0.1 * i)
-		pop.tween_property(button, "scale", Vector2.ONE, 0.35).set_delay(0.2 + 0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# the main button breathes, so the screen is never still
-	var breathe: Tween = create_tween().set_loops()
-	breathe.tween_interval(1.0)
-	breathe.tween_property(practice_button, "scale", Vector2.ONE * 1.025, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	breathe.tween_property(practice_button, "scale", Vector2.ONE, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		pop.tween_property(button, "modulate:a", 1.0, 0.25).set_delay(0.1 * i)
+		pop.tween_property(button, "scale", Vector2.ONE, 0.35).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 # ---- actions ----------------------------------------------------------------------------
@@ -469,8 +376,13 @@ func _show_loading(message: String) -> void:
 	fade.tween_property(cover, "color:a", 0.88, 0.25)
 
 
-func _open_lobby(intent: LobbyScreen.Intent) -> void:
+func _open_lobby(intent: LobbyScreen.Intent, hotspot: bool) -> void:
 	Session.lobby_intent = intent
+	Session.lobby_hotspot = hotspot
+	open_lobby_action.call(intent)
+
+
+func _change_to_lobby(_intent: LobbyScreen.Intent) -> void:
 	get_tree().change_scene_to_file(LOBBY_SCENE)
 
 
@@ -515,6 +427,47 @@ func open_name_editor() -> MenuDialog:
 	return card
 
 
+## ONLINE: create a room or join one on the game server.
+func open_online() -> MenuDialog:
+	return _open_play_dialog("ONLINE", false, "Play with friends on the game server.")
+
+
+## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi, on a game server running there.
+func open_hotspot() -> MenuDialog:
+	return _open_play_dialog("HOTSPOT", true, "Turn on a hotspot, run the game server on it, and type that device's address.")
+
+
+## The Create / Join choice. A hotspot also asks for the address of the server on the hotspot.
+func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog:
+	var card: MenuDialog = MenuDialog.create(title)
+	card.add_hint(hint)
+	var address: LineEdit = null
+	if hotspot:
+		address = LineEdit.new()
+		address.name = "AddressField"
+		address.text = Settings.hotspot_url
+		address.placeholder_text = "192.168.43.1:9080"
+		address.custom_minimum_size = Vector2(0.0, 76.0)
+		address.add_theme_font_size_override("font_size", 28)
+		card.body.add_child(address)
+	var create: Button = MenuDialog.make_button("CREATE ROOM", "blue", 32)
+	var join: Button = MenuDialog.make_button("JOIN ROOM", "green", 32)
+	create.name = "CreateRoomButton"
+	join.name = "JoinRoomButton"
+	card.add_buttons([create, join])
+	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 28)
+	card.add_buttons([cancel])
+	cancel.pressed.connect(card.close)
+	var go: Callable = func(intent: LobbyScreen.Intent) -> void:
+		if hotspot:
+			Settings.save_hotspot_url(address.text)
+		_open_lobby(intent, hotspot)
+	create.pressed.connect(go.bind(LobbyScreen.Intent.CREATE))
+	join.pressed.connect(go.bind(LobbyScreen.Intent.JOIN))
+	_show_dialog(card)
+	return card
+
+
 ## Settings: sound volume, vibration (phones) and the online server address.
 func open_settings() -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create("SETTINGS")
@@ -549,15 +502,14 @@ func open_settings() -> MenuDialog:
 	server.custom_minimum_size = Vector2(0.0, 76.0)
 	server.add_theme_font_size_override("font_size", 28)
 	card.body.add_child(server)
-	card.add_hint("Used by Create / Join room. Leave it as it is unless you run your own server.")
+	card.add_hint("Used by ONLINE. Leave it as it is unless you run your own server.")
 	var done: Button = MenuDialog.make_button("DONE", "green", 34)
 	card.add_buttons([done])
 	done.pressed.connect(card.close)
 	card.closed.connect(func() -> void:
 		var typed: String = server.text.strip_edges()
 		if typed != Settings.server_url:
-			Settings.save_server_url(typed)
-		_refresh_server_hint())
+			Settings.save_server_url(typed))
 	_show_dialog(card)
 	return card
 

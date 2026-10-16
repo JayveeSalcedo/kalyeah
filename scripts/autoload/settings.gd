@@ -8,6 +8,8 @@ const SAVE_PATH: String = "user://settings.cfg"
 const PROJECT_KEY: String = "kalyeah/network/server_url"
 
 var server_url: String = ""
+## The address of a game server on the same phone hotspot / Wi-Fi (plain ws://, no https).
+var hotspot_url: String = ""
 ## Master volume 0..1 and whether button presses buzz the phone (owner-facing settings screen).
 var volume: float = 1.0
 var vibration: bool = true
@@ -28,6 +30,7 @@ func _ready() -> void:
 		var saved: String = file.get_value("network", "server_url", "") as String
 		if not saved.is_empty():
 			server_url = saved
+		hotspot_url = file.get_value("network", "hotspot_url", "") as String
 		volume = clampf(float(file.get_value("audio", "volume", 1.0)), 0.0, 1.0)
 		vibration = bool(file.get_value("input", "vibration", true))
 	apply_volume()
@@ -54,9 +57,19 @@ static func normalize_url(raw: String) -> String:
 	if url.is_empty() or url.begins_with("ws://") or url.begins_with("wss://"):
 		return url
 	url = url.trim_prefix("https://").trim_prefix("http://")
-	if url.begins_with("localhost") or url.begins_with("127.0.0.1"):
+	if url.begins_with("localhost") or is_local_address(url):
 		return "ws://" + url
 	return "wss://" + url
+
+
+## True for a private network address (a phone hotspot or home Wi-Fi), which has no https.
+static func is_local_address(address: String) -> bool:
+	if address.begins_with("127.") or address.begins_with("10.") or address.begins_with("192.168."):
+		return true
+	if address.begins_with("172."):
+		var second: String = address.split(".")[1] if address.split(".").size() > 1 else ""
+		return second.is_valid_int() and second.to_int() >= 16 and second.to_int() <= 31
+	return false
 
 
 func save_server_url(url: String) -> void:
@@ -65,6 +78,19 @@ func save_server_url(url: String) -> void:
 	file.load(SAVE_PATH)
 	file.set_value("network", "server_url", server_url)
 	file.save(SAVE_PATH)
+
+
+func save_hotspot_url(url: String) -> void:
+	hotspot_url = normalize_url(url)
+	var file: ConfigFile = ConfigFile.new()
+	file.load(SAVE_PATH)
+	file.set_value("network", "hotspot_url", hotspot_url)
+	file.save(SAVE_PATH)
+
+
+## The address the lobby starts with: the hotspot's or the online server's.
+func lobby_url(hotspot: bool) -> String:
+	return hotspot_url if hotspot else server_url
 
 
 ## Sets the master bus from `volume` (0 = silent).

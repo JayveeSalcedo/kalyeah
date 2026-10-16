@@ -103,7 +103,10 @@ func submit() -> void:
 	if url.is_empty():
 		_status.text = "Enter the game server address first\\n(see server/README.md)."
 		return
-	Settings.save_server_url(url)
+	if Session.lobby_hotspot:
+		Settings.save_hotspot_url(url)
+	else:
+		Settings.save_server_url(url)
 	Session.player_name = _name_edit.text.strip_edges()
 	Session.save()
 	client.player_name = Session.player_name
@@ -176,7 +179,7 @@ func _on_room_changed(room: Dictionary) -> void:
 	_show_room(true)
 	Session.room_code = room.get("code", "") as String
 	Session.reconnect_token = client.token
-	Session.reconnect_url = Settings.server_url
+	Session.reconnect_url = Settings.lobby_url(Session.lobby_hotspot)
 	Session.save()
 	var size: int = room.get("team_size", 1) as int
 	_code_label.text = "%s   (%dv%d)" % [Session.room_code, size, size]
@@ -266,8 +269,8 @@ func _build() -> void:
 	_setup = VBoxContainer.new()
 	_setup.add_theme_constant_override("separation", 14)
 	column.add_child(_setup)
-	_setup.add_child(_label("Game server", FONT))
-	_url_edit = _edit(Settings.server_url, "wss://your-server.example.com")
+	_setup.add_child(_label("Hotspot address" if Session.lobby_hotspot else "Game server", FONT))
+	_url_edit = _edit(Settings.lobby_url(Session.lobby_hotspot), "192.168.43.1:9080" if Session.lobby_hotspot else "wss://your-server.example.com")
 	_setup.add_child(_url_edit)
 	_setup.add_child(_label("Your name", FONT))
 	_name_edit = _edit(Session.player_name, "Player")

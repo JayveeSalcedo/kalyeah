@@ -4,7 +4,7 @@
 usage: python render_portrait.py -- model.glb out_dir [portrait.png]
 Writes out_dir/idle_toward.png; with a third argument it also crops it to the kid and saves it
 there (assets/portraits/<kid>.png). Works with the Meshy boy (Mixamo skeleton, posed here) and
-with the rigged kids that carry their own clips (posed from the first frame of scratch_head,
+with the rigged kids that carry their own clips (posed from the first frame of scratch_head or idle_alert,
 a relaxed stand). The models are the owner's and are not stored in the repo.
 """
 import math
@@ -94,7 +94,7 @@ def setup_scene():
     return scene, cam
 
 
-RELAXED_CLIP = "scratch_head"  # its first frame is a relaxed stand, arms down
+RELAXED_CLIPS = (os.environ.get("PORTRAIT_CLIP", "scratch_head"), "idle_alert")  # their first frame is a relaxed stand, arms down
 CROP_MARGIN = 12
 
 
@@ -116,8 +116,9 @@ def render_rigged_kid(argv):
         if owner.animation_data:
             for track in owner.animation_data.nla_tracks:
                 track.mute = True
+    relaxed = next((c for c in RELAXED_CLIPS if any(a.name.startswith(c) for a in bpy.data.actions)), RELAXED_CLIPS[0])
     for action in bpy.data.actions:
-        if action.name.startswith(RELAXED_CLIP):
+        if action.name.startswith(relaxed):
             slot = next((sl for sl in action.slots if sl.target_id_type == "OBJECT"), None)
             if slot is not None:
                 rig.animation_data_create()
@@ -125,7 +126,7 @@ def render_rigged_kid(argv):
                 rig.animation_data.action_slot = slot
     tame_materials()
     scene, cam = setup_scene()
-    scene.frame_set(0)
+    scene.frame_set(int(os.environ.get("PORTRAIT_FRAME", "0")))
     spec = POSES["idle"]
     pitch = math.radians(PITCH)
     target = Vector((0, 0, spec["target"]))
