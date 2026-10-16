@@ -80,10 +80,12 @@ func info() -> Dictionary:
 ## MATCH_PLAY: the current stage (pick or play) for a client joining or catching up.
 func stage_message() -> Dictionary:
 	var loadouts: Dictionary = {}
+	var chars: Dictionary = {}
 	for id: int in sim.players:
 		loadouts[id] = sim.players[id].weapons.duplicate()
+		chars[id] = sim.players[id].character_id
 	var name: String = "play" if stage == Stage.PLAYING else "pick"
-	return {"t": NetProtocol.Msg.MATCH_PLAY, "stage": name, "time": stage_left, "loadouts": loadouts}
+	return {"t": NetProtocol.Msg.MATCH_PLAY, "stage": name, "time": stage_left, "loadouts": loadouts, "chars": chars}
 
 
 func loaded(player_id: int) -> void:
@@ -91,9 +93,20 @@ func loaded(player_id: int) -> void:
 
 
 ## Picks are taken during loading too (a fast client may pick before a slow one loads).
-func pick(player_id: int, first: StringName, second: StringName) -> void:
+## `character` is the kid the player chose (empty keeps the random one). A kid whose holder has
+## already confirmed is not taken from them.
+func pick(player_id: int, first: StringName, second: StringName, character: StringName = &"") -> void:
 	if stage != Stage.PLAYING and sim.set_loadout(player_id, first, second):
 		_picked[player_id] = true
+		if character != &"" and not _held_by_confirmed(player_id, character):
+			sim.set_character(player_id, character)
+
+
+func _held_by_confirmed(player_id: int, character: StringName) -> bool:
+	for id: int in sim.players:
+		if id != player_id and sim.players[id].character_id == character and _picked.has(id):
+			return true
+	return false
 
 
 func swap(player_id: int, first: StringName, second: StringName) -> void:

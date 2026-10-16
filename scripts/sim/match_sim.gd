@@ -166,6 +166,19 @@ func random_loadout() -> Array[StringName]:
 	return [ids[first], ids[second]]
 
 
+## Sets a player's character (the one they picked). Nobody shares a kid: whoever held it
+## gets the previous one back (a swap). False for an unknown id or player.
+func set_character(id: int, character_id: StringName) -> bool:
+	if not players.has(id) or not rules.characters.any(func(c: CharacterDef) -> bool: return c.id == character_id):
+		return false
+	var previous: StringName = players[id].character_id
+	for other: int in players:
+		if other != id and players[other].character_id == character_id:
+			players[other].character_id = previous
+	players[id].character_id = character_id
+	return true
+
+
 ## Gives every player a random character, no duplicates (seeded, so the server and
 ## replays agree). Purely cosmetic.
 func assign_characters() -> void:

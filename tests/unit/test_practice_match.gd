@@ -182,10 +182,10 @@ func test_tapping_two_weapons_and_ready_sets_the_loadout() -> void:
 	assert_eq(_weapon_button(practice, 0).sub_text, "CC")
 
 
-func test_pick_screen_groups_all_the_weapons() -> void:
+func test_pick_screen_has_a_card_for_every_weapon() -> void:
 	var practice: PracticeMatch = _picking()
-	var buttons: Array[Node] = _pick_screen(practice).find_children("*", "Button", true, false)
-	assert_eq(buttons.size(), 15, "14 weapons + Ready")
+	var cards: Array[Node] = _pick_screen(practice).find_children("Weapon_*", "Button", true, false)
+	assert_eq(cards.size(), 14, "14 weapons")
 
 
 func test_pick_timer_runs_out_and_auto_fills() -> void:

@@ -157,8 +157,8 @@ func loaded() -> void:
 	send({"t": NetProtocol.Msg.LOADED})
 
 
-func pick_weapons(first: StringName, second: StringName) -> void:
-	send({"t": NetProtocol.Msg.PICK_WEAPONS, "a": first, "b": second})
+func pick_weapons(first: StringName, second: StringName, character: StringName = &"") -> void:
+	send({"t": NetProtocol.Msg.PICK_WEAPONS, "a": first, "b": second, "c": character})
 
 
 func swap_weapons(first: StringName, second: StringName) -> void:
@@ -248,6 +248,11 @@ func _on_stage(message: Dictionary) -> void:
 			var pair: Array = loadouts[id] as Array
 			if pair.size() == 2 and mirror.players.has(id as int):
 				mirror.set_loadout(id as int, pair[0] as StringName, pair[1] as StringName)
+		# the server settled who plays which kid (a pick may have swapped two players' kids)
+		var kids: Dictionary = message.get("chars", {}) as Dictionary
+		for id: Variant in kids:
+			if mirror.players.has(id as int):
+				mirror.players[id as int].character_id = kids[id] as StringName
 	stage_changed.emit(stage)
 
 

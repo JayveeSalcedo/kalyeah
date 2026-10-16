@@ -87,7 +87,7 @@ func _ready() -> void:
 	_pick_screen.confirmed.connect(_on_pick_confirmed)
 	_pick_screen.swapped.connect(_on_swapped)
 	_pick_screen.closed.connect(_set_controls_active.bind(true))
-	_open_pick("CHOOSE 2 WEAPONS", [])
+	_open_pick("CHOOSE YOUR KID + 2 WEAPONS", [])
 	_opening_pick = true
 	if online:
 		client.stage_changed.connect(_on_stage_changed)
@@ -223,6 +223,7 @@ func _setup_practice() -> void:
 	var box_spot: Vector2 = layout.jail_slot(sim.side_for_team(1), 0)
 	sim.add_dummy(ENEMY_BOX_ID, 1, box_spot, DummyBrain.standing())
 	sim.assign_characters()
+	sim.set_character(local_id, StringName(Session.avatar_id))
 	var loadout: Array[StringName] = sim.random_loadout()
 	sim.set_loadout(local_id, loadout[0], loadout[1])
 
@@ -316,7 +317,11 @@ func _mouse_aim(slot: int) -> Vector2:
 # ---- weapon pick and swap ------------------------------------------------------------
 
 func _open_pick(heading: String, current: Array[StringName]) -> void:
-	_pick_screen.open(WeaponPick.new(_weapon_ids(), rules.weapon_pick_time, current), rules.weapons, heading, sim.rng)
+	# your kid from last time is selected first (online, the server's random one is only a default)
+	var mine: StringName = StringName(Session.avatar_id)
+	if not rules.characters.any(func(c: CharacterDef) -> bool: return c.id == mine):
+		mine = sim.players[local_id].character_id
+	_pick_screen.open(WeaponPick.new(_weapon_ids(), rules.weapon_pick_time, current), rules.weapons, heading, sim.rng, rules.characters, mine)
 	_set_controls_active(false)
 
 
@@ -336,9 +341,16 @@ func _weapon_ids() -> Array[StringName]:
 func _on_pick_confirmed(picks: Array[StringName]) -> void:
 	_audio.start_music()
 	sim.set_loadout(local_id, picks[0], picks[1])
+	var kid: StringName = _pick_screen.character_id
+	if kid != &"":
+		sim.set_character(local_id, kid)
+		# the kid you pick is also your face on the main screen from now on
+		Session.avatar_id = String(kid)
+		Session.save()
+		_refresh_kids()
 	if online:
 		# the server starts play for everyone once all have picked (or time is up)
-		client.pick_weapons(picks[0], picks[1])
+		client.pick_weapons(picks[0], picks[1], kid)
 		if client.stage != "play":
 			show_banner("Waiting for the other players...")
 			return
@@ -370,6 +382,7 @@ func _on_stage_changed(stage: String) -> void:
 	if stage != "play" or not _opening_pick:
 		return
 	_pick_screen.dismiss()
+	_refresh_kids()
 	_opening_pick = false
 	_set_controls_active(true)
 
@@ -562,6 +575,20 @@ func _make_actor_view(state: PlayerState) -> void:
 	view.setup(character, team_color, rules.player_radius)
 	_actors.add_child(view)
 	_views[state.id] = view
+
+
+## Rebuilds every kid whose character changed (a pick, or the server settling who is who).
+func _refresh_kids() -> void:
+	for id: int in sim.players:
+		var view: KidModel = _views[id] as KidModel
+		if view != null and view.character.id == sim.players[id].character_id:
+			continue
+		if view != null:
+			view.queue_free()
+		_make_actor_view(sim.players[id])
+		if id == local_id:
+			_views[local_id].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
+	_sync_views(0.0)
 
 
 ## Settings menu > Exit match: online, give the room slot back first.
