@@ -81,11 +81,14 @@ func info() -> Dictionary:
 func stage_message() -> Dictionary:
 	var loadouts: Dictionary = {}
 	var chars: Dictionary = {}
+	var locked: Array[int] = []
+	for id: int in _picked:
+		locked.append(id)
 	for id: int in sim.players:
 		loadouts[id] = sim.players[id].weapons.duplicate()
 		chars[id] = sim.players[id].character_id
 	var name: String = "play" if stage == Stage.PLAYING else "pick"
-	return {"t": NetProtocol.Msg.MATCH_PLAY, "stage": name, "time": stage_left, "loadouts": loadouts, "chars": chars}
+	return {"t": NetProtocol.Msg.MATCH_PLAY, "stage": name, "time": stage_left, "loadouts": loadouts, "chars": chars, "locked": locked}
 
 
 func loaded(player_id: int) -> void:
@@ -93,20 +96,23 @@ func loaded(player_id: int) -> void:
 
 
 ## Picks are taken during loading too (a fast client may pick before a slow one loads).
-## `character` is the kid the player chose (empty keeps the random one). A kid whose holder has
-## already confirmed is not taken from them.
+## `character` is the kid the player chose (empty keeps the random one). A kid a teammate has
+## already confirmed is not taken from them (the other team may have the same kid).
 func pick(player_id: int, first: StringName, second: StringName, character: StringName = &"") -> void:
 	if stage != Stage.PLAYING and sim.set_loadout(player_id, first, second):
 		_picked[player_id] = true
-		if character != &"" and not _held_by_confirmed(player_id, character):
+		if character != &"" and not taken_kids(player_id).has(character):
 			sim.set_character(player_id, character)
+		# everyone learns who is locked in, so their select screens grey those kids out
+		_broadcast(stage_message())
 
 
-func _held_by_confirmed(player_id: int, character: StringName) -> bool:
-	for id: int in sim.players:
-		if id != player_id and sim.players[id].character_id == character and _picked.has(id):
-			return true
-	return false
+## The kids `player_id` cannot take: the ones its confirmed teammates play.
+func taken_kids(player_id: int) -> Array[StringName]:
+	var confirmed: Array[int] = []
+	for id: int in _picked:
+		confirmed.append(id)
+	return sim.teammates_kids(player_id, confirmed)
 
 
 func swap(player_id: int, first: StringName, second: StringName) -> void:

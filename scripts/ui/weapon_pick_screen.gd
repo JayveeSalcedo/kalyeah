@@ -46,6 +46,8 @@ var swap_mode: bool = false
 
 var _characters: Array[CharacterDef] = []
 var _profiles: Dictionary[StringName, Button] = {}
+var _taken_labels: Dictionary[StringName, Label] = {}
+var _taken: Array[StringName] = []
 var _character_row: Control
 var _tabs: Dictionary[String, Button] = {}
 var _pages: Dictionary[String, Control] = {}
@@ -143,9 +145,27 @@ func current_tab() -> String:
 	return ""
 
 
+## The kids a teammate already locked in: they are greyed out and cannot be picked (the other
+## team may play the same kid). If yours was taken, the first free one is selected instead.
+func set_taken(ids: Array[StringName]) -> void:
+	_taken = ids.duplicate()
+	if _profiles.is_empty():
+		return
+	if _taken.has(character_id):
+		for character: CharacterDef in _characters:
+			if not _taken.has(character.id):
+				character_id = character.id
+				break
+	_refresh()
+
+
+func is_taken(id: StringName) -> bool:
+	return _taken.has(id)
+
+
 ## Picks the kid you play as.
 func pick_character(id: StringName) -> void:
-	if not is_open() or swap_mode or not _profiles.has(id):
+	if not is_open() or swap_mode or not _profiles.has(id) or _taken.has(id):
 		return
 	character_id = id
 	_refresh()
@@ -193,6 +213,9 @@ func _refresh() -> void:
 		_ring.show_time(pick.time_left, pick.time_total)
 	for id: StringName in _profiles:
 		_profiles[id].set_pressed_no_signal(id == character_id)
+		_profiles[id].disabled = _taken.has(id)
+		_profiles[id].modulate = Color(0.6, 0.6, 0.66) if _taken.has(id) else Color.WHITE
+		_taken_labels[id].visible = _taken.has(id)
 	for id: StringName in _buttons:
 		var slot: int = pick.picks.find(id)
 		_buttons[id].set_pressed_no_signal(slot >= 0)
@@ -266,6 +289,7 @@ func _profile_card(character: CharacterDef) -> Button:
 	button.clip_contents = true
 	button.add_theme_stylebox_override("normal", _card(CARD_COLOR, Color(0.35, 0.4, 0.7), 3))
 	button.add_theme_stylebox_override("hover", _card(CARD_COLOR.lightened(0.06), Color(0.5, 0.55, 0.85), 3))
+	button.add_theme_stylebox_override("disabled", _card(CARD_COLOR.darkened(0.3), Color(0.3, 0.33, 0.5), 3))
 	var chosen: StyleBoxFlat = _card(CARD_COLOR.lightened(0.12), PICKED_COLOR, 6)
 	chosen.shadow_color = Color(1.0, 0.8, 0.3, 0.6)
 	chosen.shadow_size = 10
@@ -294,6 +318,15 @@ func _profile_card(character: CharacterDef) -> Button:
 	name_label.position = plate.position
 	name_label.size = plate.size
 	button.add_child(name_label)
+	var taken: Label = _text("TEAMMATE", 17, Color.WHITE)
+	taken.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	taken.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	taken.position = Vector2(0.0, PROFILE_SIZE.y / 2.0 - 14.0)
+	taken.size = Vector2(PROFILE_SIZE.x, 28.0)
+	taken.add_theme_stylebox_override("normal", _card(Color(0.02, 0.02, 0.06, 0.88), Color(0.5, 0.5, 0.6), 2))
+	taken.visible = false
+	button.add_child(taken)
+	_taken_labels[character.id] = taken
 	button.pressed.connect(pick_character.bind(character.id))
 	return button
 

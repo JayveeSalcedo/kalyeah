@@ -110,7 +110,7 @@ func test_online_match_screen_picks_then_plays_against_the_server() -> void:
 	pick.tap(&"bato_light")
 	pick.tap(&"lata")
 	pick.press_ready()
-	(views[1].get_node("%PickScreen") as WeaponPickScreen).pick_character(&"ligaya")
+	(views[1].get_node("%PickScreen") as WeaponPickScreen).pick_character(&"popoy")
 	(views[1].get_node("%PickScreen") as WeaponPickScreen).tap(&"jacks")
 	(views[1].get_node("%PickScreen") as WeaponPickScreen).tap(&"bola")
 	(views[1].get_node("%PickScreen") as WeaponPickScreen).press_ready()
@@ -124,7 +124,7 @@ func test_online_match_screen_picks_then_plays_against_the_server() -> void:
 	var me: int = views[0].local_id
 	assert_eq(server_sim.players[me].weapons, [&"bato_light", &"lata"] as Array[StringName])
 	assert_eq(server_sim.players[me].character_id, &"popoy", "the server plays the kid we picked")
-	assert_eq(server_sim.players[views[1].local_id].character_id, &"ligaya")
+	assert_eq(server_sim.players[views[1].local_id].character_id, &"popoy", "the other team may play the same kid")
 	assert_eq(views[1].sim.players[me].character_id, &"popoy", "the other player sees our kid")
 	assert_eq((views[1]._views[me] as KidModel).character.id, &"popoy", "and its 3D model")
 	var start: Vector2 = server_sim.players[me].position

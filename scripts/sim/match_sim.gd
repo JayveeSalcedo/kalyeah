@@ -166,17 +166,27 @@ func random_loadout() -> Array[StringName]:
 	return [ids[first], ids[second]]
 
 
-## Sets a player's character (the one they picked). Nobody shares a kid: whoever held it
-## gets the previous one back (a swap). False for an unknown id or player.
+## Sets a player's character (the one they picked). A team never has the same kid twice:
+## the teammate who held it gets the previous one back (a swap). The other team may have the
+## same kid (once). False for an unknown id or player.
 func set_character(id: int, character_id: StringName) -> bool:
 	if not players.has(id) or not rules.characters.any(func(c: CharacterDef) -> bool: return c.id == character_id):
 		return false
 	var previous: StringName = players[id].character_id
 	for other: int in players:
-		if other != id and players[other].character_id == character_id:
+		if other != id and players[other].team == players[id].team and players[other].character_id == character_id:
 			players[other].character_id = previous
 	players[id].character_id = character_id
 	return true
+
+
+## The kids a teammate of `id` has locked in (they confirmed), which `id` cannot take.
+func teammates_kids(id: int, confirmed: Array[int]) -> Array[StringName]:
+	var kids: Array[StringName] = []
+	for other: int in confirmed:
+		if other != id and players.has(other) and players.has(id) and players[other].team == players[id].team:
+			kids.append(players[other].character_id)
+	return kids
 
 
 ## Gives every player a random character, no duplicates (seeded, so the server and

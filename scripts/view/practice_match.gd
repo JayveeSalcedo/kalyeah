@@ -91,6 +91,7 @@ func _ready() -> void:
 	_opening_pick = true
 	if online:
 		client.stage_changed.connect(_on_stage_changed)
+		client.picks_changed.connect(func() -> void: _pick_screen.set_taken(client.taken_kids()))
 		client.connection_changed.connect(_on_connection_changed)
 		client.loaded()
 		if client.stage == "play":

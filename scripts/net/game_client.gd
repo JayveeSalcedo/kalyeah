@@ -15,6 +15,8 @@ signal room_changed(room: Dictionary)
 signal match_loading(info: Dictionary)
 ## "pick" (10 s weapon pick) or "play" (loadouts are final).
 signal stage_changed(stage: String)
+## Someone confirmed their pick: the kids a team has locked in changed (during the pick).
+signal picks_changed
 signal snapshot_applied
 
 var player_name: String = ""
@@ -157,6 +159,15 @@ func loaded() -> void:
 	send({"t": NetProtocol.Msg.LOADED})
 
 
+## The players who confirmed their pick (from the server).
+var locked_players: Array[int] = []
+
+
+## The kids a confirmed teammate plays: this player cannot take them.
+func taken_kids() -> Array[StringName]:
+	return mirror.teammates_kids(player_id, locked_players) if mirror != null else []
+
+
 func pick_weapons(first: StringName, second: StringName, character: StringName = &"") -> void:
 	send({"t": NetProtocol.Msg.PICK_WEAPONS, "a": first, "b": second, "c": character})
 
@@ -253,7 +264,12 @@ func _on_stage(message: Dictionary) -> void:
 		for id: Variant in kids:
 			if mirror.players.has(id as int):
 				mirror.players[id as int].character_id = kids[id] as StringName
+		locked_players.clear()
+		for id: Variant in message.get("locked", []) as Array:
+			locked_players.append(id as int)
 	stage_changed.emit(stage)
+	if stage == "pick":
+		picks_changed.emit()
 
 
 func _on_snapshot(data: Dictionary) -> void:
