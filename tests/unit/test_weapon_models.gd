@@ -23,7 +23,10 @@ func test_the_models_are_matched_to_their_weapons() -> void:
 	assert_eq(WeaponModel.OBJECTS[&"bola"][0], "marble")
 	assert_eq(WeaponModel.OBJECTS[&"papel_trap"][0], "crumpled_paper")
 	assert_eq(WeaponModel.OBJECTS[&"trumpo"][0], "trumpo")
-	assert_false(WeaponModel.has_model(&"bato_light"), "the light rock keeps its code-drawn object")
+	assert_eq(WeaponModel.OBJECTS[&"bato_light"][0], "meteor", "the light rock is the meteor's stone, small")
+	for def: WeaponDef in (load("res://data/rules/game_rules.tres") as GameRules).weapons:
+		if def.shape == WeaponDef.Shape.TARGETED or def.shape == WeaponDef.Shape.SPINNER or def.shape == WeaponDef.Shape.BOUNCER or def.shape == WeaponDef.Shape.BOOMERANG or def.id == &"lata":
+			assert_true(WeaponModel.has_model(def.id), "%s is thrown as a 3D model" % def.id)
 
 
 func test_a_thrown_object_is_scaled_to_its_length_and_centred() -> void:

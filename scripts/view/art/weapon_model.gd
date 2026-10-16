@@ -17,6 +17,8 @@ const OBJECTS: Dictionary[StringName, Array] = {
 	&"bola": ["marble", 0.8],
 	&"papel_trap": ["crumpled_paper", 0.7],
 	&"trumpo": ["trumpo", 0.9],
+	# the light rock is the meteor's stone, small (the owner made no separate rock)
+	&"bato_light": ["meteor", 0.55],
 }
 ## The spikes of a jacks field: this many clusters (one in the middle, the rest in a ring), each
 ## this wide in metres.
