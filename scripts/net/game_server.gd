@@ -78,7 +78,17 @@ func _handle(from: int, message: Dictionary) -> void:
 		M.HELLO:
 			_names[from] = rooms.clean_name(message.get("name", "") as String)
 			var member: RoomService.Member = rooms.reconnect(message.get("token", "") as String, from)
-			send(from, {"t": M.WELCOME, "reconnected": member != null})
+			var welcome: Dictionary = {
+				"t": M.WELCOME,
+				"v": NetProtocol.VERSION,
+				"reconnected": member != null,
+			}
+			if member != null:
+				var member_room: RoomService.Room = rooms.room_of_peer(from)
+				var member_match: ServerMatch = matches.get(member_room.code) as ServerMatch
+				if member_match != null:
+					welcome["input_next"] = member_match.next_input_sequence(member.player_id)
+			send(from, welcome)
 			if member != null:
 				var room: RoomService.Room = rooms.room_of_peer(from)
 				_send_room(room)

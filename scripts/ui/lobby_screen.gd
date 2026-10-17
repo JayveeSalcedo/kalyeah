@@ -1,7 +1,7 @@
 class_name LobbyScreen
 extends Control
 ## Online lobby (portrait): server address and name, then Create (1v1 / 2v2 / 3v3)
-## or Join (6-letter code), then the room: two team columns, best of 3 / 5 / 7
+## or Join (8-character alphanumeric code), then the room: two team columns, best of 3 / 5 / 7
 ## (the host picks, everyone sees it), Ready, Start (host) and Leave. When the host starts, it switches to the online match scene.
 ## Built in code; all networking goes through the GameClient in `Net`.
 
@@ -9,6 +9,7 @@ enum Intent { CREATE, JOIN }
 
 const MATCH_SCENE: String = "res://scenes/match/online.tscn"
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
+const NET_RULES: NetRules = preload("res://data/rules/net_rules.tres")
 const TEAM_NAMES: Array[String] = ["Blue team", "Red team"]
 const TEAM_COLORS: Array[Color] = [Color(0.45, 0.65, 1.0), Color(1.0, 0.45, 0.45)]
 const FONT: int = 28
@@ -114,8 +115,8 @@ func submit() -> void:
 		_pending = client.create_room.bind(_team_size)
 	else:
 		var code: String = _code_edit.text.strip_edges().to_upper()
-		if code.length() != 6:
-			_status.text = "Room codes have 6 letters."
+		if code.length() != NET_RULES.passcode_length:
+			_status.text = "Room codes have %d characters." % NET_RULES.passcode_length
 			return
 		_pending = client.join_room.bind(code)
 	if client.is_online():
@@ -290,8 +291,8 @@ func _build() -> void:
 		choose_size(1)
 	else:
 		_setup.add_child(_label("Room code", FONT))
-		_code_edit = _edit("", "ABC234")
-		_code_edit.max_length = 6
+		_code_edit = _edit("", "ABC234XY")
+		_code_edit.max_length = NET_RULES.passcode_length
 		_code_edit.add_theme_font_size_override("font_size", BIG_FONT)
 		_code_edit.text_changed.connect(func(text: String) -> void:
 			var caret: int = _code_edit.caret_column

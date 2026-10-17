@@ -98,7 +98,7 @@ func test_wrong_code_is_an_error() -> void:
 	_connect_both()
 	var errors: Array[String] = []
 	b.error_received.connect(func(text: String) -> void: errors.append(text))
-	b.join_room("ZZZZZZ")
+	b.join_room("ZZZZZZZZ")
 	assert_true(_until(func() -> bool: return not errors.is_empty()))
 	assert_eq(errors[0], "No room with that code.")
 

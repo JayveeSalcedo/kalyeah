@@ -3,6 +3,8 @@
 All numbers live in `res://data/` resources, never hardcoded. Units: meters, seconds. Values below are **starting points** for balancing; change them in data, not code.
 
 ## Core
+Kalyeah's core match is based on **Agawan Base**. `Langit Lupa` is a weapon category in the loadout, not the match ruleset.
+
 | Key | Value |
 |---|---|
 | Player max HP | 100 (same for everyone) |
@@ -102,6 +104,7 @@ Copied from the reference video (owner): one street. **The playing area is squar
 ## Main screen (owner)
 - **Background:** the owner's blue diamond picture. **Top:** your profile (the face of a random character, picked once, and your name: tap to rename, 1 to 12 letters, a default like "Kalye482" for a new player) and **Settings**. Then the still KALYEAH! wordmark and **the map model** (owner: nothing moves, no kids, no team colours, no sidewalks, no extra street past the ends): the play area in the game's exact square shape (cement on a stone base, no overhang) with only the corner props: the two electric posts (bases) and the cardboard walls of the two tagged boxes.
 - **Four buttons in a 2x2 grid at the bottom (owner):** **PRACTICE** (offline, training dummies, no server needed) and **HOTSPOT** on top; **ONLINE** and **QUIT** below. ONLINE opens Create room / Join room on the game server. HOTSPOT opens the same choice for a game server running on the same phone hotspot or Wi-Fi: it asks for that device's address (saved, e.g. 192.168.43.1:9080; private addresses use plain `ws://`, so it works in the Android app; a browser page on https cannot open it). QUIT asks "Leave Kalyeah?" first (in a browser it leaves the page). No version text, no ONLINE caption, no server line on the screen.
+- **Online private rooms:** the host creates a room and the server returns an **8-character alphanumeric code**. Friends join that exact room by entering the code.
 - **Settings:** sound volume (0 to 100%, saved; 0 is silent), vibration on button presses (only on phones), and the online server address (saved; used by Create / Join). Back / Escape closes a dialog, or asks to quit when none is open.
 
 ## HUD

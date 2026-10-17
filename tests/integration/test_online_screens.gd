@@ -87,8 +87,8 @@ func test_join_with_a_bad_code_shows_why() -> void:
 	var guest: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
 	guest.set_fields(URL, "Ben", "ABC")
 	guest.submit()
-	assert_eq(guest.status_text(), "Room codes have 6 letters.")
-	guest.set_fields(URL, "Ben", "ZZZZZZ")
+	assert_eq(guest.status_text(), "Room codes have 8 characters.")
+	guest.set_fields(URL, "Ben", "ZZZZZZZZ")
 	guest.submit()
 	assert_true(_until(func() -> bool: return guest.status_text() == "No room with that code."))
 
@@ -154,4 +154,5 @@ func test_the_match_screen_reconnects_by_itself_after_a_drop() -> void:
 	assert_eq(guest.mirror, mirror, "same mirror, so the screen keeps working")
 	var member: RoomService.Member = server.rooms.rooms.values()[0].member(guest.player_id)
 	assert_true(_until(func() -> bool: return member.connected, 3.0), "the server gave the slot back")
+	assert_eq(view.banner_text(), "Back online!", "success is shown only after the slot is reclaimed")
 	Session.reconnect_url = ""
