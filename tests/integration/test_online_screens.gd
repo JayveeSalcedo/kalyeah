@@ -87,8 +87,8 @@ func test_join_with_a_bad_code_shows_why() -> void:
 	var guest: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
 	guest.set_fields(URL, "Ben", "ABC")
 	guest.submit()
-	assert_eq(guest.status_text(), "Room codes have 6 letters.")
-	guest.set_fields(URL, "Ben", "ZZZZZZ")
+	assert_eq(guest.status_text(), "Room codes have 8 characters.")
+	guest.set_fields(URL, "Ben", "ZZZZZZZZ")
 	guest.submit()
 	assert_true(_until(func() -> bool: return guest.status_text() == "No room with that code."))
 
