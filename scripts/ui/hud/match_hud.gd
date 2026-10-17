@@ -86,10 +86,17 @@ func set_top_inset(pixels: float) -> void:
 
 func set_controls_active(active: bool) -> void:
 	if not active:
-		joystick.release()
+		cancel_controls()
 	joystick.set_process_input(active)
 	for control: Control in aim_buttons:
 		control.set_process_input(active)
+
+
+## Clears every live gesture while leaving input processing in its current state.
+func cancel_controls() -> void:
+	joystick.release()
+	for button: AimButton in aim_buttons:
+		button.cancel_aim()
 
 
 func controls_active() -> bool:

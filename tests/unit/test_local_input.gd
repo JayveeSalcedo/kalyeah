@@ -122,6 +122,18 @@ func test_hiding_the_controls_lets_go_of_the_stick() -> void:
 	assert_eq(hud.joystick.value, Vector2.ZERO, "no running on by itself under a menu")
 
 
+func test_hiding_the_controls_cancels_an_active_aim() -> void:
+	var hud: MatchHud = autofree(MatchHud.new()) as MatchHud
+	add_child(hud)
+	var button: AimButton = hud.aim_buttons[0]
+	watch_signals(button)
+	button._begin(button.get_global_rect().get_center())
+	hud.set_controls_active(false)
+	assert_signal_emitted_with_parameters(button, "aim_released", [Vector2.ZERO, true])
+	assert_false(button.aiming)
+	assert_null(TouchButton.holder)
+
+
 func test_the_score_sits_at_the_top_right() -> void:
 	var screen_root: Control = autofree(Control.new()) as Control
 	screen_root.size = Vector2(720.0, 1280.0)

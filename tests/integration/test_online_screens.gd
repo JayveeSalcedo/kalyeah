@@ -154,4 +154,5 @@ func test_the_match_screen_reconnects_by_itself_after_a_drop() -> void:
 	assert_eq(guest.mirror, mirror, "same mirror, so the screen keeps working")
 	var member: RoomService.Member = server.rooms.rooms.values()[0].member(guest.player_id)
 	assert_true(_until(func() -> bool: return member.connected, 3.0), "the server gave the slot back")
+	assert_eq(view.banner_text(), "Back online!", "success is shown only after the slot is reclaimed")
 	Session.reconnect_url = ""

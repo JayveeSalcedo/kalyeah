@@ -42,6 +42,10 @@ var players: Dictionary[int, PlayerState] = {}
 var obstacles: Array[Rect2] = []
 ## Live weapon effects (projectiles, zones, shields).
 var weapons: WeaponSystem = WeaponSystem.new()
+## Authoritative weapon input and cast-on-release state machine.
+var casting: WeaponCasting = WeaponCasting.new()
+## Tag, rescue, capture, scoring, and round reset rules.
+var objectives: MatchObjectives = MatchObjectives.new()
 ## id -> WeaponDef, from rules.weapons.
 var weapon_defs: Dictionary[StringName, WeaponDef] = {}
 var score: MatchScore
@@ -267,7 +271,7 @@ func damage(id: int, amount: int) -> void:
 	state.hp = maxi(0, state.hp - amount)
 	player_damaged.emit(id, amount)
 	if state.hp <= 0:
-		_tag(state)
+		objectives.tag(self, state)
 
 
 ## Heals up to max HP; returns the HP actually gained. Nothing while tagged.
@@ -287,7 +291,7 @@ func heal(id: int, amount: int) -> int:
 func kill(id: int) -> void:
 	if players.has(id) and not players[id].tagged:
 		players[id].hp = 0
-		_tag(players[id])
+		objectives.tag(self, players[id])
 
 
 ## Starts the opening show: both teams stand at their posts for
@@ -312,7 +316,7 @@ func step(dt: float) -> void:
 	if phase == Phase.POINT_FREEZE:
 		freeze_left -= dt
 		if freeze_left <= 0.0:
-			_end_freeze()
+			objectives.end_freeze(self)
 		tick += 1
 		return
 	for id: int in _brains:
@@ -327,8 +331,8 @@ func step(dt: float) -> void:
 			_step_free(state, input, dt)
 	match_time += dt
 	weapons.step(self, dt)
-	_check_rescues()
-	_check_captures(dt)
+	objectives.check_rescues(self)
+	objectives.check_captures(self, _brains, dt)
 	tick += 1
 
 
@@ -341,7 +345,7 @@ func _step_free(state: PlayerState, input: PlayerInput, dt: float) -> void:
 	state.effects.step(dt)
 	_tick_cooldowns(state, dt)
 	if input != null:
-		_handle_weapon_buttons(state, input, dt)
+		casting.handle(self, state, input, dt)
 	_move(state, input, dt)
 
 
@@ -353,130 +357,22 @@ func _step_tagged(state: PlayerState, input: PlayerInput, dt: float) -> void:
 	if input != null:
 		state.previous_buttons = input.buttons
 	if _brains.has(state.id) and state.tag_time >= rules.dummy_release_time:
-		_rescue(state, RELEASED_ALONE)
+		objectives.rescue(self, state, RELEASED_ALONE)
 
 
-## Off to the box of the player's team (own: top-left, enemy: bottom-right).
-func _tag(state: PlayerState) -> void:
-	var waiting: int = 0
-	for id: int in players:
-		if players[id].team == state.team and players[id].tagged:
-			waiting += 1
-	state.tagged = true
-	state.hp = 0
-	state.tag_time = 0.0
-	_clear_actions(state)
-	state.position = layout.jail_slot(side_for_team(state.team), waiting)
-	state.facing = Vector2(0.0, side_for_team(state.team))
-	player_tagged.emit(state.id)
-
-
-## A free teammate stepping into the rescue area round the box (or the box) frees whoever
-## waits there (everyone, or one per touch when `rescue_frees_all` is off).
-func _check_rescues() -> void:
-	for id: int in players:
-		var rescuer: PlayerState = players[id]
-		if rescuer.tagged:
-			continue
-		var box: Rect2 = layout.rescue_rect(side_for_team(rescuer.team)).grow(rescuer.radius)
-		if not box.has_point(rescuer.position):
-			continue
-		for other_id: int in players:
-			var waiting: PlayerState = players[other_id]
-			if waiting.team == rescuer.team and waiting.tagged:
-				_rescue(waiting, rescuer.id)
-				if not rules.rescue_frees_all:
-					break
-
-
-## Back to the post at full HP.
-func _rescue(state: PlayerState, by_id: int) -> void:
-	state.tagged = false
-	state.tag_time = 0.0
-	state.hp = rules.player_max_hp
-	state.position = state.spawn_position
-	state.facing = Vector2(0.0, -side_for_team(state.team))
-	_clear_actions(state)
-	player_rescued.emit(state.id, by_id)
-
-
-## Status effects, cast locks and weapon aiming end on a tag or rescue.
-## Cooldowns keep running.
-func _clear_actions(state: PlayerState) -> void:
-	state.cast_lock_left = 0.0
-	state.effects.clear()
-	state.aim_hold = [-1.0, -1.0]
-
-
-## Weapons cast on release: a fresh press starts aiming (only if the weapon is
-## ready: no precasting during a cooldown), hold time counts up (cone snips) and
-## release casts unless it was released over the cancel zone. Auto-aim is taken
-## once at the press; hard CC drops a held aim.
-func _handle_weapon_buttons(state: PlayerState, input: PlayerInput, dt: float) -> void:
-	var bits: Array[int] = [PlayerInput.BTN_WEAPON_1, PlayerInput.BTN_WEAPON_2]
-	for slot: int in bits.size():
-		var held: bool = input.is_pressed(bits[slot])
-		var was_held: bool = (state.previous_buttons & bits[slot]) != 0
-		if held and not was_held:
-			if weapon_ready(state, slot):
-				state.aim_hold[slot] = 0.0
-				_lock_aim(state, slot)
-			else:
-				state.aim_hold[slot] = -1.0
-		elif held and state.aim_hold[slot] >= 0.0:
-			if state.tagged or not state.effects.can_cast():
-				state.aim_hold[slot] = -1.0
-			else:
-				state.aim_hold[slot] += dt
-		elif not held and was_held and state.aim_hold[slot] >= 0.0:
-			if not input.is_pressed(PlayerInput.BTN_AIM_CANCEL):
-				_try_fire(state, slot, input.aim, state.aim_hold[slot])
-			state.aim_hold[slot] = -1.0
-	state.previous_buttons = input.buttons
-
-
-## A weapon slot can start aiming: equipped, off cooldown, and casting allowed.
 func weapon_ready(state: PlayerState, slot: int) -> bool:
-	return (
-		not state.tagged and state.effects.can_cast()
-		and slot < state.weapons.size() and state.weapon_cooldowns[slot] <= 0.0
-	)
+	return casting.weapon_ready(state, slot)
 
 
 ## The aim a release would use: the stick if it is past the deadzone, otherwise the
 ## auto-aim locked at the press (or a live auto-aim if the slot is not held yet).
 func resolved_aim(state: PlayerState, slot: int, stick: Vector2) -> Vector2:
-	if stick.length() >= rules.aim_deadzone:
-		return stick.limit_length(1.0)
-	if state.aim_hold[slot] >= 0.0:
-		return state.aim_lock[slot]
-	return weapons.auto_aim(self, state, weapon_defs[state.weapons[slot]])
+	return casting.resolved_aim(self, state, slot, stick)
 
 
 ## The target a TARGETED weapon would throw at (locked at the press while held).
 func resolved_target(state: PlayerState, slot: int) -> int:
-	if state.aim_hold[slot] >= 0.0:
-		return state.aim_target[slot]
-	var target: PlayerState = nearest_enemy(state, weapon_defs[state.weapons[slot]].max_range)
-	return target.id if target != null else -1
-
-
-func _lock_aim(state: PlayerState, slot: int) -> void:
-	var def: WeaponDef = weapon_defs[state.weapons[slot]]
-	state.aim_lock[slot] = weapons.auto_aim(self, state, def)
-	var target: PlayerState = nearest_enemy(state, def.max_range)
-	state.aim_target[slot] = target.id if target != null else -1
-
-
-func _try_fire(state: PlayerState, slot: int, stick: Vector2, hold_seconds: float) -> void:
-	if not state.can_act() or not weapon_ready(state, slot):
-		return
-	var def: WeaponDef = weapon_defs[state.weapons[slot]]
-	var aim: Vector2 = resolved_aim(state, slot, stick)
-	if weapons.fire(self, state, def, aim, hold_seconds, state.aim_target[slot]):
-		state.weapon_cooldowns[slot] = def.cooldown
-		state.cast_lock_left = def.cast_lock
-		weapon_cast.emit(state.id, def.id)
+	return casting.resolved_target(self, state, slot)
 
 
 func _move(state: PlayerState, input: PlayerInput, dt: float) -> void:
@@ -528,110 +424,17 @@ func obstacle_at_point(point: Vector2) -> int:
 	return -1
 
 
-## The players a capture needs: everyone on `team` except training dummies.
-func _capture_members(team: int) -> Array[PlayerState]:
-	var result: Array[PlayerState] = []
-	for id: int in players:
-		if players[id].team == team and not _brains.has(id):
-			result.append(players[id])
-	return result
-
-
 ## Every player of `team` free and standing in the enemy base.
 func team_in_enemy_base(team: int) -> bool:
-	var members: Array[PlayerState] = _capture_members(team)
-	if members.is_empty():
-		return false
-	var enemy_side: int = -side_for_team(team)
-	for state: PlayerState in members:
-		if state.tagged or not layout.in_base(enemy_side, state.position):
-			return false
-	return true
+	return objectives.team_in_enemy_base(self, team, _brains)
 
 
 ## Every player of the other team waiting in a box (a team of training dummies
 ## never scores this way).
 func all_enemies_tagged(team: int) -> bool:
-	var members: Array[PlayerState] = _capture_members(1 - team)
-	if members.is_empty() or _capture_members(team).is_empty():
-		return false
-	for state: PlayerState in members:
-		if not state.tagged:
-			return false
-	return true
-
-
-## The capture countdown runs while a team keeps a capture going (whole team in the
-## enemy base, or every enemy tagged); it restarts as soon as that breaks.
-func _check_captures(dt: float) -> void:
-	var team: int = -1
-	var kind: CaptureKind = CaptureKind.NONE
-	for candidate: int in [0, 1]:
-		if team_in_enemy_base(candidate):
-			team = candidate
-			kind = CaptureKind.BASE
-			break
-		if all_enemies_tagged(candidate):
-			team = candidate
-			kind = CaptureKind.ALL_TAGGED
-			break
-	if team != capture_team or kind != capture_kind:
-		capture_team = team
-		capture_kind = kind
-		capture_elapsed = 0.0
-	if team < 0:
-		return
-	capture_elapsed += dt
-	if capture_elapsed >= rules.capture_time:
-		_score_point(team, kind)
+	return objectives.all_enemies_tagged(self, team, _brains)
 
 
 ## Seconds left on the running capture countdown (0 when none runs).
 func capture_time_left() -> float:
-	if capture_team < 0:
-		return 0.0
-	return maxf(0.0, rules.capture_time - capture_elapsed)
-
-
-func _score_point(team: int, how: CaptureKind) -> void:
-	var result: MatchScore.Result = score.award_point(team)
-	_clear_capture()
-	point_scored.emit(team, how)
-	if result == MatchScore.Result.MATCH:
-		phase = Phase.MATCH_OVER
-		match_won.emit(team)
-		return
-	phase = Phase.POINT_FREEZE
-	freeze_left = rules.point_freeze_time
-
-
-func _end_freeze() -> void:
-	_reset_round()
-	phase = Phase.PLAYING
-	point_reset.emit()
-
-
-func _clear_capture() -> void:
-	capture_team = -1
-	capture_kind = CaptureKind.NONE
-	capture_elapsed = 0.0
-
-
-## Everyone back to their post at full HP, out of the boxes, cooldowns and effects
-## cleared; weapon objects are removed.
-func _reset_round() -> void:
-	weapons.reset()
-	_clear_capture()
-	for id: int in players:
-		var state: PlayerState = players[id]
-		var was_tagged: bool = state.tagged
-		_clear_actions(state)
-		state.position = state.spawn_position
-		state.facing = Vector2(0.0, -side_for_team(state.team))
-		state.hp = rules.player_max_hp
-		state.tagged = false
-		state.tag_time = 0.0
-		for slot: int in state.weapon_cooldowns.size():
-			state.weapon_cooldowns[slot] = 0.0
-		if was_tagged:
-			player_rescued.emit(id, RELEASED_ALONE)
+	return objectives.capture_time_left(self)

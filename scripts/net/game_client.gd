@@ -30,6 +30,9 @@ var stage: String = ""
 var stage_time: float = 0.0
 ## The client's copy of the match, read by the views.
 var mirror: MatchSim
+## The next wire sequence accepted by the authoritative match. Game input may
+## restart its own counter after a page reload; send_input maps it forward.
+var next_input_sequence: int = 1
 
 var _rules: GameRules
 var _layout: MapLayout
@@ -178,13 +181,16 @@ func swap_weapons(first: StringName, second: StringName) -> void:
 
 ## Sends this tick's input and moves the local player right away (prediction).
 func send_input(input: PlayerInput, dt: float) -> void:
-	if mirror == null:
+	if mirror == null or not is_online():
 		return
-	send(NetProtocol.input_to_dict(input))
+	var wire_tick: int = maxi(input.tick, next_input_sequence)
+	var wire_input: PlayerInput = PlayerInput.create(input.move, input.aim, input.buttons, wire_tick)
+	send(NetProtocol.input_to_dict(wire_input))
+	next_input_sequence = wire_tick + 1
 	if stage != "play":
 		return
-	_pending.append(input)
-	mirror.predict_move(player_id, input, dt)
+	_pending.append(wire_input)
+	mirror.predict_move(player_id, wire_input, dt)
 
 
 ## Places the other players between the two snapshots around (now - delay).
@@ -215,7 +221,12 @@ func _handle(message: Dictionary) -> void:
 	var M := NetProtocol.Msg
 	match message["t"] as int:
 		M.WELCOME:
-			welcomed.emit(message.get("reconnected", false) as bool)
+			var reconnected: bool = message.get("reconnected", false) as bool
+			if message.has("input_next"):
+				next_input_sequence = maxi(next_input_sequence, message["input_next"] as int)
+			elif not reconnected:
+				next_input_sequence = 1
+			welcomed.emit(reconnected)
 		M.ERROR:
 			error_received.emit(message.get("text", "") as String)
 		M.ROOM:
@@ -289,7 +300,9 @@ func _on_snapshot(data: Dictionary) -> void:
 	while _buffer.size() > 4:
 		_buffer.pop_front()
 	if have_local:
-		_reconcile(server_position, (data.get("acks", {}) as Dictionary).get(player_id, -1) as int)
+		var ack: int = (data.get("acks", {}) as Dictionary).get(player_id, -1) as int
+		next_input_sequence = maxi(next_input_sequence, ack + 1)
+		_reconcile(server_position, ack)
 	snapshot_applied.emit()
 
 
