@@ -10,10 +10,7 @@ const LOCAL_ID: int = 1
 const BOT_IDS: Array[int] = [2, 3, 4]
 const MAX_STEPS_PER_FRAME: int = 8
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
-const CHALK: Color = Color(0.95, 0.94, 0.88)
 const HOME_TINT: Color = Color(0.2, 0.5, 1.0, 0.14)
-const LINE_WIDTH: float = 0.18
-const CHALK_HEIGHT: float = 0.035
 ## A flying slipper's arc: it leaves at hand height and peaks this much higher mid-flight.
 const SLIPPER_HAND: float = 0.9
 const SLIPPER_ARC: float = 1.4
@@ -203,18 +200,10 @@ func _make_slipper(id: int) -> void:
 func _build_field() -> void:
 	var street: Rect2 = layout.lane_rect()
 	var home: Rect2 = Rect2(street.position.x, preso.throw_line_z, street.size.x, street.end.y - preso.throw_line_z)
-	_add_flat(home, _material(HOME_TINT), CHALK_HEIGHT - 0.01)
-	_add_flat(Rect2(street.position.x, preso.throw_line_z - LINE_WIDTH / 2.0, street.size.x, LINE_WIDTH), _material(CHALK), CHALK_HEIGHT)
-	var ring: TorusMesh = TorusMesh.new()
-	ring.inner_radius = preso.can_circle_radius - LINE_WIDTH / 2.0
-	ring.outer_radius = preso.can_circle_radius + LINE_WIDTH / 2.0
-	ring.material = _material(CHALK)
-	var circle: MeshInstance3D = MeshInstance3D.new()
-	circle.mesh = ring
-	circle.scale = Vector3(1.0, 0.04, 1.0)
-	circle.position = Vector3(preso.can_spot.x, CHALK_HEIGHT, preso.can_spot.y)
-	circle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(circle)
+	var chalk: StandardMaterial3D = Chalk.material(Chalk.COLOR)
+	Chalk.add_rect(self, home, Chalk.material(HOME_TINT), Chalk.HEIGHT - 0.01)
+	Chalk.add_line(self, Vector2(street.position.x, preso.throw_line_z), Vector2(street.end.x, preso.throw_line_z), chalk)
+	Chalk.add_ring(self, preso.can_spot, preso.can_circle_radius, chalk)
 	_can_view = WeaponModel.make(&"lata", false)
 	add_child(_can_view)
 	_taya_tag = Label3D.new()
@@ -226,46 +215,10 @@ func _build_field() -> void:
 	_taya_tag.modulate = PresoHud.TAYA_COLOR
 	_taya_tag.pixel_size = 0.006
 	add_child(_taya_tag)
-	var line: BoxMesh = BoxMesh.new()
-	line.size = Vector3(AIM_WIDTH, 0.01, 1.0)
-	line.material = _material(Color(1.0, 1.0, 1.0, 0.55))
-	_aim_line = MeshInstance3D.new()
-	_aim_line.mesh = line
-	_aim_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_aim_line = Chalk.add_rect(self, Rect2(-AIM_WIDTH / 2.0, -0.5, AIM_WIDTH, 1.0), Chalk.material(Color(1.0, 1.0, 1.0, 0.55)), Chalk.HEIGHT + 0.01)
 	_aim_line.visible = false
-	add_child(_aim_line)
-	var dot: TorusMesh = TorusMesh.new()
-	dot.inner_radius = 0.42
-	dot.outer_radius = 0.55
-	dot.material = _material(MARKER_COLOR)
-	_marker = MeshInstance3D.new()
-	_marker.mesh = dot
-	_marker.scale = Vector3(1.0, 0.05, 1.0)
-	_marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_marker = Chalk.add_ring(self, Vector2.ZERO, 0.48, Chalk.material(MARKER_COLOR), 0.13)
 	_marker.visible = false
-	add_child(_marker)
-
-
-func _material(color: Color) -> StandardMaterial3D:
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = color
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	if color.a < 1.0:
-		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		material.render_priority = -100
-	return material
-
-
-func _add_flat(rect: Rect2, material: StandardMaterial3D, height: float) -> void:
-	var box: BoxMesh = BoxMesh.new()
-	box.size = Vector3(rect.size.x, 0.01, rect.size.y)
-	box.material = material
-	var mesh: MeshInstance3D = MeshInstance3D.new()
-	mesh.mesh = box
-	var center: Vector2 = rect.get_center()
-	mesh.position = Vector3(center.x, height, center.y)
-	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mesh)
 
 
 # ---- drawing -------------------------------------------------------------------------
@@ -305,7 +258,7 @@ func _sync_slipper(id: int, delta: float) -> void:
 	view.position = Vector3(slipper.position.x, height, slipper.position.y)
 	if id == LOCAL_ID:
 		_marker.visible = not slipper.flying
-		_marker.position = Vector3(slipper.position.x, CHALK_HEIGHT, slipper.position.y)
+		_marker.position = Vector3(slipper.position.x, Chalk.HEIGHT, slipper.position.y)
 
 
 func _sync_can() -> void:
@@ -340,7 +293,7 @@ func _sync_aim() -> void:
 		return
 	var direction: Vector2 = sim.throw_direction(player, stick)
 	var middle: Vector2 = player.position + direction * preso.slipper_range / 2.0
-	_aim_line.position = Vector3(middle.x, CHALK_HEIGHT + 0.01, middle.y)
+	_aim_line.position = Vector3(middle.x, Chalk.HEIGHT + 0.01, middle.y)
 	_aim_line.rotation.y = atan2(direction.x, direction.y)
 	_aim_line.scale = Vector3(1.0, 1.0, preso.slipper_range)
 

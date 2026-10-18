@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="PatinteroRules" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/sim/patintero_rules.gd" id="1_patintero"]
+
+[resource]
+script = ExtResource("1_patintero")
+field_half_width = 3.5
+start_line_z = 5.0
+back_line_z = -10.0
+guard_lines = Array[float]([0.0, -5.0])
+tag_distance = 1.0
+out_of_bounds_catches = true
+tagger_speed_scale = 1.0
+home_row_offset = 1.5
+runner_spacing = 2.5
+turn_time = 45.0
+switch_freeze_time = 2.0
+intro_time = 3.0
+points_to_win = 3
+max_turns = 12
+bot_reaction_min = 0.3
+bot_reaction_max = 0.7
+bot_gap_min = 2.2
+bot_gap_max = 4.2
+bot_middle_gap = 8.0
+bot_line_margin = 0.5
+bot_side_margin = 1.0
+bot_far_margin = 1.2

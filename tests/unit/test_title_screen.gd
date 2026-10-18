@@ -50,6 +50,7 @@ func test_server_scene_and_lobby_scene_exist() -> void:
 	assert_true(ResourceLoader.exists(TitleScreen.LOBBY_SCENE))
 	assert_true(ResourceLoader.exists(TitleScreen.PRACTICE_SCENE))
 	assert_true(ResourceLoader.exists(TitleScreen.PRESO_SCENE))
+	assert_true(ResourceLoader.exists(TitleScreen.PATINTERO_SCENE))
 
 
 func test_practice_asks_which_street_game_to_play() -> void:
@@ -62,6 +63,9 @@ func test_practice_asks_which_street_game_to_play() -> void:
 	assert_not_null(base)
 	assert_not_null(preso)
 	assert_eq(preso.text, "TUMBANG PRESO")
+	var patintero: Button = _find(screen.dialog, "PatinteroButton") as Button
+	assert_not_null(patintero)
+	assert_eq(patintero.text, "PATINTERO")
 	assert_gte(preso.custom_minimum_size.y, 88.0, "big enough for a thumb")
 
 
