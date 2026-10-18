@@ -591,7 +591,7 @@ func test_the_match_opens_with_both_teams_then_go() -> void:
 	assert_eq(practice.sim.phase, MatchSim.Phase.INTRO)
 	practice.advance(DT)
 	assert_true(practice.hud.intro_bar.visible)
-	assert_eq(practice.hud.intro_title.text, "TAG THE ENEMY BASE!")
+	assert_eq(practice.hud.intro_title.text, "TAG THEIR BASE!")
 	assert_false(practice.hud.weapon_buttons[0].visible, "no buttons during the show")
 	var enemy_post: Vector2 = LAYOUT.base_center(-practice.own_side())
 	var seen: Vector2 = Vector2(camera.position.x, camera.position.z)
@@ -655,7 +655,19 @@ func test_the_hero_sits_near_the_lower_centre_of_a_portrait_screen() -> void:
 	player.position = Vector2(0.0, 0.0)
 	var camera: FollowCamera = practice.get_node("%FollowCamera") as FollowCamera
 	camera.follow(player.position, practice.own_side() == MapLayout.SIDE_ENEMY, 0.0)
-	var on_screen: Vector2 = camera.unproject_position(Vector3(player.position.x, 0.0, player.position.y))
+	var on_screen: Vector2 = camera.screen_position(Vector3(player.position.x, 0.0, player.position.y))
 	var size: Vector2 = camera.get_viewport().get_visible_rect().size
 	assert_almost_eq(on_screen.x / size.x, 0.5, 0.01, "centred left to right")
 	assert_almost_eq(on_screen.y / size.y, CAMERA.player_screen_y, 0.02, "in the lower part, the field ahead above")
+
+
+func test_the_far_end_of_the_street_goes_out_of_focus() -> void:
+	var practice: PracticeMatch = _practice()
+	var blur: ShaderMaterial = practice._presentation.far_blur
+	assert_not_null(blur, "the soft focus layer exists")
+	practice._presentation.update_far_blur()
+	var top: float = blur.get_shader_parameter("top_line") as float
+	var bottom: float = blur.get_shader_parameter("bottom_line") as float
+	assert_lt(top, bottom, "the far end line is above the near end line on the screen")
+	assert_lt(top, 0.5, "the far end is in the upper half")
+	assert_gt(top, -1.0)

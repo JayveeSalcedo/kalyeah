@@ -19,6 +19,8 @@ const WEAPON_SLOTS: int = 2
 const RECONNECT_INTERVAL: float = 2.0
 ## Practice-only debug button to test getting tagged without an enemy that fights back.
 const DEBUG_DAMAGE: int = 30
+## How long a status from the practice menu lasts (seconds), long enough to watch its animation.
+const STATUS_TEST_TIME: float = 3.0
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 
 @export var rules: GameRules
@@ -82,7 +84,7 @@ func _ready() -> void:
 	_pick_screen.confirmed.connect(_on_pick_confirmed)
 	_pick_screen.swapped.connect(_on_swapped)
 	_pick_screen.closed.connect(_set_controls_active.bind(true))
-	_open_pick("CHOOSE YOUR KID + 2 WEAPONS", [])
+	_open_pick("PICK A KID + 2 WEAPONS", [])
 	_opening_pick = true
 	if online:
 		client.stage_changed.connect(_on_stage_changed)
@@ -131,6 +133,16 @@ func aim_started(slot: int) -> void:
 ## A weapon button was let go with a screen-space `aim` (zero = auto-aim).
 func aim_released(aim: Vector2, cancelled: bool, slot: int) -> void:
 	input.aim_released(_screen_to_world(aim), cancelled, slot)
+
+
+## Practice menu: plays the animation a skill hit causes (stunned, airborne, knocked down) on the
+## local kid by giving it that status for a few seconds, and closes the menu to watch it.
+func play_status_test(type: int) -> void:
+	if online:
+		return
+	sim.players[local_id].effects.apply(type as StatusEffects.Type, STATUS_TEST_TIME)
+	hud.menu.close()
+	_presentation.sync(0.0)
 
 
 func hurt_local(amount: int) -> void:
@@ -267,7 +279,8 @@ func _mouse_aim(slot: int) -> Vector2:
 	if viewport == null or slot >= player.weapons.size():
 		return Vector2.ZERO
 	var mouse: Vector2 = viewport.get_mouse_position()
-	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(mouse), _camera.project_ray_normal(mouse))
+	var flat: Vector2 = _camera.flat_position(mouse)
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(flat), _camera.project_ray_normal(flat))
 	if hit == null:
 		return Vector2.ZERO
 	var point: Vector3 = hit as Vector3

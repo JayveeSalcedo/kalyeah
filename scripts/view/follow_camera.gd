@@ -25,7 +25,8 @@ var _flip: bool = false
 func _ready() -> void:
 	projection = Camera3D.PROJECTION_PERSPECTIVE
 	keep_aspect = Camera3D.KEEP_HEIGHT
-	fov = rules.vfov_degrees
+	# the wide curve lens bends this picture (shaders/lens_curve.gdshader): render a wider view for it
+	fov = rules.render_vfov_degrees()
 	near = NEAR
 	far = FAR
 	environment = StreetMap.make_environment()
@@ -38,6 +39,20 @@ func screen_aspect() -> float:
 		return 0.5625
 	var size: Vector2 = viewport.get_visible_rect().size
 	return size.x / size.y if size.y > 0.0 else 0.5625
+
+
+## Where on screen (pixels) the world point `world` shows, with the wide curve lens applied.
+func screen_position(world: Vector3) -> Vector2:
+	var flat: Vector2 = unproject_position(world)
+	var size: Vector2 = get_viewport().get_visible_rect().size
+	return LensCurve.output_px(flat, size, rules.lens_k())
+
+
+## The lens undone for a screen position (pixels): where the flat camera picture is at `screen`
+## (the mouse aim casts its ray through it).
+func flat_position(screen: Vector2) -> Vector2:
+	var size: Vector2 = get_viewport().get_visible_rect().size
+	return LensCurve.source_px(screen, size, rules.lens_k())
 
 
 ## Distance from the hero's ground point to the camera for this screen.

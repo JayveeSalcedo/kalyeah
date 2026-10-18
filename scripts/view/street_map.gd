@@ -43,7 +43,7 @@ const BASE_STEPS: int = 36
 const JAIL_WALL_THICKNESS: float = 0.5
 ## How high the sidewalks stand above the street (owner: raised, was 0.18 m).
 const CURB_HEIGHT: float = 0.4
-const SIDEWALK_WIDTH: float = 2.4
+const SIDEWALK_WIDTH: float = 1.2
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
 ## The main screen shows the play area alone as a small model, the game's exact 1:2 shape: the
@@ -51,7 +51,18 @@ const END_REACH: float = 16.0
 ## walls of the tagged boxes). No sidewalks, no team colours and no street past the ends.
 const PLINTH: Color = Color(0.4, 0.43, 0.54)
 const PLINTH_HEIGHT: float = 4.0
+## The main-screen model sits on a thicker blue platform that reaches this far past it.
+const PLATFORM: Color = Color(0.07, 0.16, 0.4)
+const PLATFORM_HEIGHT: float = 6.0
+const PLATFORM_MARGIN: float = 2.0
+## Corner radius of the main-screen model's slab and stone base (the platform's is wider by the margin).
+const CORNER_RADIUS: float = 1.8
 const HOUSE_SPACING: float = 6.4
+## The owner's shopfront models, in the order they repeat, and how wide each is on the street.
+const BUILDINGS: Array[String] = ["vulcanizing", "barber_shop", "nena_store"]
+## The two houses that fill in between the shopfronts (shop, house, shop, house, ...).
+const FILLER_HOUSES: Array[String] = ["house_1", "house_2", "house_3"]
+const BUILDING_WIDTH: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
 const PAVER_TILE: float = 2.4
@@ -85,16 +96,21 @@ const OBSTACLE_MODELS: Dictionary[StringName, String] = {
 }
 const COVER_HEIGHT: float = 1.15
 const POST_HEIGHT: float = 8.5
-## The barrier rows across both ends: every street thing at its real height (m), side by side
+## The barrier rows across both ends: every street thing at its real height (m), in proportion to
+## the kids (who stand 1.85 m, so a real thing is about 1.4 times its true size), side by side
 ## in this order (the far end starts half way along, so the two rows differ).
 const BARRIER_HEIGHTS: Dictionary[String, float] = {
-	"fishball_cart": 2.1, "tricycle": 2.0, "bench": 0.9, "crates": 1.1, "sacks": 1.2, "school_zone": 1.1,
-	"basketball_pole": 3.2, "ebike": 1.5, "truck_wheels": 0.8, "sewing_machine": 1.0, "ironing_board": 0.9,
-	"no_id_no_entry": 1.5, "rooster_tent": 1.3,
+	"fishball_cart": 2.0, "tricycle": 2.3, "bench": 0.7, "crates": 0.8, "sacks": 0.9, "school_zone": 1.8,
+	"basketball_pole": 4.2, "ebike": 1.6, "truck_wheels": 1.4, "sewing_machine": 1.1, "ironing_board": 1.0,
+	"no_id_no_entry": 1.7, "rooster_tent": 1.4, "plank_fence": 1.8, "roof_wall": 2.2, "roof_wall_2": 2.4,
 }
 ## Things whose long side is their depth: they are turned a quarter so the long side faces the play area.
 const BARRIER_TURNED: Array[String] = ["tricycle"]
 ## The nanay on the sidewalk by the sari-sari store, outside the play area, facing the street.
+## Parked beyond the barrier rows and on the sidewalk, outside the play area (heights in metres).
+const JEEP_HEIGHT: float = 2.8
+const PEDICAB_HEIGHT: float = 2.4
+const ICE_CREAM_CART_HEIGHT: float = 2.1
 const NANAY_HEIGHT: float = 2.2
 const NANAY_SWAY_DEGREES: float = 4.0
 const NANAY_SWAY_SECONDS: float = 3.5
@@ -229,9 +245,24 @@ func _reach() -> float:
 	return 0.0 if diorama else END_REACH
 
 
+## The dark, matte blue platform under the main-screen model (concentric with its rounded corners).
+func _platform() -> ArrayMesh:
+	var kit: LowPoly = LowPoly.new()
+	var half: float = layout.lane_length / 2.0
+	var under: float = -0.1 - PLINTH_HEIGHT
+	kit.rounded_slab(Vector3(0.0, under - PLATFORM_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width + PLATFORM_MARGIN * 2.0, PLATFORM_HEIGHT, half + PLATFORM_MARGIN * 2.0), CORNER_RADIUS + PLATFORM_MARGIN, PLATFORM, PLATFORM)
+	return kit.commit()
+
+
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO).material_override = street_material()
 	if diorama:
+		var matte: StandardMaterial3D = StandardMaterial3D.new()
+		matte.vertex_color_use_as_albedo = true
+		matte.roughness = 1.0
+		matte.metallic = 0.0
+		matte.metallic_specular = 0.0
+		_add(_platform(), Vector3.ZERO).material_override = matte
 		_add_corner_props()
 		return
 	_add_ground_textures()
@@ -261,10 +292,10 @@ func _add_tag_zones() -> void:
 
 ## The main-screen model's props: each base's electric post and each tagged box's cardboard walls.
 func _add_corner_props() -> void:
-	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
-		var center: Vector2 = layout.base_center(side)
-		_posts[side] = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
-		_add_jail(side)
+	# only the far half of the street is modelled: the enemy post (top right) and your box (top left)
+	var center: Vector2 = layout.base_center(MapLayout.SIDE_ENEMY)
+	_posts[MapLayout.SIDE_ENEMY] = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+	_add_jail(MapLayout.SIDE_OWN)
 	_turn_posts(MapLayout.SIDE_OWN)
 
 
@@ -286,11 +317,14 @@ func _street() -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + _reach() * 2.0
-	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	if diorama:
-		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
-		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(layout.lane_width, PLINTH_HEIGHT, length), PLINTH, PLINTH)
+		# the main-screen model is the far half only: the exact lane_width x lane_length / 2 area (1:1 when the street is 1:2)
+		var half: float = layout.lane_length / 2.0
+		kit.rounded_slab(Vector3(0.0, -0.05, -half / 2.0), Vector3(layout.lane_width, 0.1, half), CORNER_RADIUS, CEMENT, CEMENT)
+		# the chunky stone base the map model stands on
+		kit.rounded_slab(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width, PLINTH_HEIGHT, half), CORNER_RADIUS, PLINTH, PLINTH)
 		return kit.commit()
+	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
 		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_CEMENT)
@@ -549,14 +583,17 @@ func _add_barricades() -> void:
 			var depth: float = (natural.x if turned else natural.z) * model.scale.z
 			# set down by hand: a little in or out of line and a little turned
 			var setback: float = BARRIER_SETBACK + rng.randf_range(0.0, BARRIER_JITTER)
-			var at_z: float = end * (layout.lane_length / 2.0 + setback + depth / 2.0)
+			# turning a long thing swings its corners toward the play area: leave room for that
+			var swing: float = widths[k] * sin(deg_to_rad(BARRIER_TURN)) / 2.0
+			var at_z: float = end * (layout.lane_length / 2.0 + setback + depth / 2.0 + swing)
 			var turn: float = deg_to_rad(rng.randf_range(-BARRIER_TURN, BARRIER_TURN))
 			var yaw: float = (0.0 if end < 0.0 else PI) + (PI / 2.0 if turned else 0.0)
 			_add_prop(model, Vector3(x + widths[k] / 2.0, 0.0, at_z), yaw + turn)
 			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
-## House fronts along both sides, a sari-sari store, and houses across both far ends.
+## The owner's three shopfronts (Nena store, vulcanizing, barber shop) with his two houses between them, along both sides of the street, running on past
+## the ends (none across the ends), one of them (the Nena store) where the sari-sari store stood.
 func _add_houses() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0 + END_REACH
@@ -566,26 +603,18 @@ func _add_houses() -> void:
 	for side: float in [-1.0, 1.0]:
 		var z: float = -half_l + HOUSE_SPACING / 2.0
 		while z < half_l:
-			var yaw: float = 0.0 if side < 0.0 else PI
+			var id: String = BUILDINGS[(variant / 2) % BUILDINGS.size()] if variant % 2 == 0 else FILLER_HOUSES[(variant / 2) % FILLER_HOUSES.size()]
 			if side < 0.0 and absf(z - store_z) < HOUSE_SPACING / 2.0:
-				_add(Props.sari_sari(), Vector3(side * (front + 1.8), 0.0, store_z))
-				_add_sign("sari_sign", SARI_SIGN_HEIGHT, Vector3(side * (front + 0.4), 3.3, store_z))
-			else:
-				var tall: bool = variant % 3 == 1
-				var depth: float = 4.4 if tall else 4.0
-				var mesh: ArrayMesh = Props.house_tall(variant) if tall else Props.house(variant)
-				_add(mesh, Vector3(side * (front + depth / 2.0 + 0.2), 0.0, z), yaw)
-				if variant % 4 == 2:
-					_add(Props.tarpaulin(variant), Vector3(side * (front + 0.1), 2.6, z + 1.4), yaw)
+				id = "nena_store"
+				z = store_z
+			var natural: Vector3 = PropModel.size_of(id)
+			var scale_to: float = BUILDING_WIDTH / natural.x
+			var depth: float = natural.z * scale_to
+			# the front faces the street: +X on the left side, -X on the right
+			var yaw: float = PI / 2.0 if side < 0.0 else -PI / 2.0
+			_add_prop(PropModel.make(id, Vector3.ONE * scale_to), Vector3(side * (front + depth / 2.0 + 0.2), 0.0, z), yaw)
 			variant += 1
 			z += HOUSE_SPACING
-	# the street ends in more houses, facing back up the street
-	for end: float in [-1.0, 1.0]:
-		var x: float = -half_w - 2.0
-		while x < half_w + 3.0:
-			_add(Props.house(variant), Vector3(x, 0.0, end * (half_l + 2.2)), end * PI / 2.0)
-			variant += 1
-			x += HOUSE_SPACING
 
 
 ## Life around the street (no power poles or bunting, owner):
@@ -605,6 +634,7 @@ func _add_details() -> void:
 	var turned_in: float = nanay.rotation.y
 	sway.tween_property(nanay, "rotation:y", turned_in + deg_to_rad(NANAY_SWAY_DEGREES), NANAY_SWAY_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	sway.tween_property(nanay, "rotation:y", turned_in - deg_to_rad(NANAY_SWAY_DEGREES), NANAY_SWAY_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_add_parked_vehicles(half_w, half_l, walk_x)
 	for lz: float in [-half_l * 0.7, half_l * 0.3]:
 		_add(Props.laundry_line(4.0), Vector3(-walk_x - 0.6, CURB_HEIGHT, lz))
 	for lz: float in [-half_l * 0.25, half_l * 0.75]:
@@ -618,6 +648,22 @@ func _add_details() -> void:
 	for tz: float in [-30.0, -14.0, 4.0, 22.0]:
 		_add(Props.mango_tree(), Vector3(-tree_x - 1.0, 0.0, tz))
 		_add(Props.banana_plant(), Vector3(tree_x, 0.0, tz + 6.0))
+
+
+## The jeepney parked across the street behind the top barrier row, the pedicab behind the bottom
+## one, and the ice cream cart on the right sidewalk (all outside the play area).
+func _add_parked_vehicles(half_w: float, half_l: float, walk_x: float) -> void:
+	var jeep: Node3D = PropModel.by_height("jeep", JEEP_HEIGHT)
+	jeep.name = "Jeep"
+	var jeep_size: Vector3 = PropModel.size_of("jeep") * jeep.scale
+	_add_prop(jeep, Vector3(-half_w * 0.3, 0.0, -(half_l + BARRIER_SETBACK + BARRIER_JITTER + 2.0 + jeep_size.z / 2.0)))
+	var pedicab: Node3D = PropModel.by_height("pedicab", PEDICAB_HEIGHT)
+	pedicab.name = "Pedicab"
+	var pedicab_size: Vector3 = PropModel.size_of("pedicab") * pedicab.scale
+	_add_prop(pedicab, Vector3(half_w * 0.35, 0.0, half_l + BARRIER_SETBACK + BARRIER_JITTER + 2.0 + pedicab_size.x / 2.0), PI / 2.0)
+	var cart: Node3D = PropModel.by_height("ice_cream_cart", ICE_CREAM_CART_HEIGHT)
+	cart.name = "IceCreamCart"
+	_add_prop(cart, Vector3(walk_x, CURB_HEIGHT, -half_l * 0.6), -PI / 2.0)
 
 
 func _add_sign(texture_name: String, height: float, at: Vector3) -> void:

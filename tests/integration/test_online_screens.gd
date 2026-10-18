@@ -80,7 +80,7 @@ func test_lobby_create_join_ready_start() -> void:
 	assert_false(pair[1].start_enabled(), "only the host has Start")
 	pair[0].press_start()
 	assert_true(_until(func() -> bool: return pair[0].client.in_match() and pair[1].client.in_match()))
-	assert_eq(pair[1].status_text(), "Loading the match...")
+	assert_eq(pair[1].status_text(), "Loading...")
 
 
 func test_join_with_a_bad_code_shows_why() -> void:
@@ -156,3 +156,25 @@ func test_the_match_screen_reconnects_by_itself_after_a_drop() -> void:
 	assert_true(_until(func() -> bool: return member.connected, 3.0), "the server gave the slot back")
 	assert_eq(view.banner_text(), "Back online!", "success is shown only after the slot is reclaimed")
 	Session.reconnect_url = ""
+
+
+func test_a_hotspot_lobby_asks_for_no_address_and_no_code() -> void:
+	Session.lobby_hotspot = true
+	var joining: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
+	assert_null(joining.find_child("ServerField", true, false), "no address to type on a hotspot")
+	assert_null(joining._code_edit, "no room code to type either")
+	var creating: LobbyScreen = _lobby(LobbyScreen.Intent.CREATE)
+	assert_false(creating._code_label.visible, "and no code to show")
+	Session.lobby_hotspot = false
+
+
+func test_the_online_lobby_has_no_server_field_and_says_so_when_none_is_built_in() -> void:
+	Session.lobby_hotspot = false
+	var saved: String = Settings.server_url
+	Settings.server_url = ""
+	var lobby: LobbyScreen = _lobby(LobbyScreen.Intent.CREATE)
+	lobby.set_fields("", "Ana")
+	lobby.submit()
+	assert_eq(lobby.status_text(), "Online isn't available yet.")
+	assert_eq(lobby.find_children("*", "LineEdit", true, false).size(), 1, "only the name box")
+	Settings.server_url = saved

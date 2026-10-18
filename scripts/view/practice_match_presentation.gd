@@ -14,16 +14,39 @@ const INTRO_POST_TOP: float = 3.5
 var owner: PracticeMatch
 
 
+## The soft focus beyond the ends of the play area, or null when it is off.
+var far_blur: ShaderMaterial
+
+
 func _init(owner: PracticeMatch) -> void:
 	self.owner = owner
 
 
 func setup_hud() -> void:
 	owner.input.camera_yaw = owner._camera.rules.yaw_offset_degrees
+	Cinematic.add_lens(owner, owner._camera.rules.lens_k())
+	far_blur = Cinematic.add_depth_blur(owner, owner._camera.rules.far_blur_pixels, owner._camera.rules.far_blur_falloff, owner._camera.rules.far_blur_hold)
 	Cinematic.add_film_finish(owner)
 	owner.hud.overhead.setup(owner.sim, owner._camera, owner.local_id, owner.local_team)
 	owner.hud.minimap.setup(owner.sim, owner.local_id, owner.local_team)
 	owner.hud.set_top_inset(_safe_top_inset())
+
+
+## Tells the far-blur shader where the two ends of the play area are on screen: the far end line
+## (z = -half length) and the near end line, so everything beyond them goes out of focus.
+func update_far_blur() -> void:
+	if far_blur == null:
+		return
+	var size: Vector2 = owner.get_viewport().get_visible_rect().size
+	if size.y <= 0.0:
+		return
+	var half: float = owner.sim.layout.lane_length / 2.0
+	var rows: Array[float] = []
+	for z: float in [-half, half]:
+		rows.append(owner._camera.screen_position(Vector3(0.0, 0.0, z)).y / size.y)
+	# whichever end is higher on the screen is the far one
+	far_blur.set_shader_parameter("top_line", minf(rows[0], rows[1]))
+	far_blur.set_shader_parameter("bottom_line", maxf(rows[0], rows[1]))
 
 
 func connect_hud() -> void:
@@ -32,7 +55,8 @@ func connect_hud() -> void:
 		owner.hud.aim_buttons[slot].aim_started.connect(owner.aim_started.bind(slot))
 		owner.hud.aim_buttons[slot].aim_released.connect(owner.aim_released.bind(slot))
 	owner.hud.hurt_button.pressed.connect(owner.hurt_local.bind(PracticeMatch.DEBUG_DAMAGE))
-	owner.hud.hurt_button.visible = not owner.online
+	owner.hud.menu.set_practice(not owner.online)
+	owner.hud.status_test_pressed.connect(owner.play_status_test)
 	owner.hud.again_pressed.connect(_on_again_pressed)
 	owner.hud.watch_requested.connect(func(id: int) -> void: owner.watch_id = id)
 	owner.hud.swap_pressed.connect(owner.open_swap)
@@ -77,6 +101,7 @@ func sync(delta: float) -> void:
 	if player.tagged and owner.sim.players.has(owner.watch_id):
 		target = owner.sim.players[owner.watch_id].position
 	owner._camera.follow(target, owner._flip(), 0.0 if owner._snap_camera else delta)
+	update_far_blur()
 	owner._snap_camera = false
 
 
@@ -174,8 +199,8 @@ func _play_intro_shot() -> void:
 	owner._camera.frame_shot(eye, look)
 	var best_of: int = owner.sim.score.best_of
 	owner.hud.show_intro(
-		"TAG THE ENEMY BASE!",
-		"BEST OF %d  -  FIRST TO %d POINTS WINS" % [best_of, owner.sim.score.points_to_win()]
+		"TAG THEIR BASE!",
+		"BO%d  •  FIRST TO %d" % [best_of, owner.sim.score.points_to_win()]
 	)
 
 
@@ -212,6 +237,11 @@ func _on_point_scored(team: int, _how: int) -> void:
 
 func _on_match_won(team: int) -> void:
 	owner.show_banner("VICTORY!" if team == owner.local_team else "DEFEAT")
+	var mode: String = "practice"
+	if owner.online:
+		mode = "hotspot" if Session.lobby_hotspot else "online"
+	var points: Array[int] = owner.sim.score.points
+	MatchHistory.record(mode, team == owner.local_team, points[owner.local_team], points[1 - owner.local_team])
 
 
 func _on_again_pressed() -> void:

@@ -136,7 +136,7 @@ func _draw() -> void:
 		draw_arc(center, radius - RIM_WIDTH / 2.0, 0.0, TAU, ARC_POINTS, RIM_COLOR, RIM_WIDTH)
 	if highlight:
 		draw_arc(center, radius + 3.0, 0.0, TAU, ARC_POINTS, READY_GLOW, 7.0)
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = KalyeahTheme.ACTION_FONT
 	if button_art != null:
 		if not sub_text.is_empty():
 			_tag(font, sub_text, center + Vector2(0.0, radius * 0.86), sub_color)

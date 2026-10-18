@@ -4,7 +4,7 @@ extends Control
 ## centre, the tally board on the left (every kid's times tagged, best first, the taya
 ## marked), the settings button on the right, a prompt over the controls saying what to do
 ## now, banners, the opening title and the result card. Controls: the movement stick at the
-## bottom centre with the slipper button on its left (drag to aim, release to throw, tap =
+## bottom left and the slipper button at the bottom right (drag to aim, release to throw, tap =
 ## at the can); the taya has no button. The match screen feeds it sim state through `sync()`.
 
 signal again_pressed
@@ -17,10 +17,13 @@ const GEAR_SIZE: float = 64.0
 const CLOCK_SIZE: Vector2 = Vector2(150.0, 64.0)
 const BOARD_WIDTH: float = 230.0
 const BOARD_ROW: float = 40.0
+## The controls sit where the main match has them: the stick at the bottom left, the slipper
+## button at the bottom right in weapon 2's place, the cancel zone over it.
 const ROW_HEIGHT: float = MatchHud.ROW_HEIGHT
 const STICK_ZONE: float = MatchHud.STICK_ZONE
-const ROW_GAP: float = MatchHud.ROW_GAP
+const STICK_FROM_LEFT: float = MatchHud.STICK_FROM_LEFT
 const BUTTON_SIZE: float = MatchHud.WEAPON_SIZE
+const BUTTON_FROM_RIGHT: float = MatchHud.WEAPON_MARGIN + MatchHud.WEAPON_SIZE / 2.0
 const CANCEL_AT: Vector2 = MatchHud.CANCEL_AT
 const CANCEL_SIZE: Vector2 = MatchHud.CANCEL_SIZE
 const PROMPT_Y: float = 300.0
@@ -228,10 +231,9 @@ func _build() -> void:
 	joystick.rest_fraction = Vector2(0.5, 0.5)
 	joystick.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(joystick)
-	var side: float = STICK_ZONE / 2.0 + ROW_GAP + BUTTON_SIZE / 2.0
-	_put(joystick, Vector2(0.0, ROW_HEIGHT), Vector2(STICK_ZONE, STICK_ZONE))
-	_put(throw_button, Vector2(-side, ROW_HEIGHT), Vector2(BUTTON_SIZE, BUTTON_SIZE))
-	_put(cancel_zone, CANCEL_AT, CANCEL_SIZE)
+	_put(joystick, false, Vector2(STICK_FROM_LEFT, ROW_HEIGHT), Vector2(STICK_ZONE, STICK_ZONE))
+	_put(throw_button, true, Vector2(BUTTON_FROM_RIGHT, ROW_HEIGHT), Vector2(BUTTON_SIZE, BUTTON_SIZE))
+	_put(cancel_zone, true, CANCEL_AT, CANCEL_SIZE)
 	prompt_label = _label("", 26, Vector4(0, 1, 1, 1), Vector4(40, -PROMPT_Y - 28, -40, -PROMPT_Y + 28))
 	banner = _label("", 44, Vector4(0, 0.3, 1, 0.3), Vector4(0, -60, 0, 60))
 	banner.add_theme_color_override("font_color", GOLD)
@@ -242,7 +244,7 @@ func _build() -> void:
 	# last, so it draws over everything
 	menu = MatchMenu.new()
 	add_child(menu)
-	menu.hurt_button.visible = false
+	menu.set_practice(false)
 	menu.exit_pressed.connect(exit_pressed.emit)
 	menu.closed.connect(set_controls_active.bind(true))
 
@@ -257,7 +259,7 @@ func _build_intro_bar() -> void:
 	add_child(intro_bar)
 	intro_title = _label("TUMBANG PRESO!", 46, Vector4(0, 0, 1, 0), Vector4(0, 14, 0, 74), intro_bar)
 	intro_title.add_theme_color_override("font_color", GOLD)
-	intro_sub = _label("Knock the can down, fetch your slipper,\ndon't get tagged. Fewest tags wins!", 24, Vector4(0, 0, 1, 0), Vector4(16, 80, -16, 170), intro_bar)
+	intro_sub = _label("KNOCK THE CAN  •  FETCH YOUR SLIPPER\nFEWEST TAGS WINS", 24, Vector4(0, 0, 1, 0), Vector4(16, 80, -16, 170), intro_bar)
 	intro_sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 
@@ -319,10 +321,12 @@ func _label(text: String, font_size: int, anchors: Vector4, offsets: Vector4, pa
 	return label
 
 
-## Places `control` with its centre `at` = (from the centre line, from the bottom).
-func _put(control: Control, at: Vector2, extent: Vector2) -> void:
-	_place(control, Vector4(0.5, 1, 0.5, 1), Vector4(
-		at.x - extent.x / 2.0, -at.y - extent.y / 2.0, at.x + extent.x / 2.0, -at.y + extent.y / 2.0))
+## Places `control` with its centre `at` = (from the right or left edge, from the bottom).
+func _put(control: Control, from_right: bool, at: Vector2, extent: Vector2) -> void:
+	var edge: float = 1.0 if from_right else 0.0
+	var near: float = (-1.0 if from_right else 1.0) * at.x
+	_place(control, Vector4(edge, 1, edge, 1), Vector4(
+		near - extent.x / 2.0, -at.y - extent.y / 2.0, near + extent.x / 2.0, -at.y + extent.y / 2.0))
 
 
 ## Anchors first, then offsets (setting an anchor can move offsets).

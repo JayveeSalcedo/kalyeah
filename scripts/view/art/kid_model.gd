@@ -80,6 +80,8 @@ var _clock: float = 0.0
 var _ghost: bool = false
 var _cast_left: float = 0.0
 var _cast_total: float = CAST_TIME
+## The model plays its own clips at their own speed (CharacterDef.native_animation).
+var _native: bool = false
 var _cast_serial: int = 0
 var _cast_played: int = 0
 var _hit_left: float = 0.0
@@ -99,6 +101,7 @@ var pose: String = "idle"
 ## `team` is kept for callers; teams are told apart by the health bar, not the kid.
 func setup(def: CharacterDef, team: Color, _ring_radius: float) -> void:
 	character = def
+	_native = def.native_animation
 	team_color = team
 	_set = def.id if ResourceLoader.exists(MODEL_PATH % def.id) else FALLBACK_SET
 	_build()
@@ -116,6 +119,10 @@ func face(facing: Vector2) -> void:
 func play_cast(duration: float = CAST_TIME, spell: bool = false) -> void:
 	_spell = spell
 	_cast_total = maxf(duration, CAST_TIME)
+	if _native:
+		# the clip decides how long the cast shows: its own length, never squeezed
+		var own: String = "spell" if spell and _player.has_animation("spell") else "cast"
+		_cast_total = maxf(_clip_length(own), 0.01)
 	_cast_left = _cast_total
 	_cast_serial += 1
 
@@ -182,7 +189,8 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 		return
 	_move_blend = move_toward(_move_blend, 1.0 if speed > 0.3 else 0.0, delta * 6.0)
 	if speed > 0.3:
-		_phase += delta * speed / STRIDE
+		# a native run steps with its own cycle, the others one cycle per STRIDE metres
+		_phase += delta / maxf(_clip_length("run"), 0.01) if _native else delta * speed / STRIDE
 		var step_index: int = int(floor(_phase * 2.0))
 		if step_index != _last_step:
 			_last_step = step_index
@@ -221,7 +229,7 @@ func animate(delta: float, speed: float, state: PlayerState) -> void:
 	elif casting:
 		pose = "cast"
 		anim = cast_clip
-		play_speed = (_clip_length(anim) - _clip_start(anim)) / _cast_total
+		play_speed = 1.0 if _native else (_clip_length(anim) - _clip_start(anim)) / _cast_total
 	elif _move_blend > 0.5:
 		pose = "run"
 		anim = "run"
@@ -256,6 +264,8 @@ func _set_tint(tint: Color) -> void:
 
 ## One run cycle per STRIDE metres: the feet keep up with the ground.
 func _run_speed(speed: float) -> float:
+	if _native:
+		return 1.0
 	return clampf(speed / STRIDE * _clip_length("run"), 0.5, 2.2)
 
 
@@ -289,11 +299,13 @@ func _drive_layer(layer: String) -> void:
 		_layer_played = _cast_serial
 		_upper.play(layer)
 		_upper.seek(0.0, true)
-	_upper.speed_scale = _upper.get_animation(layer).length / _cast_total
+	_upper.speed_scale = 1.0 if _native else _upper.get_animation(layer).length / _cast_total
 
 
 ## Where a clip starts when played as a one-off (a spell skips the long charge-up).
 func _clip_start(clip: String) -> float:
+	if _native:
+		return 0.0
 	return SPELL_FROM if clip == "spell" and _clip_length(clip) > SPELL_FROM * 2.0 else 0.0
 
 
@@ -374,7 +386,10 @@ func _build() -> void:
 	_own_fall = library.has_animation(CLIP_FOR["ko"])
 	for clip: String in ["idle", "run", "cast", "spell", "stun", "airborne", "land", "ko"]:
 		if library.has_animation(clip):
-			library.get_animation(clip).loop_mode = Animation.LOOP_LINEAR if clip in LOOPING else Animation.LOOP_NONE
+			var animation: Animation = library.get_animation(clip)
+			animation.loop_mode = Animation.LOOP_LINEAR if clip in LOOPING else Animation.LOOP_NONE
+			if clip in LOOPING:
+				_close_loop(animation)
 	if library.has_animation(LAYER_FOR["cast"]) and library.has_animation(LAYER_FOR["spell"]):
 		_upper = AnimationPlayer.new()
 		_upper.name = "UpperPlayer"
@@ -390,6 +405,21 @@ func _build() -> void:
 	_can.visible = false
 	add_child(_can)
 	LowPoly.add_outline(_can, 0.02)
+
+
+## The imported loops end on their last pose instead of coming back to the first (Junjun's run
+## ends 22 degrees off at the knee, so every cycle snapped back: the legs seemed to vibrate). The
+## loop is made one key interval longer so the last pose blends into the first. The clips are
+## shared between every instance of a kid, so it is done once per clip.
+static func _close_loop(animation: Animation) -> void:
+	if animation.has_meta("loop_closed"):
+		return
+	animation.set_meta("loop_closed", true)
+	var keys: int = 0
+	for track: int in animation.get_track_count():
+		keys = maxi(keys, animation.track_get_key_count(track))
+	if keys > 1:
+		animation.length += animation.length / float(keys - 1)
 
 
 ## The upper-body clips for one kid, with every leg, hip and root track taken out (and the

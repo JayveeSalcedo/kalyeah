@@ -11,6 +11,8 @@ extends Control
 signal swap_pressed
 signal again_pressed
 signal hurt_pressed
+## Practice: play the animation of status `type` (stunned, airborne, knocked down) on yourself.
+signal status_test_pressed(type: int)
 ## A card in the tagged panel was tapped: follow player `id`.
 signal watch_requested(id: int)
 signal exit_pressed
@@ -21,7 +23,7 @@ const BANNER_TIME: float = 2.0
 const TOP_ROW_Y: float = 40.0
 const MARGIN: float = 14.0
 ## The street is 1:2 (width:length), and so is its minimap.
-const MINIMAP_SIZE: Vector2 = Vector2(140.0, 140.0)
+const MINIMAP_SIZE: Vector2 = Vector2(100.0, 200.0)
 const GEAR_SIZE: float = 64.0
 const SCORE_SIZE: Vector2 = Vector2(210.0, 64.0)
 const FEED_TIME: float = 2.6
@@ -30,18 +32,22 @@ const FEED_MAX: int = 3
 const FEED_OWN: Color = Color(0.2, 0.42, 0.85, 0.92)
 const FEED_ENEMY: Color = Color(0.82, 0.22, 0.2, 0.92)
 const CAPTURE_COLOR: Color = Color(1.0, 0.95, 0.85)
-## Controls, as (offset from the screen centre line, distance from the bottom) of
-## each control's centre on the 720x1280 base.
-## Arc angles (degrees from straight left over the top to straight right) of
-## The control row near the bottom (thumb reach): the stick in the middle, a skill on
-## each side of it.
+## Controls (owner), as (distance from their screen edge, distance from the bottom) of each
+## control's centre on the 720x1280 base: the movement stick at the bottom left, the two skill
+## buttons at the bottom right, all in one row within thumb reach.
 const ROW_HEIGHT: float = 150.0
 ## The square the stick listens in: its outer ring plus a margin for the thumb.
 const STICK_ZONE: float = (VirtualJoystick.OUTER_RADIUS + 20.0) * 2.0
-const ROW_GAP: float = 24.0
-## The skill buttons are drawn the same size as the stick's knob.
-const WEAPON_SIZE: float = VirtualJoystick.THUMB_RADIUS * 2.0
-const CANCEL_AT: Vector2 = Vector2(-242.0, 520.0)
+## The stick's centre from the left edge (its outer ring stays on screen).
+const STICK_FROM_LEFT: float = STICK_ZONE / 2.0 + 6.0
+## The skill buttons: big enough for a thumb (Apple's 44 pt is 84 px), a gap apart, the
+## second against the right margin and the first to its left.
+const WEAPON_SIZE: float = 124.0
+const WEAPON_GAP: float = 30.0
+const WEAPON_MARGIN: float = 34.0
+## The cancel zone sits above the skill buttons (drag a skill onto it to cancel the cast).
+const CANCEL_FROM_RIGHT: float = WEAPON_MARGIN + WEAPON_SIZE + WEAPON_GAP / 2.0
+const CANCEL_AT: Vector2 = Vector2(CANCEL_FROM_RIGHT, 440.0)
 const CANCEL_SIZE: Vector2 = Vector2(110.0, 100.0)
 
 var overhead: OverheadHud
@@ -54,7 +60,7 @@ var weapon_buttons: Array[AimButton] = []
 var aim_buttons: Array[AimButton] = []
 var cancel_zone: Control
 var tagged_panel: TaggedPanel
-## The opening show's banner along the bottom ("TAG THE ENEMY BASE!").
+## The opening show's banner along the bottom ("TAG THEIR BASE!").
 var intro_bar: Control
 var intro_title: Label
 var intro_sub: Label
@@ -182,6 +188,7 @@ func _sync_capture(sim: MatchSim, local_team: int) -> void:
 func feed(kind: Feed, our_team: bool, who: String) -> void:
 	var pill: Label = Label.new()
 	pill.text = "%s  %s" % ["TAGGED!" if kind == Feed.TAGGED else "RESCUED!", who]
+	pill.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
 	pill.custom_minimum_size = FEED_SIZE
 	pill.add_theme_font_size_override("font_size", 20)
 	pill.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.1))
@@ -241,6 +248,7 @@ func _build() -> void:
 	banner = Label.new()
 	_place(banner, Vector4(0, 0.3, 1, 0.3), Vector4(0, -60, 0, 60))
 	banner.visible = false
+	banner.theme_type_variation = &"DisplayLabel"
 	banner.add_theme_color_override("font_color", Color(1, 0.86, 0.3))
 	banner.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
 	banner.add_theme_constant_override("outline_size", 12)
@@ -250,10 +258,11 @@ func _build() -> void:
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(banner)
 	capture_label = _pill_label("", 34, Vector4(0, 0.4, 1, 0.4), Vector4(120, -56, -120, 56))
-	capture_label.theme_type_variation = &""
+	capture_label.theme_type_variation = &"DisplayLabel"
 	capture_label.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.1))
 	capture_label.add_theme_constant_override("outline_size", 10)
-	again_button = _button("Play again", 32, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-160, -30, 160, 60))
+	again_button = _button("PLAY AGAIN", 32, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-160, -30, 160, 60))
+	KalyeahTheme.style_button(again_button, "orange")
 	again_button.pressed.connect(again_pressed.emit)
 	again_button.visible = false
 	tagged_panel = TaggedPanel.new()
@@ -267,23 +276,30 @@ func _build() -> void:
 	add_child(menu)
 	hurt_button = menu.hurt_button
 	menu.hurt_pressed.connect(hurt_pressed.emit)
+	menu.status_pressed.connect(status_test_pressed.emit)
 	menu.exit_pressed.connect(exit_pressed.emit)
 	menu.closed.connect(set_controls_active.bind(true))
 
 
-## The stick at the bottom centre, weapon 1 on its left and weapon 2 on its right.
+## The stick at the bottom left, weapon 1 and weapon 2 side by side at the bottom right.
 func layout_controls() -> void:
-	var side: float = STICK_ZONE / 2.0 + ROW_GAP + WEAPON_SIZE / 2.0
-	_put(joystick, Vector2(0.0, ROW_HEIGHT), Vector2(STICK_ZONE, STICK_ZONE))
-	_put(weapon_buttons[0], Vector2(-side, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
-	_put(weapon_buttons[1], Vector2(side, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
-	_put(cancel_zone, CANCEL_AT, CANCEL_SIZE)
+	_put(joystick, false, Vector2(STICK_FROM_LEFT, ROW_HEIGHT), Vector2(STICK_ZONE, STICK_ZONE))
+	var second: float = WEAPON_MARGIN + WEAPON_SIZE / 2.0
+	_put(weapon_buttons[1], true, Vector2(second, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
+	_put(weapon_buttons[0], true, Vector2(second + WEAPON_SIZE + WEAPON_GAP, ROW_HEIGHT), Vector2(WEAPON_SIZE, WEAPON_SIZE))
+	_put(cancel_zone, true, CANCEL_AT, CANCEL_SIZE)
 
 
-## Places `control` with its centre `at` = (from the centre line, from the bottom).
-func _put(control: Control, at: Vector2, extent: Vector2) -> void:
-	_place(control, Vector4(0.5, 1, 0.5, 1), Vector4(
-		at.x - extent.x / 2.0, -at.y - extent.y / 2.0, at.x + extent.x / 2.0, -at.y + extent.y / 2.0))
+## Places `control` with its centre `at` = (from the right or left edge, from the bottom).
+func _put(control: Control, from_right: bool, at: Vector2, extent: Vector2) -> void:
+	var edge: float = 1.0 if from_right else 0.0
+	var side: float = -1.0 if from_right else 1.0
+	var near: float = side * at.x
+	var half: float = extent.x / 2.0
+	var low: float = near - half
+	var high: float = near + half
+	_place(control, Vector4(edge, 1, edge, 1), Vector4(
+		minf(low, high), -at.y - extent.y / 2.0, maxf(low, high), -at.y + extent.y / 2.0))
 
 
 func _build_top_row() -> void:
@@ -327,9 +343,10 @@ func _build_intro_bar() -> void:
 	intro_bar.visible = false
 	add_child(intro_bar)
 	intro_title = Label.new()
+	intro_title.theme_type_variation = &"DisplayLabel"
 	_place(intro_title, Vector4(0, 0, 1, 0), Vector4(0, 18, 0, 78))
 	intro_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	intro_title.add_theme_font_size_override("font_size", 46)
+	intro_title.add_theme_font_size_override("font_size", 40)
 	intro_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	intro_title.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
 	intro_title.add_theme_constant_override("outline_size", 10)
@@ -371,7 +388,8 @@ func _build_cancel_zone() -> Control:
 	zone.add_child(back)
 	var label: Label = Label.new()
 	_place(label, Vector4(0, 0, 1, 1), Vector4.ZERO)
-	label.text = "Cancel"
+	label.text = "CANCEL"
+	label.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
 	label.add_theme_font_size_override("font_size", 24)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

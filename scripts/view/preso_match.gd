@@ -43,6 +43,8 @@ var _taya_tag: Label3D
 var _aim_line: MeshInstance3D
 var _marker: MeshInstance3D
 var _snap_camera: bool = true
+## The soft focus beyond the ends of the street (null when off).
+var _far_blur: ShaderMaterial
 
 @onready var hud: PresoHud = %Hud
 @onready var _camera: FollowCamera = %FollowCamera
@@ -63,7 +65,7 @@ func _ready() -> void:
 	_map.show_back_button(false)
 	_audio.prepare()
 	input.camera_yaw = _camera.rules.yaw_offset_degrees
-	Cinematic.add_film_finish(self)
+	_far_blur = StreetGameView.add_camera_finish(self, _camera)
 	_connect_hud()
 	_connect_sim()
 	_views[LOCAL_ID].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
@@ -157,9 +159,19 @@ func _connect_sim() -> void:
 		hud.joystick.release()
 		_snap_camera = true
 		hud.show_banner("YOU ARE THE TAYA!" if id == LOCAL_ID else "%s IS THE TAYA" % names[id]))
-	sim.match_over.connect(func() -> void:
-		var won: bool = sim.ranking()[0] == LOCAL_ID
-		_audio.play(&"victory" if won else &"defeat"))
+	sim.match_over.connect(_on_match_over)
+
+
+## The History page lists it as "Tumbang Preso": won = the fewest tags, the score = your tags
+## against the fewest of anyone else's.
+func _on_match_over() -> void:
+	var won: bool = sim.ranking()[0] == LOCAL_ID
+	_audio.play(&"victory" if won else &"defeat")
+	var best_other: int = -1
+	for id: int in sim.players:
+		if id != LOCAL_ID and (best_other < 0 or sim.players[id].times_tagged < best_other):
+			best_other = sim.players[id].times_tagged
+	MatchHistory.record("tumbang_preso", won, sim.players[LOCAL_ID].times_tagged, maxi(best_other, 0))
 
 
 func _on_player_tagged(id: int, by_id: int) -> void:
@@ -286,6 +298,7 @@ func _sync(delta: float) -> void:
 	_sync_aim()
 	hud.sync(sim, LOCAL_ID, names, delta)
 	_camera.follow(sim.players[LOCAL_ID].position, false, 0.0 if _snap_camera else delta)
+	StreetGameView.update_far_blur(_far_blur, _camera, layout)
 	_snap_camera = false
 
 
@@ -347,12 +360,7 @@ func _sync_aim() -> void:
 
 ## Q held: the mouse on the ground, relative to you, as a stick (the slipper always flies full range).
 func _mouse_aim(_slot: int) -> Vector2:
-	var viewport: Viewport = get_viewport()
-	if viewport == null:
+	var ground: Variant = StreetGameView.mouse_on_ground(_camera)
+	if ground == null:
 		return Vector2.ZERO
-	var mouse: Vector2 = viewport.get_mouse_position()
-	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(mouse), _camera.project_ray_normal(mouse))
-	if hit == null:
-		return Vector2.ZERO
-	var point: Vector3 = hit as Vector3
-	return (Vector2(point.x, point.z) - sim.players[LOCAL_ID].position).normalized()
+	return ((ground as Vector2) - sim.players[LOCAL_ID].position).normalized()
