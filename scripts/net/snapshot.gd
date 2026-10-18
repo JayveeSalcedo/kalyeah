@@ -13,6 +13,7 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 		players.append({
 			"id": id, "pos": p.position, "face": p.facing, "hp": p.hp, "tag": p.tagged, "tt": p.tag_time,
 			"wcd": p.weapon_cooldowns.duplicate(), "w": p.weapons.duplicate(), "fx": p.effects.snapshot(),
+			"cl": p.cast_lock_left,
 		})
 	var projectiles: Array[Dictionary] = []
 	for projectile: WeaponSystem.Projectile in sim.weapons.projectiles:
@@ -22,7 +23,10 @@ static func capture(sim: MatchSim, acks: Dictionary[int, int]) -> Dictionary:
 		zones.append({"id": zone.id, "w": zone.def.id, "k": zone.kind, "c": zone.center, "r": zone.radius, "team": zone.team})
 	var shields: Array[Dictionary] = []
 	for shield: WeaponSystem.Shield in sim.weapons.shields:
-		shields.append({"id": shield.id, "c": shield.center, "al": shield.along, "hw": shield.half_width, "team": shield.team})
+		shields.append({
+			"id": shield.id, "w": shield.def.id, "c": shield.center, "al": shield.along,
+			"hw": shield.half_width, "team": shield.team, "tl": shield.time_left,
+		})
 	return {
 		"t": NetProtocol.Msg.SNAPSHOT, "tick": sim.tick, "acks": acks.duplicate(),
 		"players": players, "projectiles": projectiles, "zones": zones, "shields": shields,
@@ -40,6 +44,7 @@ static func apply(sim: MatchSim, data: Dictionary, local_id: int) -> void:
 		var p: PlayerState = sim.players.get(id) as PlayerState
 		if p == null:
 			continue
+		p.cast_lock_left = entry.get("cl", p.cast_lock_left) as float
 		if id != local_id:
 			p.position = entry["pos"] as Vector2
 		p.facing = entry["face"] as Vector2
@@ -93,8 +98,11 @@ static func _apply_weapons(sim: MatchSim, data: Dictionary) -> void:
 	for entry: Dictionary in data.get("shields", []) as Array:
 		var shield: WeaponSystem.Shield = WeaponSystem.Shield.new()
 		shield.id = entry["id"] as int
+		var weapon_id: StringName = entry.get("w", &"") as StringName
+		shield.def = sim.weapon_defs.get(weapon_id) as WeaponDef
 		shield.center = entry["c"] as Vector2
 		shield.along = entry["al"] as Vector2
 		shield.half_width = entry["hw"] as float
 		shield.team = entry["team"] as int
+		shield.time_left = entry.get("tl", shield.def.duration if shield.def != null else 0.0) as float
 		system.shields.append(shield)

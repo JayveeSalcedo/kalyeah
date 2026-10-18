@@ -21,7 +21,7 @@ const CARD_GAP: float = 12.0
 const OWN: Color = Color(0.3, 0.6, 1.0)
 const ENEMY: Color = Color(1.0, 0.35, 0.35)
 const WATCHED: Color = Color(1.0, 0.86, 0.3)
-const WAIT_TEXT: String = "TAGGED!  Wait in the box for a teammate"
+const WAIT_TEXT: String = "TAGGED  •  WAIT FOR A RESCUE"
 
 ## How to get out (kept as a label for screen readers and tests).
 var wait_label: Label
@@ -60,6 +60,7 @@ func _ready() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(column)
 	wait_label = _label(WAIT_TEXT, 26, TITLE_COLOR)
+	wait_label.theme_type_variation = &"DisplayLabel"
 	column.add_child(wait_label)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER

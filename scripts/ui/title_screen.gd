@@ -1,10 +1,8 @@
 class_name TitleScreen
 extends Control
-## The main screen. A blue diamond background; your profile (face and name, tap to rename) and the
-## settings button on top; the KALYEAH wordmark; the map model (the play area alone, standing
-## still); then four buttons in a 2x2 grid at the bottom: PRACTICE (offline), HOTSPOT (a game on
-## a phone hotspot), ONLINE (Create / Join room on the game server) and QUIT. Settings, rename,
-## hotspot, online and quit open as dialogs. A dedicated server build goes straight to the server.
+## The main screen. A compact profile bar sits above the Agawan Base map model. ONLINE is the
+## dominant action; HOTSPOT and PRACTICE are secondary. Settings contains the infrequent quit
+## action, while Android Back also opens its confirmation.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -18,9 +16,8 @@ const TOP_MARGIN: float = 26.0
 const BOTTOM_MARGIN: float = 22.0
 const TAP_TARGET: float = 88.0
 const AVATAR: float = 76.0
-const GOLD: Color = Color(1.0, 0.84, 0.2)
-const WORDMARK_OUTLINE: Color = Color(0.2, 0.1, 0.07)
-const CREAM: Color = Color(1.0, 0.95, 0.82)
+const GOLD: Color = KalyeahTheme.AMBER
+const CREAM: Color = KalyeahTheme.CREAM
 
 ## The screen asks for the game to close (replaced in tests).
 var quit_action: Callable = _quit_game
@@ -61,7 +58,6 @@ func _ready() -> void:
 	practice_button.pressed.connect(_on_practice_pressed)
 	hotspot_button.pressed.connect(open_hotspot)
 	online_button.pressed.connect(open_online)
-	quit_button.pressed.connect(open_quit_confirm)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
 	_pop_in.call_deferred()
@@ -108,22 +104,47 @@ func _build_layout() -> void:
 	_apply_safe_area()
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "Column"
-	column.add_theme_constant_override("separation", 14)
+	column.add_theme_constant_override("separation", 16)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
-	column.add_child(_build_wordmark())
 	column.add_child(_build_map_model())
 	column.add_child(_build_buttons())
 
 
-## The map model, filling the space between the wordmark and the buttons (nothing moves).
+## The model and its attached mode plate fill the space between the profile and actions.
 func _build_map_model() -> Control:
+	var stage: Control = Control.new()
+	stage.name = "MapStage"
+	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stage.custom_minimum_size = Vector2(0.0, 300.0)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	diorama = MenuDiorama.new()
 	diorama.name = "MapModel"
-	diorama.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	diorama.custom_minimum_size = Vector2(0.0, 300.0)
-	return diorama
+	diorama.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(diorama)
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchor(SIDE_RIGHT, 1.0)
+	center.set_anchor(SIDE_TOP, 0.76)
+	center.set_anchor(SIDE_BOTTOM, 0.76)
+	center.offset_top = -29.0
+	center.offset_bottom = 29.0
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var title: Label = Label.new()
+	title.name = "MapTitle"
+	title.text = "AGAWAN BASE"
+	title.theme_type_variation = &"DisplayLabel"
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", CREAM)
+	title.add_theme_constant_override("outline_size", 2)
+	title.add_theme_stylebox_override("normal", KalyeahTheme.map_title_plate())
+	title.custom_minimum_size = Vector2(310.0, 58.0)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(title)
+	stage.add_child(center)
+	return stage
 
 
 ## Keeps everything clear of notches, rounded corners and the home bar.
@@ -163,7 +184,7 @@ func _build_top_bar() -> Control:
 	profile_button.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
 	profile_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile_button.clip_text = true
-	var pill: StyleBoxTexture = KalyeahTheme.painted_pill()
+	var pill: StyleBoxFlat = KalyeahTheme.painted_pill()
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		profile_button.add_theme_stylebox_override(state, pill)
 	MenuDialog.feel_press(profile_button)
@@ -179,23 +200,23 @@ func _build_top_bar() -> Control:
 	var texts: VBoxContainer = VBoxContainer.new()
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	texts.add_theme_constant_override("separation", -2)
+	texts.add_theme_constant_override("separation", 0)
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(texts)
 	_name_label = Label.new()
+	_name_label.theme_type_variation = &"DisplayLabel"
 	_name_label.add_theme_font_size_override("font_size", 34)
 	_name_label.add_theme_color_override("font_color", Color.WHITE)
 	_name_label.clip_text = true
 	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.add_child(_name_label)
-	var hint: Label = Label.new()
-	hint.text = "Tap to change your name"
-	hint.add_theme_font_size_override("font_size", 19)
-	hint.add_theme_color_override("font_color", Color(0.8, 0.88, 1.0, 0.8))
-	hint.add_theme_constant_override("outline_size", 0)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.add_child(hint)
+	var role: Label = Label.new()
+	role.text = "PLAYER"
+	role.theme_type_variation = &"MutedLabel"
+	role.add_theme_font_size_override("font_size", 17)
+	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(role)
 	settings_button = DialogButtons.icon_button(GEAR, "blue", TAP_TARGET)
 	settings_button.name = "SettingsButton"
 	bar.add_child(settings_button)
@@ -238,61 +259,29 @@ func _build_avatar() -> Control:
 	return holder
 
 
-## KALYEAH! as a cardboard-sign wordmark (KAL white, YEAH! gold) with a ribbon tagline.
-func _build_wordmark() -> Control:
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "Wordmark"
-	box.add_theme_constant_override("separation", 4)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var word: HBoxContainer = HBoxContainer.new()
-	word.alignment = BoxContainer.ALIGNMENT_CENTER
-	word.add_theme_constant_override("separation", 6)
-	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(word)
-	for part: Array in [["KAL", Color.WHITE], ["YEAH!", GOLD]]:
-		var label: Label = Label.new()
-		label.text = part[0] as String
-		label.add_theme_font_size_override("font_size", 104)
-		label.add_theme_color_override("font_color", part[1] as Color)
-		label.add_theme_color_override("font_outline_color", WORDMARK_OUTLINE)
-		label.add_theme_constant_override("outline_size", 24)
-		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.05, 0.45))
-		label.add_theme_constant_override("shadow_offset_y", 7)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		word.add_child(label)
-	var ribbon: CenterContainer = CenterContainer.new()
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tagline: Label = Label.new()
-	tagline.theme_type_variation = &"HudPill"
-	tagline.text = "MGA LARONG PINOY SA KALYE"
-	tagline.add_theme_font_size_override("font_size", 23)
-	tagline.add_theme_color_override("font_color", CREAM)
-	tagline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ribbon.add_child(tagline)
-	box.add_child(ribbon)
-	return box
-
-
-## The four buttons in a 2x2 grid at the bottom, all the same size.
+## One dominant play action and one compact row for alternate modes.
 func _build_buttons() -> Control:
-	var grid: GridContainer = GridContainer.new()
-	grid.name = "Buttons"
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	practice_button = _grid_button(grid, "PracticeButton", "PRACTICE", "orange")
-	hotspot_button = _grid_button(grid, "HotspotButton", "HOTSPOT", "green")
-	online_button = _grid_button(grid, "OnlineButton", "ONLINE", "blue")
-	quit_button = _grid_button(grid, "QuitButton", "QUIT", "red")
-	return grid
+	var stack: VBoxContainer = VBoxContainer.new()
+	stack.name = "Buttons"
+	stack.add_theme_constant_override("separation", 16)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	online_button = MenuDialog.make_button("ONLINE", "orange", 44, Vector2(0.0, 126.0))
+	online_button.name = "OnlineButton"
+	stack.add_child(online_button)
+	var alternates: HBoxContainer = HBoxContainer.new()
+	alternates.add_theme_constant_override("separation", 16)
+	alternates.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(alternates)
+	hotspot_button = _action_button(alternates, "HotspotButton", "HOTSPOT", "blue")
+	practice_button = _action_button(alternates, "PracticeButton", "PRACTICE", "grey")
+	return stack
 
 
-func _grid_button(grid: GridContainer, button_name: String, text: String, color: String) -> Button:
-	var button: Button = MenuDialog.make_button(text, color, 42, Vector2(0.0, 124.0))
+func _action_button(parent: Control, button_name: String, text: String, color: String) -> Button:
+	var button: Button = MenuDialog.make_button(text, color, 32, Vector2(0.0, 98.0))
 	button.name = button_name
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_child(button)
+	parent.add_child(button)
 	return button
 
 
@@ -306,7 +295,7 @@ func _refresh_profile() -> void:
 
 ## The buttons pop up in turn when the screen opens.
 func _pop_in() -> void:
-	var buttons: Array[Control] = [practice_button, hotspot_button, online_button, quit_button]
+	var buttons: Array[Control] = [online_button, hotspot_button, practice_button]
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
@@ -361,10 +350,11 @@ func _show_loading(message: String) -> void:
 	center.add_child(stack)
 	var text: Label = Label.new()
 	text.text = message
+	text.theme_type_variation = &"DisplayLabel"
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text.add_theme_font_size_override("font_size", 40)
-	text.add_theme_color_override("font_color", GOLD)
-	text.add_theme_constant_override("outline_size", 12)
+	text.add_theme_color_override("font_color", CREAM)
+	text.add_theme_constant_override("outline_size", 4)
 	stack.add_child(text)
 	_loading_dots = Label.new()
 	_loading_dots.text = "."
@@ -405,7 +395,7 @@ func open_name_editor() -> MenuDialog:
 	field.custom_minimum_size = Vector2(0.0, 84.0)
 	field.add_theme_font_size_override("font_size", 36)
 	card.body.add_child(field)
-	var hint: Label = card.add_hint("Up to %d letters. Your friends see this name." % Session.MAX_NAME_LENGTH)
+	var hint: Label = card.add_hint("%d characters max." % Session.MAX_NAME_LENGTH)
 	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 30)
 	var save: Button = MenuDialog.make_button("SAVE", "green", 30)
 	card.add_buttons([cancel, save])
@@ -429,18 +419,19 @@ func open_name_editor() -> MenuDialog:
 
 ## ONLINE: create a room or join one on the game server.
 func open_online() -> MenuDialog:
-	return _open_play_dialog("ONLINE", false, "Play with friends on the game server.")
+	return _open_play_dialog("ONLINE", false, "")
 
 
 ## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi, on a game server running there.
 func open_hotspot() -> MenuDialog:
-	return _open_play_dialog("HOTSPOT", true, "Turn on a hotspot, run the game server on it, and type that device's address.")
+	return _open_play_dialog("HOTSPOT", true, "Same Wi-Fi or phone hotspot.")
 
 
 ## The Create / Join choice. A hotspot also asks for the address of the server on the hotspot.
 func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create(title)
-	card.add_hint(hint)
+	if not hint.is_empty():
+		card.add_hint(hint)
 	var address: LineEdit = null
 	if hotspot:
 		address = LineEdit.new()
@@ -450,8 +441,8 @@ func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog
 		address.custom_minimum_size = Vector2(0.0, 76.0)
 		address.add_theme_font_size_override("font_size", 28)
 		card.body.add_child(address)
-	var create: Button = MenuDialog.make_button("CREATE ROOM", "blue", 32)
-	var join: Button = MenuDialog.make_button("JOIN ROOM", "green", 32)
+	var create: Button = MenuDialog.make_button("CREATE", "blue", 32)
+	var join: Button = MenuDialog.make_button("JOIN", "green", 32)
 	create.name = "CreateRoomButton"
 	join.name = "JoinRoomButton"
 	card.add_buttons([create, join])
@@ -494,7 +485,7 @@ func open_settings() -> MenuDialog:
 			toggle.text = "ON" if Settings.vibration else "OFF"
 			KalyeahTheme.style_button(toggle, "green" if Settings.vibration else "grey"))
 		buzz.add_child(toggle)
-	card.add_label("Online server", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	card.add_label("Server", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	var server: LineEdit = LineEdit.new()
 	server.name = "ServerField"
 	server.text = Settings.server_url
@@ -502,7 +493,10 @@ func open_settings() -> MenuDialog:
 	server.custom_minimum_size = Vector2(0.0, 76.0)
 	server.add_theme_font_size_override("font_size", 28)
 	card.body.add_child(server)
-	card.add_hint("Used by ONLINE. Leave it as it is unless you run your own server.")
+	quit_button = MenuDialog.make_button("QUIT GAME", "red", 28)
+	quit_button.name = "QuitButton"
+	card.add_buttons([quit_button])
+	quit_button.pressed.connect(open_quit_confirm)
 	var done: Button = MenuDialog.make_button("DONE", "green", 34)
 	card.add_buttons([done])
 	done.pressed.connect(card.close)
@@ -528,9 +522,8 @@ func _settings_row(card: MenuDialog, label_text: String) -> HBoxContainer:
 
 ## Quit: asks first (a stray tap must not close the game).
 func open_quit_confirm() -> MenuDialog:
-	var card: MenuDialog = MenuDialog.create("LEAVE KALYEAH?", 560.0)
-	card.add_label("Are you sure you want to quit?", 28)
-	var stay: Button = MenuDialog.make_button("STAY", "green", 32)
+	var card: MenuDialog = MenuDialog.create("QUIT GAME?", 560.0)
+	var stay: Button = MenuDialog.make_button("CANCEL", "grey", 32)
 	var leave: Button = MenuDialog.make_button("QUIT", "red", 32)
 	card.add_buttons([stay, leave])
 	stay.pressed.connect(card.close)

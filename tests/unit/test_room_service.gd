@@ -8,11 +8,11 @@ func _service() -> RoomService:
 	return RoomService.new(NET, 7)
 
 
-func test_passcode_is_six_unambiguous_characters() -> void:
+func test_passcode_is_eight_unambiguous_alphanumeric_characters() -> void:
 	var service: RoomService = _service()
 	for peer: int in range(1, 60):
 		var room: RoomService.Room = service.create_room(peer, "p", 1)
-		assert_eq(room.code.length(), 6)
+		assert_eq(room.code.length(), 8)
 		for c: String in room.code:
 			assert_true(NET.passcode_alphabet.contains(c), c)
 			assert_false("ILO01".contains(c), "no ambiguous %s" % c)
@@ -29,7 +29,7 @@ func test_create_and_join_fill_the_smaller_team() -> void:
 	assert_eq(room.team_count(0), 2)
 	assert_eq(room.team_count(1), 2)
 	assert_eq(service.join(room.code, 14, "E"), R.FULL)
-	assert_eq(service.join("ZZZZZZ", 15, "F"), R.NOT_FOUND)
+	assert_eq(service.join("ZZZZZZZZ", 15, "F"), R.NOT_FOUND)
 
 
 func test_names_are_trimmed_and_never_empty() -> void:

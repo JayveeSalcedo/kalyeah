@@ -36,6 +36,12 @@ func set_locked(value: bool) -> void:
 		_finish(true)
 
 
+## Ends an interrupted gesture without casting (app pause, focus loss, or menu).
+func cancel_aim() -> void:
+	if aiming:
+		_finish(true)
+
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event as InputEventScreenTouch
@@ -44,8 +50,11 @@ func _input(event: InputEvent) -> void:
 				_pointer = touch.index
 				_begin(touch.position)
 		elif touch.index == _pointer:
-			_drag(touch.position)
-			_finish(over_cancel)
+			if touch.canceled:
+				_finish(true)
+			else:
+				_drag(touch.position)
+				_finish(over_cancel)
 	elif event is InputEventScreenDrag:
 		var drag: InputEventScreenDrag = event as InputEventScreenDrag
 		if drag.index == _pointer:

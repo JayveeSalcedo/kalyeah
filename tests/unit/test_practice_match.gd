@@ -306,6 +306,19 @@ func test_aim_button_drag_math() -> void:
 	assert_almost_eq(AimButton.aim_from_drag(Vector2(0.0, -900.0)).length(), 1.0, 0.001)
 
 
+func test_a_reconnect_is_not_reported_restored_until_the_server_confirms_the_slot() -> void:
+	var practice: PracticeMatch = _practice()
+	practice.finish_pick()
+	practice.skip_intro()
+	practice._on_connection_changed(false)
+	practice._on_connection_changed(true)
+	assert_eq(practice.banner_text(), "Restoring match...")
+	practice._on_welcomed(false)
+	assert_eq(practice.banner_text(), "Match expired\nExit to reconnect")
+	assert_false(practice.controls_active())
+	assert_true(practice._resume_rejected)
+
+
 # ---- visuals -------------------------------------------------------------------
 
 func test_projectiles_zones_and_shields_get_drawn_and_cleaned_up() -> void:
@@ -315,6 +328,8 @@ func test_projectiles_zones_and_shields_get_drawn_and_cleaned_up() -> void:
 	var fx: WeaponFxView = practice.get_node("%WeaponFx") as WeaponFxView
 	practice.aim_started(0)
 	practice.aim_released(Vector2.ZERO, false, 0)
+	practice.advance(DT)
+	practice.advance(DT)
 	practice.aim_started(1)
 	practice.aim_released(Vector2.ZERO, false, 1)
 	practice.advance(DT)
@@ -576,7 +591,7 @@ func test_the_match_opens_with_both_teams_then_go() -> void:
 	assert_eq(practice.sim.phase, MatchSim.Phase.INTRO)
 	practice.advance(DT)
 	assert_true(practice.hud.intro_bar.visible)
-	assert_eq(practice.hud.intro_title.text, "TAG THE ENEMY BASE!")
+	assert_eq(practice.hud.intro_title.text, "TAG THEIR BASE!")
 	assert_false(practice.hud.weapon_buttons[0].visible, "no buttons during the show")
 	var enemy_post: Vector2 = LAYOUT.base_center(-practice.own_side())
 	var seen: Vector2 = Vector2(camera.position.x, camera.position.z)

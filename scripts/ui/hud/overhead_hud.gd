@@ -45,7 +45,7 @@ func setup(sim: MatchSim, camera: Camera3D, local_id: int, local_team: int) -> v
 	_local_team = local_team
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_italic = FontVariation.new()
-	_italic.base_font = ThemeDB.fallback_font
+	_italic.base_font = KalyeahTheme.BODY_FONT
 	_italic.variation_transform = Transform2D(Vector2(1.0, 0.0), Vector2(ITALIC_SLANT, 1.0), Vector2.ZERO)
 	sim.player_healed.connect(_on_healed)
 
@@ -158,7 +158,7 @@ func _draw_popup(popup: Dictionary) -> void:
 	var color: Color = HEAL_COLOR if healed else (DAMAGE_COLOR if state.team == _local_team else Color(1.0, 0.85, 0.3))
 	color.a = 1.0 - age * age
 	var size: int = int(POPUP_FONT * (1.25 - 0.25 * age) * (1.2 if healed else 1.0))
-	_text(ThemeDB.fallback_font, ("+%d" if healed else "-%d") % (popup["amount"] as int), pos, size, color, 6)
+	_text(KalyeahTheme.ACTION_FONT, ("+%d" if healed else "-%d") % (popup["amount"] as int), pos, size, color, 6)
 
 
 func _text(font: Font, text: String, center: Vector2, font_size: int, color: Color, outline: int) -> void:
