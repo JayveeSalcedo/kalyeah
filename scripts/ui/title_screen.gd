@@ -137,8 +137,16 @@ func _build_map_model() -> Control:
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	diorama = MenuDiorama.new()
 	diorama.name = "MapModel"
-	diorama.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	stage.add_child(diorama)
+	var square: AspectRatioContainer = AspectRatioContainer.new()
+	square.name = "MapSquare"
+	square.ratio = 1.0
+	square.alignment_vertical = AspectRatioContainer.ALIGNMENT_END
+	square.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	square.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(square)
+	square.add_child(diorama)
+	diorama.size_flags_horizontal = Control.SIZE_FILL
+	diorama.size_flags_vertical = Control.SIZE_FILL
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchor(SIDE_RIGHT, 1.0)
 	center.set_anchor(SIDE_TOP, 0.76)

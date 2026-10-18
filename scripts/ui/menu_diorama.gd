@@ -1,7 +1,7 @@
 class_name MenuDiorama
 extends SubViewportContainer
-## The main screen's map model: the play area alone, in the game's exact 1:2 shape, on a chunky
-## stone base. Only the corner props (electric posts, the tagged boxes' cardboard walls); no kids,
+## The main screen's map model: the top half of the play area (the far end, a 1:1 square like the
+## Clash Royale arena on its main screen) on a chunky stone base. Only the corner props (electric posts, the tagged boxes' cardboard walls); no kids,
 ## team colours, sidewalks or movement. It lives
 ## in its own 3D world inside a transparent SubViewport, so it floats over the screen background.
 
@@ -64,6 +64,8 @@ func frame() -> void:
 	var pitch: float = deg_to_rad(CAMERA_PITCH)
 	var half_x: float = map.layout.lane_width / 2.0
 	var half_z: float = map.layout.lane_length / 2.0
+	# only the far half is shown: from the far end to the middle line
+	var middle: Vector3 = Vector3(0.0, 0.0, -half_z / 2.0)
 	var aspect: float = maxf(0.2, size.x / maxf(size.y, 1.0))
 	var tan_h: float = tan(deg_to_rad(CAMERA_FOV) / 2.0)
 	var tan_v: float = tan_h / aspect
@@ -73,11 +75,11 @@ func frame() -> void:
 	var distance: float = 10.0
 	# the smallest distance at which all eight corners are inside the frame (with a margin)
 	for step: int in 60:
-		var eye: Vector3 = -forward * distance
+		var eye: Vector3 = middle - forward * distance
 		var fits: bool = true
 		for cx: float in [-half_x, half_x]:
 			for cy: float in [-StreetMap.PLINTH_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
-				for cz: float in [-half_z, half_z]:
+				for cz: float in [-half_z, 0.0]:
 					var rel: Vector3 = Vector3(cx, cy, cz) - eye
 					var depth: float = rel.dot(forward)
 					if absf(rel.dot(right)) > depth * tan_h * FRAME_FILL or absf(rel.dot(up)) > depth * tan_v * FRAME_FILL:
@@ -85,5 +87,5 @@ func frame() -> void:
 		if fits:
 			break
 		distance *= 1.06
-	camera.position = -forward * distance
+	camera.position = middle - forward * distance
 	camera.rotation_degrees = Vector3(-CAMERA_PITCH, 0.0, 0.0)

@@ -259,7 +259,7 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	(model.get_parent() as Control).size = Vector2(690.0, 480.0)
+	(model.get_parent().get_parent() as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var layout: MapLayout = model.map.layout
 	assert_true(model.map.diorama)
@@ -274,14 +274,14 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	assert_eq(props.size(), 1 + 2 + 2 * model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + posts + tagged-box walls and nothing else")
 	assert_eq(model.viewport.find_children("*", "KidModel", true, false).size(), 0, "no characters")
 	for cx: float in [-layout.lane_width / 2.0, layout.lane_width / 2.0]:
-		for cz: float in [-layout.lane_length / 2.0, layout.lane_length / 2.0]:
-			assert_true(model.camera.is_position_in_frustum(Vector3(cx, 0.0, cz)), "corner %s is in view" % Vector2(cx, cz))
+		for cz: float in [-layout.lane_length / 2.0, 0.0]:
+			assert_true(model.camera.is_position_in_frustum(Vector3(cx, 0.0, cz)), "corner %s of the top half is in view" % Vector2(cx, cz))
 
 
 func test_the_map_model_stands_still() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	(model.get_parent() as Control).size = Vector2(690.0, 480.0)
+	(model.get_parent().get_parent() as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var before: Transform3D = model.camera.global_transform
 	await wait_frames(30)
