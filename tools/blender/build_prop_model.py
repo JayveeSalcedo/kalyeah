@@ -65,7 +65,8 @@ def main():
     keep_uv = len(argv) > 4 and argv[4] == "keep_uv"
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=src, merge_vertices=True)
-    high = [o for o in bpy.data.objects if o.type == "MESH"][0]
+    # the model proper is the mesh with the most faces (some exports carry a tiny helper mesh first)
+    high = max((o for o in bpy.data.objects if o.type == "MESH"), key=lambda o: len(o.data.polygons))
     bpy.context.view_layer.objects.active = high
     high.select_set(True)
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
