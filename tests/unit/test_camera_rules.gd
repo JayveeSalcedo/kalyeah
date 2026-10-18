@@ -120,3 +120,8 @@ func test_the_near_plane_is_close_enough_not_to_slice_models() -> void:
 	assert_lt(camera.near, 1.0, "the near plane is about half a metre out")
 	assert_lt(camera.near, height / 4.0, "well inside the camera's height")
 	assert_lt(camera.far / camera.near, 1000.0, "the depth range is still sane")
+
+
+func test_the_far_blur_is_on_in_the_data() -> void:
+	assert_gt(CAMERA.far_blur_pixels, 0.0, "soft focus beyond the ends of the play area")
+	assert_gt(CAMERA.far_blur_falloff, 0.0)
