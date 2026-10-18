@@ -8,6 +8,9 @@ signal log_message(text: String)
 
 var rooms: RoomService
 var matches: Dictionary[String, ServerMatch] = {}
+## A hotspot host's server has one room and nobody types a code: a JOIN with no code joins it.
+## (Only the server's owner can set this, never a client message.)
+var auto_join: bool = false
 
 var _rules: GameRules
 var _layout: MapLayout
@@ -103,7 +106,10 @@ func _handle(from: int, message: Dictionary) -> void:
 			else:
 				_send_room(room)
 		M.JOIN_ROOM:
-			var result: RoomService.Result = rooms.join(message.get("code", "") as String, from, _names.get(from, "") as String)
+			var wanted: String = message.get("code", "") as String
+			if auto_join and wanted.is_empty() and rooms.rooms.size() == 1:
+				wanted = rooms.rooms.keys()[0] as String
+			var result: RoomService.Result = rooms.join(wanted, from, _names.get(from, "") as String)
 			match result:
 				RoomService.Result.OK:
 					_send_room(rooms.room_of_peer(from))
