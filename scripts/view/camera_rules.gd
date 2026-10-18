@@ -26,6 +26,11 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 ## (shaders/lens_curve.gdshader). The camera renders a wider field of view to feed it, so the middle
 ## of the picture keeps its size and the edges show more of the street.
 @export var lens_curve: float = 0.0
+## The soft focus beyond the two ends of the play area (shaders/depth_blur.gdshader): the blur
+## radius in pixels at full strength (0 = off) and how far past an end it takes to get there, in
+## screen heights.
+@export var far_blur_pixels: float = 0.0
+@export var far_blur_falloff: float = 0.12
 ## VERTICAL field of view, in degrees.
 @export var vfov_degrees: float = 0.0
 ## Metres of lane width visible at the hero (the camera distance follows from it).
