@@ -1,6 +1,7 @@
 class_name TitleScreen
 extends Control
-## The main screen. Top row: the K! logo on the left, Settings on the right. Middle: a vertical
+## The main screen with a bottom nav bar (Characters, Weapons, Battle, History, Menu). The Battle
+## tab is the home page. Its top row: the K! logo on the left, Settings on the right. Middle: a vertical
 ## carousel of 2:1 mode cards at the left edge (a fifth of each card is past the screen's edge) and
 ## the chosen mode's details with its action buttons on the right. Settings holds the player's name
 ## and the infrequent quit action, while Android Back also opens its confirmation.
@@ -47,6 +48,12 @@ var primary_button: Button
 var secondary_button: Button
 var quit_button: Button
 var dialog: MenuDialog
+var nav: BottomNav
+var pages: Dictionary[StringName, Control] = {}
+var characters_page: CharactersPage
+var weapons_page: WeaponsPage
+var history_page: HistoryPage
+var settings_page: SettingsPage
 
 var _name_label: Label
 var _avatar_texture: TextureRect
@@ -124,14 +131,50 @@ func _build_layout() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
-	# the middle row is centred in the space under the top row
-	var centre: VBoxContainer = VBoxContainer.new()
-	centre.name = "MiddleCentre"
-	centre.alignment = BoxContainer.ALIGNMENT_CENTER
-	centre.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(centre)
-	centre.add_child(_build_middle())
+	column.add_child(_build_pages())
+	# the bar is not part of the padded column: it runs edge to edge along the bottom
+	nav = BottomNav.new()
+	nav.tab_selected.connect(_on_tab)
+	nav.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	add_child(nav)
+
+
+## One page per tab, stacked: only the open one shows. Battle (the carousel and its details,
+## centred in the space between the top row and the bar) is the home page.
+func _build_pages() -> Control:
+	var stack: Control = Control.new()
+	stack.name = "Pages"
+	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var battle: VBoxContainer = VBoxContainer.new()
+	battle.name = "BattlePage"
+	battle.alignment = BoxContainer.ALIGNMENT_CENTER
+	battle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle.add_child(_build_middle())
+	characters_page = CharactersPage.new()
+	weapons_page = WeaponsPage.new()
+	history_page = HistoryPage.new()
+	settings_page = SettingsPage.new()
+	pages = {&"characters": characters_page, &"weapons": weapons_page, &"battle": battle, &"history": history_page, &"settings": settings_page}
+	for id: StringName in pages:
+		var page: Control = pages[id]
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		page.visible = id == &"battle"
+		stack.add_child(page)
+	characters_page.chosen.connect(func(_id: String) -> void: _refresh_profile())
+	settings_page.profile_pressed.connect(open_name_editor)
+	settings_page.quit_pressed.connect(open_quit_confirm)
+	return stack
+
+
+## Shows the page of the tab that was tapped.
+func _on_tab(tab: StringName) -> void:
+	for id: StringName in pages:
+		pages[id].visible = id == tab
+	if tab == &"history":
+		history_page.refresh()
+	elif tab == &"characters":
+		characters_page.refresh()
 
 
 ## The mode carousel on the left, the details and the action buttons on the right, centred in the
@@ -237,7 +280,12 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_left", int(SIDE_MARGIN + inset.x))
 	_margin.add_theme_constant_override("margin_top", int(TOP_MARGIN + inset.y))
 	_margin.add_theme_constant_override("margin_right", int(SIDE_MARGIN + inset.z))
-	_margin.add_theme_constant_override("margin_bottom", int(BOTTOM_MARGIN + inset.w))
+	_margin.add_theme_constant_override("margin_bottom", int(BottomNav.HEIGHT + inset.w + BOTTOM_MARGIN))
+	if nav != null:
+		nav.set_side_margins(SIDE_MARGIN + inset.x, SIDE_MARGIN + inset.z)
+		nav.set_bottom_inset(inset.w)
+		nav.offset_top = -(BottomNav.HEIGHT + inset.w)
+		nav.offset_bottom = 0.0
 	if carousel != null:
 		# the cards start past the screen's left edge: a fifth of each is out of sight
 		carousel.left_offset = -(SIDE_MARGIN + inset.x) - ChoiceCard.CARD_SIZE.x * MenuCarousel.HIDDEN_LEFT
@@ -521,37 +569,7 @@ func _build_profile_row(settings: MenuDialog) -> Control:
 func open_settings() -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create("SETTINGS")
 	card.body.add_child(_build_profile_row(card))
-	var sound: HBoxContainer = _settings_row(card, "Sound")
-	var slider: HSlider = DialogButtons.slider(Settings.volume)
-	slider.name = "VolumeSlider"
-	sound.add_child(slider)
-	var percent: Label = Label.new()
-	percent.custom_minimum_size = Vector2(84.0, 0.0)
-	percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	percent.add_theme_font_size_override("font_size", 28)
-	percent.text = "%d%%" % roundi(Settings.volume * 100.0)
-	sound.add_child(percent)
-	slider.value_changed.connect(func(value: float) -> void:
-		Settings.set_volume(value)
-		percent.text = "%d%%" % roundi(value * 100.0))
-	slider.drag_ended.connect(func(_changed: bool) -> void: Settings.play_ui())
-	if Settings.can_vibrate():
-		var buzz: HBoxContainer = _settings_row(card, "Vibration")
-		var toggle: Button = MenuDialog.make_button("ON" if Settings.vibration else "OFF", "green" if Settings.vibration else "grey", 28, Vector2(150.0, 72.0))
-		toggle.name = "VibrationToggle"
-		toggle.pressed.connect(func() -> void:
-			Settings.set_vibration(not Settings.vibration)
-			toggle.text = "ON" if Settings.vibration else "OFF"
-			KalyeahTheme.style_button(toggle, "green" if Settings.vibration else "grey"))
-		buzz.add_child(toggle)
-	card.add_label("Server", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var server: LineEdit = LineEdit.new()
-	server.name = "ServerField"
-	server.text = Settings.server_url
-	server.placeholder_text = "wss://your-server"
-	server.custom_minimum_size = Vector2(0.0, 76.0)
-	server.add_theme_font_size_override("font_size", 28)
-	card.body.add_child(server)
+	var server: LineEdit = SettingsPage.fill(card.body)
 	quit_button = MenuDialog.make_button("QUIT GAME", "red", 28)
 	quit_button.name = "QuitButton"
 	card.add_buttons([quit_button])
@@ -565,18 +583,6 @@ func open_settings() -> MenuDialog:
 			Settings.save_server_url(typed))
 	_show_dialog(card)
 	return card
-
-
-func _settings_row(card: MenuDialog, label_text: String) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	var label: Label = Label.new()
-	label.text = label_text
-	label.custom_minimum_size = Vector2(170.0, 0.0)
-	label.add_theme_font_size_override("font_size", 28)
-	row.add_child(label)
-	card.body.add_child(row)
-	return row
 
 
 ## Quit: asks first (a stray tap must not close the game).
