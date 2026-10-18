@@ -10,6 +10,8 @@ const CAMERA_PITCH: float = 50.0
 ## How much of the frame the model may fill (1 = touching the edges).
 const FRAME_FILL: float = 0.98
 
+signal framed
+
 var viewport: SubViewport
 var camera: Camera3D
 var map: StreetMap
@@ -89,3 +91,13 @@ func frame() -> void:
 		distance *= 1.06
 	camera.position = middle - forward * distance
 	camera.rotation_degrees = Vector3(-CAMERA_PITCH, 0.0, 0.0)
+	framed.emit()
+
+
+## Where the middle of the blue platform's front face shows, in this control's pixels (the map
+## title is laid there).
+func platform_front_point() -> Vector2:
+	var depth: float = -0.1 - StreetMap.PLINTH_HEIGHT - StreetMap.PLATFORM_HEIGHT / 2.0
+	var shown: Vector2 = camera.unproject_position(Vector3(0.0, depth, StreetMap.PLATFORM_MARGIN))
+	# the picture may still be one frame behind the control's size: scale to the control
+	return shown * size / Vector2(maxf(viewport.size.x, 1.0), maxf(viewport.size.y, 1.0))

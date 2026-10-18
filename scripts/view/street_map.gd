@@ -52,9 +52,11 @@ const END_REACH: float = 16.0
 const PLINTH: Color = Color(0.4, 0.43, 0.54)
 const PLINTH_HEIGHT: float = 4.0
 ## The main-screen model sits on a thicker blue platform that reaches this far past it.
-const PLATFORM: Color = Color(0.16, 0.36, 0.8)
+const PLATFORM: Color = Color(0.07, 0.16, 0.4)
 const PLATFORM_HEIGHT: float = 6.0
 const PLATFORM_MARGIN: float = 2.0
+## Corner radius of the main-screen model's slab and stone base (the platform's is wider by the margin).
+const CORNER_RADIUS: float = 1.8
 const HOUSE_SPACING: float = 6.4
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -234,9 +236,24 @@ func _reach() -> float:
 	return 0.0 if diorama else END_REACH
 
 
+## The dark, matte blue platform under the main-screen model (concentric with its rounded corners).
+func _platform() -> ArrayMesh:
+	var kit: LowPoly = LowPoly.new()
+	var half: float = layout.lane_length / 2.0
+	var under: float = -0.1 - PLINTH_HEIGHT
+	kit.rounded_slab(Vector3(0.0, under - PLATFORM_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width + PLATFORM_MARGIN * 2.0, PLATFORM_HEIGHT, half + PLATFORM_MARGIN * 2.0), CORNER_RADIUS + PLATFORM_MARGIN, PLATFORM, PLATFORM)
+	return kit.commit()
+
+
 func _build_map() -> void:
 	_add(_street(), Vector3.ZERO).material_override = street_material()
 	if diorama:
+		var matte: StandardMaterial3D = StandardMaterial3D.new()
+		matte.vertex_color_use_as_albedo = true
+		matte.roughness = 1.0
+		matte.metallic = 0.0
+		matte.metallic_specular = 0.0
+		_add(_platform(), Vector3.ZERO).material_override = matte
 		_add_corner_props()
 		return
 	_add_ground_textures()
@@ -288,11 +305,9 @@ func _street() -> ArrayMesh:
 	if diorama:
 		# the main-screen model is the far half only: the exact lane_width x lane_length / 2 area (1:1 when the street is 1:2)
 		var half: float = layout.lane_length / 2.0
-		kit.plain_box(Vector3(0.0, -0.05, -half / 2.0), Vector3(layout.lane_width, 0.1, half), CEMENT, CEMENT)
-		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
-		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width, PLINTH_HEIGHT, half), PLINTH, PLINTH)
-		var under: float = -0.1 - PLINTH_HEIGHT
-		kit.box(Vector3(0.0, under - PLATFORM_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width + PLATFORM_MARGIN * 2.0, PLATFORM_HEIGHT, half + PLATFORM_MARGIN * 2.0), PLATFORM, PLATFORM)
+		kit.rounded_slab(Vector3(0.0, -0.05, -half / 2.0), Vector3(layout.lane_width, 0.1, half), CORNER_RADIUS, CEMENT, CEMENT)
+		# the chunky stone base the map model stands on
+		kit.rounded_slab(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width, PLINTH_HEIGHT, half), CORNER_RADIUS, PLINTH, PLINTH)
 		return kit.commit()
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:

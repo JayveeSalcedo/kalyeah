@@ -150,13 +150,6 @@ func _build_map_model() -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	square.add_child(frame)
 	frame.add_child(diorama)
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchor(SIDE_RIGHT, 1.0)
-	center.set_anchor(SIDE_TOP, 0.93)
-	center.set_anchor(SIDE_BOTTOM, 0.93)
-	center.offset_top = -29.0
-	center.offset_bottom = 29.0
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var title: Label = Label.new()
 	title.name = "MapTitle"
 	map_title = title
@@ -170,9 +163,18 @@ func _build_map_model() -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(title)
-	frame.add_child(center)
+	# the title is written on the front face of the blue platform
+	frame.add_child(title)
+	diorama.framed.connect(_place_map_title, CONNECT_DEFERRED)
+	title.resized.connect(_place_map_title, CONNECT_DEFERRED)
+	_place_map_title.call_deferred()
 	return stage
+
+
+func _place_map_title() -> void:
+	if map_title == null or diorama == null or diorama.camera == null:
+		return
+	map_title.position = diorama.platform_front_point() - map_title.size / 2.0
 
 
 ## Keeps everything clear of notches, rounded corners and the home bar.

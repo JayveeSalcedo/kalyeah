@@ -266,14 +266,17 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	assert_eq(layout.lane_length, (load("res://data/rules/map_layout.tres") as MapLayout).lane_length, "the real play area")
 	# the cement and its stone base in the game's exact shape, plus the corner props only
 	assert_eq(model.map._posts.size(), 1, "the far base's electric post")
-	var street: AABB = (model.map.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
+	var found: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
+	var street: AABB = (found[0] as MeshInstance3D).get_aabb()
+	var platform: AABB = (found[1] as MeshInstance3D).get_aabb()
 	assert_almost_eq(street.size.x / street.size.z, 1.0, 0.001, "exactly 1:1 (the slab and the platform both)")
-	assert_almost_eq(street.size.x, layout.lane_width + StreetMap.PLATFORM_MARGIN * 2.0, 0.01, "no sidewalks: the slab and the blue platform it sits on")
-	assert_almost_eq(street.size.z, layout.lane_length / 2.0 + StreetMap.PLATFORM_MARGIN * 2.0, 0.01, "the top half on its platform, no extra street at the ends")
-	assert_gt(street.size.y, StreetMap.PLINTH_HEIGHT + StreetMap.PLATFORM_HEIGHT, "a thick stone base on a thicker blue platform")
-	assert_gt(StreetMap.PLATFORM_HEIGHT, StreetMap.PLINTH_HEIGHT, "the platform is the thicker one")
+	assert_almost_eq(street.size.x, layout.lane_width, 0.01, "no sidewalks")
+	assert_almost_eq(street.size.z, layout.lane_length / 2.0, 0.01, "the top half, no extra street at the ends")
+	assert_almost_eq(platform.size.x, layout.lane_width + StreetMap.PLATFORM_MARGIN * 2.0, 0.01, "the blue platform reaches past it evenly")
+	assert_almost_eq(platform.size.x / platform.size.z, 1.0, 0.001, "and is 1:1 too")
+	assert_gt(StreetMap.PLATFORM_HEIGHT, StreetMap.PLINTH_HEIGHT, "a thick stone base on a thicker platform")
 	var props: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
-	assert_eq(props.size(), 1 + 1 + model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + posts + tagged-box walls and nothing else")
+	assert_eq(props.size(), 2 + 1 + model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + platform + post + tagged-box walls and nothing else")
 	assert_eq(model.viewport.find_children("*", "KidModel", true, false).size(), 0, "no characters")
 	for cx: float in [-layout.lane_width / 2.0, layout.lane_width / 2.0]:
 		for cz: float in [-layout.lane_length / 2.0, 0.0]:
