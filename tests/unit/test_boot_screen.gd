@@ -59,12 +59,12 @@ func test_the_base_is_short_and_the_cardboard_keeps_its_proportions_at_the_bases
 	boot.queue_free()
 
 
-func test_the_percentage_is_lost_tumbler_text_in_the_middle_of_the_base_instead_of_the_k() -> void:
+func test_the_percentage_is_bungee_text_in_the_middle_of_the_base_instead_of_the_k() -> void:
 	var boot: BootScreen = _boot()
 	boot.progress = 0.5
 	boot._layout()
 	assert_eq(boot._percent.text, "50%")
-	assert_eq(boot._percent.get_theme_font("font"), BootScreen.PERCENT_FONT, "the Lost Tumbler font")
+	assert_eq(boot._percent.get_theme_font("font"), BootScreen.PERCENT_FONT, "the Bungee font")
 	assert_almost_eq(boot._percent.get_global_rect().get_center().x, 360.0, 1.0, "centred left to right")
 	assert_almost_eq(boot._percent.get_global_rect().get_center().y, boot._base.get_global_rect().position.y, 1.0, "vertically centred on the base's top edge")
 	assert_lt(boot._percent.get_global_rect().position.y, boot._base.get_global_rect().position.y, "it overlaps the base")
@@ -85,7 +85,7 @@ func test_a_tip_floats_just_above_the_base_and_fits_the_screen() -> void:
 	assert_gte(tip.position.x, 0.0)
 	assert_lte(tip.end.x, 720.0)
 	assert_eq(boot._tip.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
-	assert_eq(boot._tip.get_theme_font("font"), KalyeahTheme.BODY_FONT, "the tip is sentence case in the body font (Lost Tumbler only has capitals)")
+	assert_eq(boot._tip.get_theme_font("font"), KalyeahTheme.BODY_FONT, "the tip is in the body font")
 	for line: String in BootScreen.TIPS:
 		assert_ne(line, line.to_upper(), "sentence case, not all capitals")
 		assert_eq(line[0], line[0].to_upper(), "starts with a capital")

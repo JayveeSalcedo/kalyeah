@@ -3,7 +3,7 @@ extends Control
 ## Boot screen, laid out like the Clash Royale loading screen: the key art fills the screen above a
 ## matte black loading base at the bottom (a matte black layer is under everything). The cardboard
 ## fills the base from left to right as the game loads. The loaded percentage sits on the base's top
-## edge (in the owner's Lost Tumbler font) and a sentence-case tip floats just above it over the art. It
+## edge (in the owner's Bungee font) and a tip floats just above it over the art. It
 ## loads the scenes the player is about to open, then hands over to the title screen. A dedicated
 ## server skips it.
 
@@ -20,7 +20,7 @@ const FILL: Texture2D = preload("res://assets/ui/boot/boot_bar_fill.png")
 const FILL_REGION: Rect2 = Rect2(70.0, 30.0, 740.0, 54.0)
 ## The font of the loaded percentage (owner). It only has capital letters, so the tip, which is
 ## sentence case, uses the body font.
-const PERCENT_FONT: Font = preload("res://assets/fonts/lost_tumbler/Lost_Tumbler.otf")
+const PERCENT_FONT: Font = KalyeahTheme.DISPLAY_FONT
 ## Matte black (not pure black) for the loading base and the layer under everything.
 const BASE_COLOR: Color = Color(0.085, 0.085, 0.09)
 
@@ -166,7 +166,7 @@ func _layout() -> void:
 	# the percentage is centred vertically on the base's top edge, overlapping it
 	_percent.size = Vector2(size.x, PERCENT_HEIGHT)
 	_percent.position = Vector2(0.0, origin.y - PERCENT_HEIGHT / 2.0)
-	_percent.add_theme_font_size_override("font_size", int(PERCENT_HEIGHT * 0.78))
+	_percent.add_theme_font_size_override("font_size", int(PERCENT_HEIGHT * 0.6))
 	# the tip floats just above the base, over the art
 	var side: float = size.x * 0.08
 	# a wrapping label works out its height from its width, so give it the width first

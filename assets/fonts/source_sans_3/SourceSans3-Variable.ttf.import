@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bv2qsytop0mim"
-path="res://.godot/imported/Dagsen_Black.otf-8dc0ed399b359c1afa32b70f432621a3.fontdata"
+uid="uid://bjwy0jvj68th0"
+path="res://.godot/imported/SourceSans3-Variable.ttf-66e001aa70a2bb67e5ae9105a78e83be.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/dagsen/Dagsen_Black.otf"
-dest_files=["res://.godot/imported/Dagsen_Black.otf-8dc0ed399b359c1afa32b70f432621a3.fontdata"]
+source_file="res://assets/fonts/source_sans_3/SourceSans3-Variable.ttf"
+dest_files=["res://.godot/imported/SourceSans3-Variable.ttf-66e001aa70a2bb67e5ae9105a78e83be.fontdata"]
 
 [params]
 

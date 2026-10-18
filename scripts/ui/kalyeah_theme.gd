@@ -1,12 +1,15 @@
 class_name KalyeahTheme
 extends RefCounted
-## Kalyeah's portrait UI system: Dagsen display faces, compact spacing and raised,
+## Kalyeah's portrait UI system: the Bungee display face, compact spacing and raised,
 ## toy-like controls inspired by the visual weight of polished mobile strategy games.
 
-const DISPLAY_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Inked.otf")
-const ACTION_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Black.otf")
-const FALLBACK_FONT: Font = preload("res://assets/fonts/nunito_sans/NunitoSans-Variable.ttf")
-const POPPINS_FONT: Font = preload("res://assets/fonts/poppins/Poppins-Bold.ttf")
+## The owner's Bungee font (capital letters) for headings, plates, buttons and numbers.
+const DISPLAY_FONT: Font = preload("res://assets/fonts/bungee/Bungee-Regular.ttf")
+const ACTION_FONT: Font = DISPLAY_FONT
+## The owner's Source Sans 3 (a variable font) for all regular text.
+const SOURCE_SANS: Font = preload("res://assets/fonts/source_sans_3/SourceSans3-Variable.ttf")
+## How heavy the regular text is (Source Sans 3 runs from 200 to 900; 400 is Regular).
+const BODY_WEIGHT: int = 600
 static var BODY_FONT: Font = _body_font()
 
 const INK: Color = Color("10192d")
@@ -32,10 +35,11 @@ const PANEL_PADDING: float = 30.0
 
 
 static func _body_font() -> Font:
-	# Poppins Bold for all regular text (owner), the same on every phone and in the browser
+	# Source Sans 3 for all regular text (owner), the same on every phone and in the browser
 	var font: FontVariation = FontVariation.new()
-	font.base_font = POPPINS_FONT
-	font.fallbacks = [FALLBACK_FONT]
+	font.base_font = SOURCE_SANS
+	# the axis is addressed by its OpenType tag number ("wght")
+	font.variation_opentype = {TextServerManager.get_primary_interface().name_to_tag("wght"): BODY_WEIGHT}
 	return font
 
 
