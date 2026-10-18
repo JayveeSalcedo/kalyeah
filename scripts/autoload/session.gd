@@ -13,9 +13,8 @@ var room_code: String = ""
 var lobby_intent: int = 0
 ## True when the lobby was opened from the HOTSPOT button (it uses the hotspot address).
 var lobby_hotspot: bool = false
-## The main screen's choices (indexes into TitleScreen.MODES and TitleScreen.MAPS); default Hotspot on Agawan Base.
+## The mode card chosen on the main screen (an index into TitleScreen.MODES); Hotspot by default.
 var menu_mode: int = 0
-var menu_map: int = 0
 var reconnect_token: String = ""
 var reconnect_url: String = ""
 

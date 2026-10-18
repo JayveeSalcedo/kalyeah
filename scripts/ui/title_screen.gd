@@ -1,9 +1,9 @@
 class_name TitleScreen
 extends Control
-## The main screen. A compact profile bar sits above the map model. Below it, a row of two 2:1
-## cards (MODE, MAP) and START at the right-most side. Tapping a card opens a carousel of choices
-## over a tint. Settings contains the infrequent quit action, while Android Back also opens its
-## confirmation.
+## The main screen. Top row: the K! logo on the left, Settings on the right. Middle: a vertical
+## carousel of 2:1 mode cards at the left edge (a fifth of each card is past the screen's edge) and
+## the chosen mode's details with its action buttons on the right. Settings holds the player's name
+## and the infrequent quit action, while Android Back also opens its confirmation.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -14,16 +14,15 @@ const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 
 ## The game modes, first is the default (owner: hotspot first, not online).
 const MODES: Array[Dictionary] = [
-	{"id": "hotspot", "title": "HOTSPOT", "color": "blue"},
-	{"id": "online", "title": "ONLINE", "color": "orange"},
-	{"id": "practice", "title": "PRACTICE", "color": "green"},
+	{"id": "hotspot", "title": "HOTSPOT", "color": "blue",
+		"text": "Play with your friends offline."},
+	{"id": "online", "title": "ONLINE", "color": "orange",
+		"text": "Play with players online."},
+	{"id": "practice", "title": "PRACTICE", "color": "green",
+		"text": "Train alone against dummies."},
 ]
-## The maps, first is the default. Only Agawan Base can be played yet.
-const MAPS: Array[Dictionary] = [
-	{"id": "agawan_base", "title": "AGAWAN BASE", "color": "gold", "playable": true},
-	{"id": "tumbang_preso", "title": "TUMBANG PRESO", "color": "gold", "playable": false},
-	{"id": "patintero", "title": "PATINTERO", "color": "gold", "playable": false},
-]
+const CAROUSEL_HEIGHT: float = 340.0
+const LOGO: String = "res://assets/ui/k_logo.png"
 
 const SIDE_MARGIN: float = 34.0
 const TOP_MARGIN: float = 26.0
@@ -40,15 +39,15 @@ var open_lobby_action: Callable = _change_to_lobby
 
 var profile_button: Button
 var settings_button: Button
-var mode_card: Button
-var map_card: Button
-var start_button: Button
-var carousel: ChoiceCarousel
+var logo: Control
+var carousel: MenuCarousel
+var mode_name_label: Label
+var mode_text_label: Label
+var primary_button: Button
+var secondary_button: Button
 var quit_button: Button
-var diorama: MenuDiorama
 var dialog: MenuDialog
 
-var map_title: Label
 var _name_label: Label
 var _avatar_texture: TextureRect
 var _loading: bool = false
@@ -69,12 +68,12 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_background()
 	_build_layout()
-	_refresh_profile()
-	profile_button.pressed.connect(open_name_editor)
+	_apply_safe_area()
+	_refresh_mode()
 	settings_button.pressed.connect(open_settings)
-	mode_card.pressed.connect(open_mode_choices)
-	map_card.pressed.connect(open_map_choices)
-	start_button.pressed.connect(start)
+	carousel.selected.connect(_on_mode_selected)
+	primary_button.pressed.connect(_on_primary_pressed)
+	secondary_button.pressed.connect(_on_secondary_pressed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
 	_pop_in.call_deferred()
@@ -125,57 +124,109 @@ func _build_layout() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
-	column.add_child(_build_map_model())
-	column.add_child(_build_buttons())
+	# the middle row is centred in the space under the top row
+	var centre: VBoxContainer = VBoxContainer.new()
+	centre.name = "MiddleCentre"
+	centre.alignment = BoxContainer.ALIGNMENT_CENTER
+	centre.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(centre)
+	centre.add_child(_build_middle())
 
 
-## The model and its attached mode plate fill the space between the profile and actions.
-func _build_map_model() -> Control:
-	var stage: Control = Control.new()
-	stage.name = "MapStage"
-	stage.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stage.custom_minimum_size = Vector2(0.0, 300.0)
-	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	diorama = MenuDiorama.new()
-	diorama.name = "MapModel"
-	diorama.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# the model is a 1:1 square, centred between the profile and the cards; the plate sits on its front edge
-	var square: AspectRatioContainer = AspectRatioContainer.new()
-	square.name = "MapSquare"
-	square.ratio = 1.0
-	square.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	square.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stage.add_child(square)
-	var frame: Control = Control.new()
-	frame.name = "Square"
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	square.add_child(frame)
-	frame.add_child(diorama)
-	var title: Label = Label.new()
-	title.name = "MapTitle"
-	map_title = title
-	title.text = String(MAPS[Session.menu_map]["title"])
-	title.theme_type_variation = &"DisplayLabel"
-	title.add_theme_font_size_override("font_size", 34)
-	title.add_theme_color_override("font_color", CREAM)
-	title.add_theme_constant_override("outline_size", 2)
-	title.add_theme_stylebox_override("normal", KalyeahTheme.map_title_plate())
-	title.custom_minimum_size = Vector2(310.0, 58.0)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the title is written on the front face of the blue platform
-	frame.add_child(title)
-	diorama.framed.connect(_place_map_title, CONNECT_DEFERRED)
-	title.resized.connect(_place_map_title, CONNECT_DEFERRED)
-	_place_map_title.call_deferred()
-	return stage
+## The mode carousel on the left, the details and the action buttons on the right, centred in the
+## space under the top row.
+func _build_middle() -> Control:
+	var middle: HBoxContainer = HBoxContainer.new()
+	middle.name = "Middle"
+	middle.size_flags_horizontal = Control.SIZE_FILL
+	middle.alignment = BoxContainer.ALIGNMENT_CENTER
+	middle.add_theme_constant_override("separation", 24)
+	middle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	carousel = MenuCarousel.new()
+	carousel.name = "ModeCarousel"
+	# the visible part of a card: 80% of it, counted from the screen's edge (the margin is part of it)
+	carousel.custom_minimum_size = Vector2(ChoiceCard.CARD_SIZE.x * (1.0 - MenuCarousel.HIDDEN_LEFT) - SIDE_MARGIN, CAROUSEL_HEIGHT)
+	carousel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	middle.add_child(carousel)
+	carousel.setup("", MODES, Session.menu_mode)
+	middle.add_child(_build_details())
+	return middle
 
 
-func _place_map_title() -> void:
-	if map_title == null or diorama == null or diorama.camera == null:
-		return
-	map_title.position = diorama.platform_front_point() - map_title.size / 2.0
+func _build_details() -> Control:
+	var details: VBoxContainer = VBoxContainer.new()
+	details.name = "Details"
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	details.add_theme_constant_override("separation", 12)
+	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the details start level with the top of the chosen card (the carousel has room for the
+	# neighbouring cards above it)
+	var level: Control = Control.new()
+	level.custom_minimum_size = Vector2(0.0, (CAROUSEL_HEIGHT - ChoiceCard.CARD_SIZE.y) / 2.0 - 12.0)
+	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	details.add_child(level)
+	mode_name_label = Label.new()
+	mode_name_label.name = "ModeName"
+	mode_name_label.theme_type_variation = &"DisplayLabel"
+	mode_name_label.add_theme_font_size_override("font_size", 38)
+	mode_name_label.add_theme_color_override("font_color", CREAM)
+	mode_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	details.add_child(mode_name_label)
+	mode_text_label = Label.new()
+	mode_text_label.name = "ModeText"
+	mode_text_label.add_theme_font_size_override("font_size", 21)
+	mode_text_label.clip_text = true
+	mode_text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	details.add_child(mode_text_label)
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "Actions"
+	actions.add_theme_constant_override("separation", 12)
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	details.add_child(actions)
+	primary_button = _action_button(actions, "PrimaryButton", "", "blue")
+	secondary_button = _action_button(actions, "SecondaryButton", "JOIN", "green")
+	return details
+
+
+func _action_button(parent: Control, button_name: String, text: String, color: String) -> Button:
+	var button: Button = MenuDialog.make_button(text, color, 32, Vector2(0.0, 88.0))
+	button.name = button_name
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(button)
+	return button
+
+
+## The chosen mode's name, one line of text and buttons: Hotspot and Online create or join a room
+## (side by side), Practice just starts.
+func _refresh_mode() -> void:
+	var mode: Dictionary = MODES[Session.menu_mode]
+	var rooms: bool = String(mode["id"]) != "practice"
+	mode_name_label.text = String(mode["title"])
+	mode_text_label.text = String(mode["text"])
+	primary_button.text = "CREATE" if rooms else "START"
+	secondary_button.visible = rooms
+	KalyeahTheme.style_button(primary_button, "blue" if rooms else "orange")
+
+
+func _on_mode_selected(index: int) -> void:
+	Session.menu_mode = index
+	_refresh_mode()
+
+
+func _on_primary_pressed() -> void:
+	match String(MODES[Session.menu_mode]["id"]):
+		"practice":
+			_on_practice_pressed()
+		"online":
+			_open_lobby(LobbyScreen.Intent.CREATE, false)
+		_:
+			_open_lobby(LobbyScreen.Intent.CREATE, true)
+
+
+func _on_secondary_pressed() -> void:
+	_open_lobby(LobbyScreen.Intent.JOIN, String(MODES[Session.menu_mode]["id"]) == "hotspot")
 
 
 ## Keeps everything clear of notches, rounded corners and the home bar.
@@ -187,6 +238,10 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_top", int(TOP_MARGIN + inset.y))
 	_margin.add_theme_constant_override("margin_right", int(SIDE_MARGIN + inset.z))
 	_margin.add_theme_constant_override("margin_bottom", int(BOTTOM_MARGIN + inset.w))
+	if carousel != null:
+		# the cards start past the screen's left edge: a fifth of each is out of sight
+		carousel.left_offset = -(SIDE_MARGIN + inset.x) - ChoiceCard.CARD_SIZE.x * MenuCarousel.HIDDEN_LEFT
+		carousel.setup_layout()
 
 
 ## The unsafe screen edges (left, top, right, bottom) in UI pixels: the notch, the status bar,
@@ -208,50 +263,43 @@ func safe_insets() -> Vector4:
 func _build_top_bar() -> Control:
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.name = "TopBar"
-	bar.add_theme_constant_override("separation", 14)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	profile_button = Button.new()
-	profile_button.name = "Profile"
-	profile_button.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
-	profile_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	profile_button.clip_text = true
-	var pill: StyleBoxFlat = KalyeahTheme.painted_pill()
-	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		profile_button.add_theme_stylebox_override(state, pill)
-	MenuDialog.feel_press(profile_button)
-	bar.add_child(profile_button)
-	var inner: HBoxContainer = HBoxContainer.new()
-	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	inner.offset_left = 14.0
-	inner.offset_right = -14.0
-	inner.add_theme_constant_override("separation", 14)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	profile_button.add_child(inner)
-	inner.add_child(_build_avatar())
-	var texts: VBoxContainer = VBoxContainer.new()
-	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	texts.add_theme_constant_override("separation", 0)
-	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(texts)
-	_name_label = Label.new()
-	_name_label.theme_type_variation = &"DisplayLabel"
-	_name_label.add_theme_font_size_override("font_size", 34)
-	_name_label.add_theme_color_override("font_color", Color.WHITE)
-	_name_label.clip_text = true
-	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.add_child(_name_label)
-	var role: Label = Label.new()
-	role.text = "Player"
-	role.theme_type_variation = &"MutedLabel"
-	role.add_theme_font_size_override("font_size", 17)
-	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.add_child(role)
+	logo = _build_logo()
+	bar.add_child(logo)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(spacer)
 	settings_button = DialogButtons.icon_button(GEAR, "blue", TAP_TARGET)
 	settings_button.name = "SettingsButton"
+	settings_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	bar.add_child(settings_button)
 	return bar
+
+
+## The owner's K! picture (assets/ui/k_logo.png) when it exists, else a code-drawn K! stand-in.
+func _build_logo() -> Control:
+	if ResourceLoader.exists(LOGO):
+		var picture: TextureRect = TextureRect.new()
+		picture.name = "Logo"
+		picture.texture = load(LOGO) as Texture2D
+		picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+		picture.custom_minimum_size = Vector2(TAP_TARGET + 40.0, TAP_TARGET + 40.0)
+		picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return picture
+	var stand_in: Label = Label.new()
+	stand_in.name = "Logo"
+	stand_in.text = "K!"
+	stand_in.theme_type_variation = &"DisplayLabel"
+	stand_in.add_theme_font_size_override("font_size", 84)
+	stand_in.add_theme_color_override("font_color", GOLD)
+	stand_in.add_theme_color_override("font_outline_color", Color(0.03, 0.06, 0.18))
+	stand_in.add_theme_constant_override("outline_size", 10)
+	stand_in.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
+	stand_in.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	stand_in.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return stand_in
 
 
 ## The player's character face in a round gold ring.
@@ -290,60 +338,19 @@ func _build_avatar() -> Control:
 	return holder
 
 
-## MODE and MAP cards (2:1 each) with START at the right-most side.
-func _build_buttons() -> Control:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Buttons"
-	row.add_theme_constant_override("separation", 14)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mode_card = _make_card(row, "ModeCard")
-	map_card = _make_card(row, "MapCard")
-	start_button = MenuDialog.make_button("START", "orange", 38)
-	start_button.name = "StartButton"
-	start_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	start_button.size_flags_stretch_ratio = 0.6
-	row.add_child(start_button)
-	_refresh_choices()
-	return row
-
-
-## A button holding a label and its current choice, always twice as wide as it is tall.
-func _make_card(row: HBoxContainer, card_name: String) -> Button:
-	var ratio: AspectRatioContainer = AspectRatioContainer.new()
-	ratio.ratio = 2.0
-	ratio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ratio.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var card: Button = ChoiceCarousel.make_card("", "", "blue", Vector2(0.0, 96.0))
-	card.name = card_name
-	ratio.add_child(card)
-	row.add_child(ratio)
-	return card
-
-
-func _refresh_choices() -> void:
-	var mode: Dictionary = MODES[Session.menu_mode]
-	var map: Dictionary = MAPS[Session.menu_map]
-	ChoiceCarousel.set_card(mode_card, "Mode", String(mode["title"]), String(mode["color"]))
-	ChoiceCarousel.set_card(map_card, "Map", String(map["title"]), String(map["color"]))
-	var playable: bool = bool(map["playable"])
-	start_button.disabled = not playable
-	start_button.text = "START" if playable else "SOON"
-	if map_title != null:
-		map_title.text = String(map["title"])
-
-
 # ---- what the screen shows ---------------------------------------------------------------
 
 func _refresh_profile() -> void:
-	_name_label.text = Session.player_name
-	var face: Texture2D = KidModel.minimap_face(StringName(Session.avatar_id))
-	_avatar_texture.texture = face if face != null else KidModel.portrait(StringName(Session.avatar_id))
+	if is_instance_valid(_name_label):
+		_name_label.text = Session.player_name
+	if is_instance_valid(_avatar_texture):
+		var face: Texture2D = KidModel.minimap_face(StringName(Session.avatar_id))
+		_avatar_texture.texture = face if face != null else KidModel.portrait(StringName(Session.avatar_id))
 
 
 ## The buttons pop up in turn when the screen opens.
 func _pop_in() -> void:
-	var buttons: Array[Control] = [mode_card.get_parent() as Control, map_card.get_parent() as Control, start_button]
+	var buttons: Array[Control] = [primary_button, secondary_button]
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
@@ -355,41 +362,6 @@ func _pop_in() -> void:
 
 
 # ---- actions ----------------------------------------------------------------------------
-
-## The card choices: MODE and MAP each open a carousel over a tint.
-func open_mode_choices() -> ChoiceCarousel:
-	return _open_carousel("Mode", MODES, Session.menu_mode, func(index: int) -> void:
-		Session.menu_mode = index
-		_refresh_choices())
-
-
-func open_map_choices() -> ChoiceCarousel:
-	return _open_carousel("Map", MAPS, Session.menu_map, func(index: int) -> void:
-		Session.menu_map = index
-		_refresh_choices())
-
-
-func _open_carousel(heading: String, options: Array[Dictionary], current: int, on_pick: Callable) -> ChoiceCarousel:
-	if carousel != null and is_instance_valid(carousel):
-		carousel.queue_free()
-	carousel = ChoiceCarousel.create(heading, options, current)
-	carousel.picked.connect(on_pick)
-	add_child(carousel)
-	return carousel
-
-
-## START plays the chosen mode on the chosen map.
-func start() -> void:
-	if not bool(MAPS[Session.menu_map]["playable"]):
-		return
-	match String(MODES[Session.menu_mode]["id"]):
-		"hotspot":
-			open_hotspot()
-		"online":
-			open_online()
-		"practice":
-			_on_practice_pressed()
-
 
 func _on_practice_pressed() -> void:
 	if _loading:
@@ -500,40 +472,55 @@ func open_name_editor() -> MenuDialog:
 	return card
 
 
-## ONLINE: create a room or join one on the game server.
-func open_online() -> MenuDialog:
-	return _open_play_dialog("ONLINE", false, "")
-
-
-## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi; the host's phone runs the room.
-func open_hotspot() -> MenuDialog:
-	return _open_play_dialog("HOTSPOT", true, "Create makes a room code on this phone (Android). Friends on the same hotspot or Wi-Fi join with it.")
-
-
-## The Create / Join choice.
-func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog:
-	var card: MenuDialog = MenuDialog.create(title)
-	if not hint.is_empty():
-		card.add_hint(hint)
-	var create: Button = MenuDialog.make_button("CREATE", "blue", 32)
-	var join: Button = MenuDialog.make_button("JOIN", "green", 32)
-	create.name = "CreateRoomButton"
-	join.name = "JoinRoomButton"
-	card.add_buttons([create, join])
-	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 28)
-	card.add_buttons([cancel])
-	cancel.pressed.connect(card.close)
-	var go: Callable = func(intent: LobbyScreen.Intent) -> void:
-		_open_lobby(intent, hotspot)
-	create.pressed.connect(go.bind(LobbyScreen.Intent.CREATE))
-	join.pressed.connect(go.bind(LobbyScreen.Intent.JOIN))
-	_show_dialog(card)
-	return card
+## Your face and name: tap to rename (the profile lives in Settings now).
+func _build_profile_row(settings: MenuDialog) -> Control:
+	profile_button = Button.new()
+	profile_button.name = "ProfileButton"
+	profile_button.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
+	profile_button.clip_text = true
+	var pill: StyleBoxFlat = KalyeahTheme.painted_pill()
+	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		profile_button.add_theme_stylebox_override(state, pill)
+	MenuDialog.feel_press(profile_button)
+	var inner: HBoxContainer = HBoxContainer.new()
+	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	inner.offset_left = 14.0
+	inner.offset_right = -14.0
+	inner.add_theme_constant_override("separation", 14)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	profile_button.add_child(inner)
+	inner.add_child(_build_avatar())
+	var texts: VBoxContainer = VBoxContainer.new()
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(texts)
+	_name_label = Label.new()
+	_name_label.theme_type_variation = &"DisplayLabel"
+	_name_label.add_theme_font_size_override("font_size", 34)
+	_name_label.add_theme_color_override("font_color", Color.WHITE)
+	_name_label.clip_text = true
+	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(_name_label)
+	var role: Label = Label.new()
+	role.text = "Tap to change your name"
+	role.theme_type_variation = &"MutedLabel"
+	role.add_theme_font_size_override("font_size", 17)
+	role.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(role)
+	_refresh_profile()
+	profile_button.pressed.connect(func() -> void:
+		settings.close(false)
+		open_name_editor())
+	return profile_button
 
 
 ## Settings: sound volume, vibration (phones) and the online server address.
 func open_settings() -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create("SETTINGS")
+	card.body.add_child(_build_profile_row(card))
 	var sound: HBoxContainer = _settings_row(card, "Sound")
 	var slider: HSlider = DialogButtons.slider(Settings.volume)
 	slider.name = "VolumeSlider"
