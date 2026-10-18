@@ -111,7 +111,7 @@ func test_the_centre_card_stays_centred_on_the_screen_and_the_buttons_are_drawn_
 	var book: Rect2 = screen.corner_buttons[&"codex"].get_global_rect()
 	var card: Rect2 = strip.cards[0].get_global_rect()
 	assert_lt(book.end.x, card.position.x, "at rest the buttons are clear of the centre card")
-	assert_gt(card.size.x, 340.0, "the centre card is large")
+	assert_gt(card.size.y, 460.0, "the centre card is large")
 
 
 func test_the_cards_show_the_owners_pictures_and_no_text() -> void:
@@ -120,7 +120,8 @@ func test_the_cards_show_the_owners_pictures_and_no_text() -> void:
 	for card: Button in screen.carousel.cards:
 		var art: TextureRect = card.find_child("Art", true, false) as TextureRect
 		assert_not_null(art, "%s has its picture" % ChoiceCard.choice_of(card))
-		assert_almost_eq(art.texture.get_size().x / art.texture.get_size().y, 0.75, 0.01, "3:4 art")
+		assert_gte(art.texture.get_size().x / art.texture.get_size().y, 0.625, "the picture is at least as wide as the card and is cropped to fit")
+		assert_eq(art.stretch_mode, TextureRect.STRETCH_KEEP_ASPECT_COVERED)
 		assert_false((card.get_node("Choice") as Label).visible, "no name on the card")
 		assert_false((card.get_node("Heading") as Label).visible, "no heading on the card")
 		assert_true(art.material is ShaderMaterial, "the picture follows the card's rounded corners")
@@ -133,8 +134,8 @@ func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the
 	await wait_frames(3)
 	var strip: MenuCarousel = screen.carousel
 	var chosen: Rect2 = strip.cards[0].get_global_rect()
-	assert_almost_eq(chosen.size.x / chosen.size.y, 0.75, 0.01, "3:4")
-	assert_gt(chosen.size.x, 340.0, "large")
+	assert_almost_eq(chosen.size.x / chosen.size.y, 2.5 / 4.0, 0.01, "2.5:4")
+	assert_gt(chosen.size.y, 460.0, "large")
 	for index: int in 3:
 		strip.select(index, false)
 		for card: Button in strip.cards:
@@ -213,7 +214,7 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_eq(ChoiceCard.choice_of(strip.cards[2]), "PRACTICE")
 	var middle: Button = strip.cards[0]
 	var next: Button = strip.cards[1]
-	assert_almost_eq(middle.size.x / middle.size.y, 0.75, 0.01, "3:4 cards")
+	assert_almost_eq(middle.size.x / middle.size.y, 2.5 / 4.0, 0.01, "2.5:4 cards")
 	assert_almost_eq(middle.get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is in the middle of the screen")
 	assert_eq(middle.modulate.a, 1.0)
 	assert_lt(next.modulate.r, middle.modulate.r, "the next card is shaded: depth")

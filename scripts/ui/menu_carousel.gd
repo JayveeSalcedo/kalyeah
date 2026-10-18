@@ -1,6 +1,6 @@
 class_name MenuCarousel
 extends Control
-## A horizontal carousel of 3:4 cards. The chosen card is in the middle at full size; every other
+## A horizontal carousel of 2.5:4 cards. The chosen card is in the middle at full size; every other
 ## card is stacked behind it, pushed only a little to its left or right, smaller and see-through but
 ## always visible. Drag or swipe sideways (or use the mouse wheel) to scroll, tap a card to bring it to
 ## the middle.
