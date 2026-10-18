@@ -2,6 +2,8 @@ extends GutTest
 
 var RULES: GameRules = load("res://data/rules/game_rules.tres") as GameRules
 const LAYOUT: MapLayout = preload("res://data/rules/map_layout.tres")
+## A kid whose animation is paced by the game (Junjun plays his own clips at their own speed).
+const PACED: int = 1
 
 
 func _kid(index: int) -> KidModel:
@@ -165,7 +167,7 @@ func test_match_audio_has_sounds_for_casts_heals_effects_and_the_result() -> voi
 
 
 func test_running_makes_footstep_signals() -> void:
-	var kid: KidModel = _kid(0)
+	var kid: KidModel = _kid(PACED)
 	var state: PlayerState = PlayerState.new()
 	watch_signals(kid)
 	for i: int in 60:
@@ -253,7 +255,7 @@ func test_the_model_gets_the_matte_look_and_a_tint() -> void:
 
 
 func test_the_run_cycle_follows_the_ground_speed() -> void:
-	var kid: KidModel = _kid(0)
+	var kid: KidModel = _kid(PACED)
 	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var state: PlayerState = PlayerState.new()
 	for i: int in 10:
@@ -265,7 +267,7 @@ func test_the_run_cycle_follows_the_ground_speed() -> void:
 
 
 func test_a_cast_plays_at_the_cast_time_and_restarts() -> void:
-	var kid: KidModel = _kid(0)
+	var kid: KidModel = _kid(PACED)
 	var player: AnimationPlayer = kid.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	var state: PlayerState = PlayerState.new()
 	kid.play_cast(0.5)
@@ -309,7 +311,7 @@ func test_a_knockout_knocks_the_kid_down_on_their_back_and_back_up() -> void:
 
 
 func test_a_cast_on_the_move_moves_only_the_upper_body() -> void:
-	var kid: KidModel = _kid(0)
+	var kid: KidModel = _kid(PACED)
 	var upper: AnimationPlayer = kid.find_child("UpperPlayer", true, false) as AnimationPlayer
 	assert_not_null(upper)
 	var state: PlayerState = PlayerState.new()

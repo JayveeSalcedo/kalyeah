@@ -32,7 +32,8 @@ func connect_hud() -> void:
 		owner.hud.aim_buttons[slot].aim_started.connect(owner.aim_started.bind(slot))
 		owner.hud.aim_buttons[slot].aim_released.connect(owner.aim_released.bind(slot))
 	owner.hud.hurt_button.pressed.connect(owner.hurt_local.bind(PracticeMatch.DEBUG_DAMAGE))
-	owner.hud.hurt_button.visible = not owner.online
+	owner.hud.menu.set_practice(not owner.online)
+	owner.hud.status_test_pressed.connect(owner.play_status_test)
 	owner.hud.again_pressed.connect(_on_again_pressed)
 	owner.hud.watch_requested.connect(func(id: int) -> void: owner.watch_id = id)
 	owner.hud.swap_pressed.connect(owner.open_swap)

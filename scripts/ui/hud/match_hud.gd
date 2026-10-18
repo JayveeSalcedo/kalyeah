@@ -11,6 +11,8 @@ extends Control
 signal swap_pressed
 signal again_pressed
 signal hurt_pressed
+## Practice: play the animation of status `type` (stunned, airborne, knocked down) on yourself.
+signal status_test_pressed(type: int)
 ## A card in the tagged panel was tapped: follow player `id`.
 signal watch_requested(id: int)
 signal exit_pressed
@@ -270,6 +272,7 @@ func _build() -> void:
 	add_child(menu)
 	hurt_button = menu.hurt_button
 	menu.hurt_pressed.connect(hurt_pressed.emit)
+	menu.status_pressed.connect(status_test_pressed.emit)
 	menu.exit_pressed.connect(exit_pressed.emit)
 	menu.closed.connect(set_controls_active.bind(true))
 
