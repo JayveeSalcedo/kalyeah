@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.6.0...kalyeah-v0.7.0) (2026-10-18)
+
+
+### Features
+
+* **kids:** Junjun plays his model's own clips at their own speed; practice menu plays hit animations ([935fc0f](https://github.com/earl-gh/kalyeah/commit/935fc0f279f3fcff3342dea134290477fa71fd27))
+* **ui:** establish branded interface foundation ([b7fed90](https://github.com/earl-gh/kalyeah/commit/b7fed901402f0252574944694cf8bb3db0a142a3))
+* **ui:** polish lobby and match presentation ([a94e26f](https://github.com/earl-gh/kalyeah/commit/a94e26fefd9dceb6e1a41acce685165f5cb8ae74))
+* **ui:** refine home flow and typography ([5b29800](https://github.com/earl-gh/kalyeah/commit/5b29800007931112725307cda1561dee9d5b4274))
+
+
+### Bug Fixes
+
+* **lobby:** use eight-character room codes ([be91322](https://github.com/earl-gh/kalyeah/commit/be9132213015c048920089caddd67b0cb3704120))
+* **multiplayer:** preserve authority across interruptions ([e934bd9](https://github.com/earl-gh/kalyeah/commit/e934bd941bce6e624aaf0385f67c5af1a482a8ae))
+
 ## [0.6.0](https://github.com/earl-gh/kalyeah/compare/kalyeah-v0.5.1...kalyeah-v0.6.0) (2026-10-16)
 
 
