@@ -224,7 +224,8 @@ func test_props_stay_low_poly() -> void:
 
 func test_the_model_props_are_light_and_standing_on_the_ground() -> void:
 	var limits: Dictionary = {"electric_pole": 1200, "cardboard_wall": 3200, "bench": 4200, "school_zone": 1400, "rooster_tent": 1300,
-		"ironing_board": 2600, "fishball_cart": 2100, "basketball_pole": 1900, "truck_wheels": 5100, "crates": 4600}
+		"ironing_board": 2600, "fishball_cart": 2100, "basketball_pole": 1900, "truck_wheels": 5100, "crates": 4600,
+		"nena_store": 3600, "vulcanizing": 3600, "barber_shop": 3600}
 	for id: String in limits:
 		var model: Node3D = autofree(PropModel.make(id)) as Node3D
 		var mesh: MeshInstance3D = model.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D
