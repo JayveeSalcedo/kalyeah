@@ -16,7 +16,7 @@ const MODES: Array[Dictionary] = [
 	{"id": "hotspot", "title": "HOTSPOT", "color": "blue",
 		"text": "Play with your friends offline."},
 	{"id": "online", "title": "ONLINE", "color": "orange",
-		"text": "Play with players online."},
+		"text": "Invite friends online."},
 	{"id": "practice", "title": "PRACTICE", "color": "green",
 		"text": "Train alone against dummies."},
 ]
