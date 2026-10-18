@@ -1,7 +1,7 @@
 class_name BottomNav
 extends PanelContainer
 ## The main screen's bottom bar: a flat wall of light stone slabs, like a Clash of Clans castle, across
-## the whole bottom edge (no margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
+## the whole bottom edge (no margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Settings. Only the
 ## open tab is lit and shows its name.
 
 signal tab_selected(tab: StringName)
@@ -11,7 +11,7 @@ const TABS: Array[Dictionary] = [
 	{"id": &"weapons", "label": "Weapons"},
 	{"id": &"battle", "label": "Battle"},
 	{"id": &"history", "label": "History"},
-	{"id": &"menu", "label": "Menu"},
+	{"id": &"settings", "label": "Settings"},
 ]
 ## The strip's height without the phone's home-bar inset.
 const HEIGHT: float = 104.0

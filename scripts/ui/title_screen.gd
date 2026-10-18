@@ -53,7 +53,7 @@ var pages: Dictionary[StringName, Control] = {}
 var characters_page: CharactersPage
 var weapons_page: WeaponsPage
 var history_page: HistoryPage
-var menu_page: MenuPage
+var settings_page: SettingsPage
 
 var _name_label: Label
 var _avatar_texture: TextureRect
@@ -154,17 +154,16 @@ func _build_pages() -> Control:
 	characters_page = CharactersPage.new()
 	weapons_page = WeaponsPage.new()
 	history_page = HistoryPage.new()
-	menu_page = MenuPage.new()
-	pages = {&"characters": characters_page, &"weapons": weapons_page, &"battle": battle, &"history": history_page, &"menu": menu_page}
+	settings_page = SettingsPage.new()
+	pages = {&"characters": characters_page, &"weapons": weapons_page, &"battle": battle, &"history": history_page, &"settings": settings_page}
 	for id: StringName in pages:
 		var page: Control = pages[id]
 		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		page.visible = id == &"battle"
 		stack.add_child(page)
 	characters_page.chosen.connect(func(_id: String) -> void: _refresh_profile())
-	menu_page.profile_pressed.connect(open_name_editor)
-	menu_page.settings_pressed.connect(open_settings)
-	menu_page.quit_pressed.connect(open_quit_confirm)
+	settings_page.profile_pressed.connect(open_name_editor)
+	settings_page.quit_pressed.connect(open_quit_confirm)
 	return stack
 
 
@@ -569,37 +568,7 @@ func _build_profile_row(settings: MenuDialog) -> Control:
 func open_settings() -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create("SETTINGS")
 	card.body.add_child(_build_profile_row(card))
-	var sound: HBoxContainer = _settings_row(card, "Sound")
-	var slider: HSlider = DialogButtons.slider(Settings.volume)
-	slider.name = "VolumeSlider"
-	sound.add_child(slider)
-	var percent: Label = Label.new()
-	percent.custom_minimum_size = Vector2(84.0, 0.0)
-	percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	percent.add_theme_font_size_override("font_size", 28)
-	percent.text = "%d%%" % roundi(Settings.volume * 100.0)
-	sound.add_child(percent)
-	slider.value_changed.connect(func(value: float) -> void:
-		Settings.set_volume(value)
-		percent.text = "%d%%" % roundi(value * 100.0))
-	slider.drag_ended.connect(func(_changed: bool) -> void: Settings.play_ui())
-	if Settings.can_vibrate():
-		var buzz: HBoxContainer = _settings_row(card, "Vibration")
-		var toggle: Button = MenuDialog.make_button("ON" if Settings.vibration else "OFF", "green" if Settings.vibration else "grey", 28, Vector2(150.0, 72.0))
-		toggle.name = "VibrationToggle"
-		toggle.pressed.connect(func() -> void:
-			Settings.set_vibration(not Settings.vibration)
-			toggle.text = "ON" if Settings.vibration else "OFF"
-			KalyeahTheme.style_button(toggle, "green" if Settings.vibration else "grey"))
-		buzz.add_child(toggle)
-	card.add_label("Server", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var server: LineEdit = LineEdit.new()
-	server.name = "ServerField"
-	server.text = Settings.server_url
-	server.placeholder_text = "wss://your-server"
-	server.custom_minimum_size = Vector2(0.0, 76.0)
-	server.add_theme_font_size_override("font_size", 28)
-	card.body.add_child(server)
+	var server: LineEdit = SettingsPage.fill(card.body)
 	quit_button = MenuDialog.make_button("QUIT GAME", "red", 28)
 	quit_button.name = "QuitButton"
 	card.add_buttons([quit_button])
@@ -613,18 +582,6 @@ func open_settings() -> MenuDialog:
 			Settings.save_server_url(typed))
 	_show_dialog(card)
 	return card
-
-
-func _settings_row(card: MenuDialog, label_text: String) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	var label: Label = Label.new()
-	label.text = label_text
-	label.custom_minimum_size = Vector2(170.0, 0.0)
-	label.add_theme_font_size_override("font_size", 28)
-	row.add_child(label)
-	card.body.add_child(row)
-	return row
 
 
 ## Quit: asks first (a stray tap must not close the game).

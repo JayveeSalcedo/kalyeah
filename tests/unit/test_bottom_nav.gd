@@ -37,10 +37,10 @@ func test_the_bar_has_the_five_tabs_in_order_with_battle_open() -> void:
 	var texts: Array[String] = []
 	for tab: Dictionary in BottomNav.TABS:
 		texts.append(String(tab["label"]))
-	assert_eq(texts, ["Characters", "Weapons", "Battle", "History", "Menu"])
+	assert_eq(texts, ["Characters", "Weapons", "Battle", "History", "Settings"])
 	assert_eq(screen.nav.current, &"battle")
 	assert_true(screen.pages[&"battle"].visible)
-	for id: StringName in [&"characters", &"weapons", &"history", &"menu"]:
+	for id: StringName in [&"characters", &"weapons", &"history", &"settings"]:
 		assert_false(screen.pages[id].visible, "%s is closed" % id)
 
 
@@ -155,14 +155,22 @@ func test_the_history_keeps_the_last_thirty_and_words_the_age() -> void:
 	assert_eq(MatchHistory.ago(0, 200000), "2 days ago")
 
 
-func test_the_menu_page_has_profile_settings_and_quit() -> void:
+func test_the_settings_page_has_profile_sound_server_and_quit() -> void:
 	var screen: TitleScreen = _phone_screen()
-	screen.nav.select(&"menu")
+	screen.nav.select(&"settings")
 	await wait_frames(2)
-	screen.menu_page.settings_button.pressed.emit()
-	assert_not_null(screen.dialog, "settings opened")
-	screen.menu_page.quit_button.pressed.emit()
-	assert_not_null(screen.dialog.find_child("*", true, false))
+	var page: SettingsPage = screen.settings_page
+	assert_true(page.visible)
+	assert_not_null(page.find_child("VolumeSlider", true, false), "sound")
+	assert_not_null(page.find_child("ServerField", true, false), "the online server")
+	assert_not_null(page.profile_button, "profile")
+	var saved: String = Settings.server_url
+	page.server_field.text = "wss://example.test"
+	page.save_server()
+	assert_eq(Settings.server_url, "wss://example.test", "the server is remembered")
+	Settings.save_server_url(saved)
+	page.quit_button.pressed.emit()
+	assert_not_null(screen.dialog, "quit asks first")
 
 
 func test_winning_a_battle_is_written_to_the_history() -> void:

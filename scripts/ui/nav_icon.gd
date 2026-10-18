@@ -47,10 +47,12 @@ func _draw() -> void:
 			draw_arc(c, s * 0.34, 0.0, TAU, 32, color, w)
 			draw_line(c, c + Vector2(0.0, -s * 0.22), color, w)
 			draw_line(c, c + Vector2(s * 0.16, s * 0.1), color, w)
-		&"menu":
-			for row: int in 3:
-				var y: float = c.y + (float(row) - 1.0) * s * 0.26
-				draw_line(Vector2(c.x - s * 0.3, y), Vector2(c.x + s * 0.3, y), color, w * 1.4)
+		&"settings":
+			# a gear: a ring, eight teeth and a hub
+			draw_arc(c, s * 0.2, 0.0, TAU, 24, color, w * 1.5)
+			for tooth: int in 8:
+				var direction: Vector2 = Vector2.from_angle(float(tooth) * TAU / 8.0)
+				draw_line(c + direction * s * 0.27, c + direction * s * 0.4, color, w * 1.7)
 		_:
 			# battle: a lightning bolt
 			var points: PackedVector2Array = PackedVector2Array([

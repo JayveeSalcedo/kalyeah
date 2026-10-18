@@ -199,7 +199,8 @@ func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
 func _all_text(root: Node) -> String:
 	var text: String = ""
 	for label: Node in root.find_children("*", "Label", true, false):
-		text += (label as Label).text + " "
+		if (label as Label).is_visible_in_tree():
+			text += (label as Label).text + " "
 	return text
 
 
