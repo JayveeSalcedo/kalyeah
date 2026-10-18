@@ -1,8 +1,10 @@
 class_name BootScreen
 extends Control
-## Boot screen: the key art with a cardboard loading bar at the bottom. The K!
-## icon rides the end of the filled part. It loads the scenes the player is about
-## to open, then hands over to the title screen. A dedicated server skips it.
+## Boot screen, laid out like the Clash Royale loading screen: the key art fills the screen above a
+## black band at the bottom (black is the base layer under everything). In the band sits the
+## cardboard loading bar with the loaded percentage in the middle (Dagsen), and a tip floats just
+## above it over the art. It loads the scenes the player is about to open, then hands over to the
+## title screen. A dedicated server skips it.
 
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 const WARM_SCENES: Array[String] = [
@@ -13,13 +15,22 @@ const WARM_SCENES: Array[String] = [
 const BACKGROUND: Texture2D = preload("res://assets/ui/boot/boot_bg.webp")
 const TRACK: Texture2D = preload("res://assets/ui/boot/boot_bar_track.png")
 const FILL: Texture2D = preload("res://assets/ui/boot/boot_bar_fill.png")
-const ICON: Texture2D = preload("res://assets/ui/boot/boot_icon.png")
 
-const BAR_WIDTH_FRACTION: float = 0.84
-const BAR_BOTTOM_MARGIN: float = 84.0
+const BAR_WIDTH_FRACTION: float = 0.94
+## The black band along the bottom edge (the phone's home-bar inset is added to it).
+const BAND_HEIGHT: float = 104.0
+## One tip is shown per launch.
+const TIPS: Array[String] = [
+	"Lure the other team away from their post, then dash in to capture it.",
+	"Tagged kids wait in the box. A teammate can run in and rescue them.",
+	"Drag a weapon button to aim, then let go to throw it.",
+	"Block a throw with a paper shield, or play it safe behind cover.",
+	"Practice is the safest place to try every weapon.",
+	"Hotspot rooms need no server: share a hotspot and play.",
+	"Two weapons, two skills: pick a pair that covers each other.",
+]
 ## Where the rounded ends of the bar start, as a fraction of its width.
 const BAR_INSET: float = 0.075
-const ICON_HEIGHT_RATIO: float = 1.15
 ## The bar never fills faster than this, so the screen is seen even when loading is instant.
 const MAX_FILL_PER_SECOND: float = 0.7
 
@@ -31,7 +42,10 @@ var _done: bool = false
 var _fill_clip: Control
 var _fill_rect: TextureRect
 var _track_rect: TextureRect
-var _icon_rect: TextureRect
+var _band: ColorRect
+var _art: TextureRect
+var _percent: Label
+var _tip: Label
 
 
 ## Width of the filled part of a bar `width` wide at `progress` (0..1): it starts
@@ -54,25 +68,58 @@ func _ready() -> void:
 
 
 func _build() -> void:
-	var background: TextureRect = TextureRect.new()
-	background.texture = BACKGROUND
-	background.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	background.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(background)
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# black is the base layer under everything
+	var black: ColorRect = ColorRect.new()
+	black.name = "Black"
+	black.color = Color.BLACK
+	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(black)
+	black.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_art = TextureRect.new()
+	_art.texture = BACKGROUND
+	_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_art.clip_contents = true
+	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_art)
 	_track_rect = _bar_layer(TRACK)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
 	_fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fill_clip)
 	_fill_rect = _bar_layer(FILL, _fill_clip)
-	_icon_rect = TextureRect.new()
-	_icon_rect.texture = ICON
-	_icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_icon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_icon_rect)
+	_percent = Label.new()
+	_percent.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
+	_percent.add_theme_color_override("font_color", Color.WHITE)
+	_percent.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02))
+	_percent.add_theme_constant_override("outline_size", 8)
+	_percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_percent.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_percent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_percent)
+	_tip = Label.new()
+	_tip.text = TIPS[randi() % TIPS.size()]
+	_tip.add_theme_font_override("font", KalyeahTheme.BODY_FONT)
+	_tip.add_theme_font_size_override("font_size", 26)
+	_tip.add_theme_color_override("font_color", Color.WHITE)
+	_tip.add_theme_color_override("font_outline_color", Color(0.03, 0.05, 0.12))
+	_tip.add_theme_constant_override("outline_size", 8)
+	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tip.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_tip)
+
+
+## The black band's height: its own height plus the phone's home-bar inset.
+func band_height() -> float:
+	var window: Vector2i = DisplayServer.window_get_size()
+	var inset: float = 0.0
+	if window.y > 0:
+		var safe: Rect2i = DisplayServer.get_display_safe_area()
+		var below: float = maxf(0.0, float(DisplayServer.window_get_position().y + window.y - (safe.position.y + safe.size.y)))
+		inset = minf(below * size.y / float(window.y), 120.0)
+	return BAND_HEIGHT + inset
 
 
 func _bar_layer(texture: Texture2D, parent: Control = self) -> TextureRect:
@@ -88,17 +135,27 @@ func _bar_layer(texture: Texture2D, parent: Control = self) -> TextureRect:
 func _layout() -> void:
 	if _track_rect == null:
 		return
+	var band: float = band_height()
+	_art.position = Vector2.ZERO
+	_art.size = Vector2(size.x, size.y - band)
 	var bar_size: Vector2 = Vector2(size.x * BAR_WIDTH_FRACTION, 0.0)
 	bar_size.y = bar_size.x * float(TRACK.get_height()) / float(TRACK.get_width())
-	var origin: Vector2 = Vector2((size.x - bar_size.x) * 0.5, size.y - BAR_BOTTOM_MARGIN - bar_size.y)
+	# the bar sits in the black band, centred above the home-bar inset
+	var origin: Vector2 = Vector2((size.x - bar_size.x) * 0.5, size.y - band + (BAND_HEIGHT - bar_size.y) * 0.5)
 	_track_rect.position = origin
 	_track_rect.size = bar_size
 	_fill_clip.position = origin
 	_fill_rect.position = Vector2.ZERO
 	_fill_rect.size = bar_size
-	var icon_size: float = bar_size.y * ICON_HEIGHT_RATIO
-	_icon_rect.size = Vector2(icon_size, icon_size)
-	_icon_rect.pivot_offset = _icon_rect.size * 0.5
+	_percent.position = origin
+	_percent.size = bar_size
+	_percent.add_theme_font_size_override("font_size", int(bar_size.y * 0.62))
+	# the tip floats just above the black band, over the art
+	var side: float = size.x * 0.08
+	# a wrapping label works out its height from its width, so give it the width first
+	_tip.custom_minimum_size = Vector2(size.x - side * 2.0, 0.0)
+	_tip.size = Vector2(size.x - side * 2.0, 112.0)
+	_tip.position = Vector2(side, size.y - band - _tip.size.y - 8.0)
 	_apply_progress()
 
 
@@ -107,7 +164,7 @@ func _apply_progress() -> void:
 		return
 	var width: float = fill_width(progress, _track_rect.size.x)
 	_fill_clip.size = Vector2(width, _track_rect.size.y)
-	_icon_rect.position = _track_rect.position + Vector2(width, _track_rect.size.y * 0.5) - _icon_rect.size * 0.5
+	_percent.text = "%d%%" % roundi(clampf(progress, 0.0, 1.0) * 100.0)
 
 
 func _process(delta: float) -> void:
@@ -116,7 +173,6 @@ func _process(delta: float) -> void:
 	_loaded = _loading_fraction()
 	progress = minf(_loaded, progress + MAX_FILL_PER_SECOND * delta)
 	_apply_progress()
-	_icon_rect.rotation_degrees = sin(Time.get_ticks_msec() / 1000.0 * 7.0) * 4.0
 	if progress >= 1.0:
 		_done = true
 		finished.emit()
