@@ -34,6 +34,8 @@ var _characters: Dictionary[StringName, CharacterDef] = {}
 ## The paint of the guarded lines and the middle line (recoloured when the teams switch).
 var _guard_paint: StandardMaterial3D
 var _snap_camera: bool = true
+## The soft focus beyond the ends of the street (null when off).
+var _far_blur: ShaderMaterial
 
 @onready var hud: PatinteroHud = %Hud
 @onready var _camera: FollowCamera = %FollowCamera
@@ -53,7 +55,7 @@ func _ready() -> void:
 	_map.show_back_button(false)
 	_audio.prepare()
 	input.camera_yaw = _camera.rules.yaw_offset_degrees
-	Cinematic.add_film_finish(self)
+	_far_blur = StreetGameView.add_camera_finish(self, _camera)
 	_connect_hud()
 	_connect_sim()
 	_views[LOCAL_ID].footstep.connect(func() -> void: _audio.play(&"footstep", 0.15))
@@ -140,7 +142,9 @@ func _connect_sim() -> void:
 		_snap_camera = true
 		_paint_guard_lines()
 		hud.show_banner("YOUR TEAM RUNS!" if team == LOCAL_TEAM else "YOUR TEAM TAGS!"))
-	sim.match_over.connect(func(winner: int) -> void: _audio.play(&"victory" if winner == LOCAL_TEAM else &"defeat"))
+	sim.match_over.connect(func(winner: int) -> void:
+		_audio.play(&"victory" if winner == LOCAL_TEAM else &"defeat")
+		MatchHistory.record("patintero", winner == LOCAL_TEAM, sim.points[LOCAL_TEAM], sim.points[1 - LOCAL_TEAM]))
 
 
 func _on_runner_caught(id: int, by_id: int) -> void:
@@ -229,6 +233,7 @@ func _sync(delta: float) -> void:
 		tag.position = Vector3(state.position.x, TAG_HEIGHT, state.position.y)
 	hud.sync(sim, LOCAL_ID, names, delta)
 	_camera.follow(sim.players[LOCAL_ID].position, false, 0.0 if _snap_camera else delta)
+	StreetGameView.update_far_blur(_far_blur, _camera, layout)
 	_snap_camera = false
 
 

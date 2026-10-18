@@ -32,6 +32,7 @@ func _screen(practice: PracticeMatch) -> WeaponPickScreen:
 
 func test_row_one_is_six_profile_cards_in_3_by_4() -> void:
 	var screen: WeaponPickScreen = _screen(_picking())
+	assert_true(screen.find_child("Characters", true, false) is ScrollContainer, "the kid row stays usable on narrow phones")
 	var cards: Array[Node] = screen.find_children("Profile_*", "Button", true, false)
 	assert_eq(cards.size(), 6)
 	for card: Node in cards:
@@ -45,6 +46,7 @@ func test_row_one_is_six_profile_cards_in_3_by_4() -> void:
 
 func test_row_two_has_a_tab_per_street_game_and_one_page_shows() -> void:
 	var screen: WeaponPickScreen = _screen(_picking())
+	assert_true(screen.find_child("Tabs", true, false) is ScrollContainer, "game tabs scroll instead of clipping")
 	var tabs: Array[Node] = screen.find_children("Tab_*", "Button", true, false)
 	var games: Array[String] = []
 	for def: WeaponDef in _rules().weapons:

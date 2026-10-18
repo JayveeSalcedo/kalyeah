@@ -11,6 +11,8 @@ const NET_RULES: NetRules = preload("res://data/rules/net_rules.tres")
 
 var client: GameClient = GameClient.new(RULES, LAYOUT, NET_RULES)
 var is_online: bool = false
+## The server this phone runs for a hotspot room it hosts (Android only), or null.
+var host: GameServer
 
 
 func _ready() -> void:
@@ -19,6 +21,37 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	client.poll(delta)
+	if host != null:
+		host.poll(delta)
+
+
+## A browser can't listen for connections, and a secure (https) page can't open a plain ws://
+## address on a hotspot, so hosting and joining a hotspot room are for the apps.
+func can_host() -> bool:
+	return not OS.has_feature("web")
+
+
+## Starts a room server on this phone for friends on its hotspot or Wi-Fi: they find it by
+## themselves and need no code.
+func start_host() -> Error:
+	stop_host()
+	host = GameServer.new(RULES, LAYOUT, NET_RULES, Time.get_ticks_usec())
+	host.auto_join = true
+	var error: Error = host.listen(NET_RULES.default_port)
+	if error != OK:
+		host = null
+	return error
+
+
+func stop_host() -> void:
+	if host != null:
+		host.stop()
+		host = null
+
+
+## Where this phone's own client connects to reach the server it hosts.
+func host_url() -> String:
+	return "ws://127.0.0.1:%d" % NET_RULES.default_port
 
 
 func _on_connection_changed(online: bool) -> void:

@@ -2,7 +2,7 @@ class_name PresoHud
 extends StreetGameHud
 ## The Tumbang Preso HUD: the shared street-game pieces (clock counting down, settings, stick,
 ## prompt, banners, opening title, result card) plus the tally board on the left (every kid's
-## times tagged, best first, the taya marked) and the slipper button left of the stick (drag
+## times tagged, best first, the taya marked) and the slipper button at the bottom right (drag
 ## to aim, release to throw, tap = at the can); the taya has no button. The match screen feeds
 ## it sim state through `sync()`.
 
@@ -98,13 +98,13 @@ func _build_game() -> void:
 	throw_button.sub_text = "THROW"
 	throw_button.cancel_zone = cancel_zone
 	add_child(throw_button)
-	_put_beside_stick(throw_button, -1)
+	_put_button(throw_button)
 
 
 func _build_intro_bar() -> void:
 	super._build_intro_bar()
 	intro_title.text = "TUMBANG PRESO!"
-	intro_sub.text = "Knock the can down, fetch your slipper,\ndon't get tagged. Fewest tags wins!"
+	intro_sub.text = "KNOCK THE CAN  •  FETCH YOUR SLIPPER\nFEWEST TAGS WINS"
 
 
 func _build_result_card() -> void:

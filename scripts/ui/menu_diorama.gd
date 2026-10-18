@@ -1,14 +1,16 @@
 class_name MenuDiorama
 extends SubViewportContainer
-## The main screen's map model: the play area alone, in the game's exact 1:2 shape, on a chunky
-## stone base. Only the corner props (electric posts, the tagged boxes' cardboard walls); no kids,
+## The main screen's map model: the top half of the play area (the far end, a 1:1 square like the
+## Clash Royale arena on its main screen) on a chunky stone base. Only the corner props (electric posts, the tagged boxes' cardboard walls); no kids,
 ## team colours, sidewalks or movement. It lives
 ## in its own 3D world inside a transparent SubViewport, so it floats over the screen background.
 
 const CAMERA_FOV: float = 34.0
-const CAMERA_PITCH: float = 64.0
+const CAMERA_PITCH: float = 50.0
 ## How much of the frame the model may fill (1 = touching the edges).
 const FRAME_FILL: float = 0.98
+
+signal framed
 
 var viewport: SubViewport
 var camera: Camera3D
@@ -62,8 +64,10 @@ func frame() -> void:
 	if camera == null or map == null:
 		return
 	var pitch: float = deg_to_rad(CAMERA_PITCH)
-	var half_x: float = map.layout.lane_width / 2.0
+	var half_x: float = map.layout.lane_width / 2.0 + StreetMap.PLATFORM_MARGIN
 	var half_z: float = map.layout.lane_length / 2.0
+	# only the far half is shown: from the far end to the middle line
+	var middle: Vector3 = Vector3(0.0, 0.0, -half_z / 2.0)
 	var aspect: float = maxf(0.2, size.x / maxf(size.y, 1.0))
 	var tan_h: float = tan(deg_to_rad(CAMERA_FOV) / 2.0)
 	var tan_v: float = tan_h / aspect
@@ -73,11 +77,11 @@ func frame() -> void:
 	var distance: float = 10.0
 	# the smallest distance at which all eight corners are inside the frame (with a margin)
 	for step: int in 60:
-		var eye: Vector3 = -forward * distance
+		var eye: Vector3 = middle - forward * distance
 		var fits: bool = true
 		for cx: float in [-half_x, half_x]:
-			for cy: float in [-StreetMap.PLINTH_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
-				for cz: float in [-half_z, half_z]:
+			for cy: float in [-StreetMap.PLINTH_HEIGHT - StreetMap.PLATFORM_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
+				for cz: float in [-half_z - StreetMap.PLATFORM_MARGIN, StreetMap.PLATFORM_MARGIN]:
 					var rel: Vector3 = Vector3(cx, cy, cz) - eye
 					var depth: float = rel.dot(forward)
 					if absf(rel.dot(right)) > depth * tan_h * FRAME_FILL or absf(rel.dot(up)) > depth * tan_v * FRAME_FILL:
@@ -85,5 +89,15 @@ func frame() -> void:
 		if fits:
 			break
 		distance *= 1.06
-	camera.position = -forward * distance
+	camera.position = middle - forward * distance
 	camera.rotation_degrees = Vector3(-CAMERA_PITCH, 0.0, 0.0)
+	framed.emit()
+
+
+## Where the middle of the blue platform's front face shows, in this control's pixels (the map
+## title is laid there).
+func platform_front_point() -> Vector2:
+	var depth: float = -0.1 - StreetMap.PLINTH_HEIGHT - StreetMap.PLATFORM_HEIGHT / 2.0
+	var shown: Vector2 = camera.unproject_position(Vector3(0.0, depth, StreetMap.PLATFORM_MARGIN))
+	# the picture may still be one frame behind the control's size: scale to the control
+	return shown * size / Vector2(maxf(viewport.size.x, 1.0), maxf(viewport.size.y, 1.0))

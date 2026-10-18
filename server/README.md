@@ -5,6 +5,12 @@ connections on `$PORT` (default 8080), keeps the rooms, and runs every match
 (server-authoritative; clients only send inputs). There's no database and no
 accounts. Rooms live in memory and vanish when the server restarts.
 
+## Hotspot rooms need no server
+
+A hotspot room is hosted by the Android app itself (the same server code runs inside the app,
+`Net.start_host`). Friends on the same hotspot tap Join and the app finds the host by itself (no code, no address).
+This file is about the public **Online** server.
+
 ## Run it on a computer
 
 ```sh
@@ -12,9 +18,9 @@ godot --headless -- --server            # port 8080
 PORT=9000 godot --headless -- --server  # another port
 ```
 
-In the game, Create/Join Room → **Game server** → `ws://localhost:8080`
-(or `ws://<your-computer-ip>:8080` from a phone on the same Wi-Fi; the browser
-build needs `wss://`, see below).
+The game has no server field: it uses the built-in address (below). To try a
+server on your computer, open the game with `?server=ws://localhost:8080` in the link
+(or the `kalyeah/network/server_url` project setting for a local build).
 
 ## Deploy for free (from a phone works too)
 
@@ -44,7 +50,6 @@ Address: `wss://<app-name>.fly.dev`.
 
 Use any one of these:
 
-- **In the lobby:** type the address into **Game server**. It's remembered on that device.
 - **In the link:** `https://earl-gh.github.io/kalyeah/?server=wss://kalyeah-xxxx.onrender.com`
 - **For everyone (recommended once deployed):** GitHub → Settings → Secrets and
   variables → Actions → **Variables** → New variable `KALYEAH_SERVER_URL` =

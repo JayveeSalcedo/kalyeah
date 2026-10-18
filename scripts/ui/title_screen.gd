@@ -1,10 +1,13 @@
 class_name TitleScreen
 extends Control
-## The main screen. A blue diamond background; your profile (face and name, tap to rename) and the
-## settings button on top; the KALYEAH wordmark; the map model (the play area alone, standing
-## still); then four buttons in a 2x2 grid at the bottom: PRACTICE (offline: Agawan Base,
-## Tumbang Preso or Patintero), HOTSPOT (a game on a phone hotspot), ONLINE (Create / Join room on the game
-## server) and QUIT. Settings, rename, practice, hotspot, online and quit open as dialogs. A dedicated server build goes straight to the server.
+## The main screen. The home page: a top row with the KALYEAH! logo (left) and the settings button
+## (right); under it a horizontal carousel of large 3:4 mode cards (Hotspot, Online, Practice), centred
+## on the screen, with the book and history buttons in a column over its left side (cards scroll
+## behind them, never over them), every card always
+## visible, stacked behind the chosen one; and the chosen
+## mode's name and one phrase centred between the cards and the action buttons, which sit low on
+## the screen; Practice's Start asks which street game to practise. A page opens over the home page with a Back button (so does Android Back). Settings holds the player's name and the infrequent quit
+## action, while Android Back on the home page asks to quit.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -12,34 +15,60 @@ const PRACTICE_SCENE: String = "res://scenes/match/practice.tscn"
 const PRESO_SCENE: String = "res://scenes/match/preso.tscn"
 const PATINTERO_SCENE: String = "res://scenes/match/patintero.tscn"
 const BACKGROUND: Texture2D = preload("res://assets/ui/main_bg.webp")
-const GEAR: Texture2D = preload("res://assets/icons/gear.png")
-const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
+
+## The game modes, first is the default (owner: hotspot first, not online).
+const MODES: Array[Dictionary] = [
+	{"id": "hotspot", "title": "HOTSPOT", "color": "blue",
+		"text": "Play with your friends offline."},
+	{"id": "online", "title": "ONLINE", "color": "orange",
+		"text": "Invite friends online."},
+	{"id": "practice", "title": "PRACTICE", "color": "green",
+		"text": "Train alone against the computer."},
+]
+## The KALYEAH! logo (the owner's cardboard sign) at the centre top of the home page.
+const LOGO: Texture2D = preload("res://assets/ui/kalyeah_logo.png")
+const LOGO_WIDTH: float = 270.0
+## How far the logo and the corner buttons sit down from the top.
+const TOP_ROW_DROP: float = 26.0
+const CORNER_BUTTON: float = 84.0
+## The corner buttons: the book and history in a column at the left of the cards, settings at the
+## top right.
+const CORNERS: Array[Dictionary] = [
+	{"id": &"codex", "icon": &"book", "side": &"left"},
+	{"id": &"history", "icon": &"history", "side": &"left"},
+	{"id": &"settings", "icon": &"settings", "side": &"right"},
+]
+## Room left under the action buttons so they sit low on the screen, but not at its very bottom.
+const ACTIONS_LIFT: float = 84.0
 
 const SIDE_MARGIN: float = 34.0
 const TOP_MARGIN: float = 26.0
 const BOTTOM_MARGIN: float = 22.0
-const TAP_TARGET: float = 88.0
-const AVATAR: float = 76.0
-const GOLD: Color = Color(1.0, 0.84, 0.2)
-const WORDMARK_OUTLINE: Color = Color(0.2, 0.1, 0.07)
-const CREAM: Color = Color(1.0, 0.95, 0.82)
+const CREAM: Color = KalyeahTheme.CREAM
 
 ## The screen asks for the game to close (replaced in tests).
 var quit_action: Callable = _quit_game
 ## The screen leaves for the lobby (replaced in tests).
 var open_lobby_action: Callable = _change_to_lobby
 
-var profile_button: Button
-var settings_button: Button
-var practice_button: Button
-var hotspot_button: Button
-var online_button: Button
+var logo: TextureRect
+var carousel: MenuCarousel
+var mode_name_label: Label
+var mode_text_label: Label
+var primary_button: Button
+var secondary_button: Button
 var quit_button: Button
-var diorama: MenuDiorama
 var dialog: MenuDialog
+var corner_buttons: Dictionary[StringName, Button] = {}
+var pages: Dictionary[StringName, Control] = {}
+var current_page: StringName = &""
+var back_button: Button
+var codex_page: CodexPage
+var characters_page: CharactersPage
+var weapons_page: WeaponsPage
+var history_page: HistoryPage
+var settings_page: SettingsPage
 
-var _name_label: Label
-var _avatar_texture: TextureRect
 var _loading: bool = false
 ## The match scene loading in the background.
 var _loading_scene: String = ""
@@ -56,16 +85,15 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred(SERVER_SCENE)
 		return
 	Session.ensure_profile()
+	Net.stop_host()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_background()
 	_build_layout()
-	_refresh_profile()
-	profile_button.pressed.connect(open_name_editor)
-	settings_button.pressed.connect(open_settings)
-	practice_button.pressed.connect(open_practice)
-	hotspot_button.pressed.connect(open_hotspot)
-	online_button.pressed.connect(open_online)
-	quit_button.pressed.connect(open_quit_confirm)
+	_apply_safe_area()
+	_refresh_mode()
+	carousel.selected.connect(_on_mode_selected)
+	primary_button.pressed.connect(_on_primary_pressed)
+	secondary_button.pressed.connect(_on_secondary_pressed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
 	_pop_in.call_deferred()
@@ -101,6 +129,9 @@ func _build_background() -> void:
 
 
 var _margin: MarginContainer
+var _home: VBoxContainer
+var _page_layer: VBoxContainer
+var _page_holder: Control
 
 
 func _build_layout() -> void:
@@ -110,24 +141,248 @@ func _build_layout() -> void:
 	_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_margin)
 	_apply_safe_area()
+	_home = _build_home()
+	_margin.add_child(_home)
+	_page_layer = _build_page_layer()
+	_margin.add_child(_page_layer)
+
+
+## The home page, centred: the mode carousel, the chosen mode's details and actions, then the
+## section of page buttons.
+func _build_home() -> VBoxContainer:
+	var home: VBoxContainer = VBoxContainer.new()
+	home.name = "Home"
+	home.add_theme_constant_override("separation", 6)
+	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(_build_top_row())
+	# a little room above the cards, then the stage at its own height
+	var above: Control = Control.new()
+	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	above.size_flags_stretch_ratio = 0.5
+	above.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(above)
+	home.add_child(_build_stage())
+	home.add_child(_build_titles())
+	home.add_child(_build_actions())
+	# a little room under the buttons: low on the screen, but not at the very bottom
+	var lift: Control = Control.new()
+	lift.custom_minimum_size = Vector2(0.0, ACTIONS_LIFT)
+	lift.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(lift)
+	return home
+
+
+## The top row: the KALYEAH! logo at the left and the settings button at the right, level with
+## each other and a little down from the top of the screen.
+func _build_top_row() -> Control:
+	var holder: VBoxContainer = VBoxContainer.new()
+	holder.name = "TopRow"
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var drop: Control = Control.new()
+	drop.custom_minimum_size = Vector2(0.0, TOP_ROW_DROP)
+	drop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(drop)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(row)
+	logo = TextureRect.new()
+	logo.name = "Logo"
+	logo.texture = LOGO
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(LOGO_WIDTH, LOGO_WIDTH * float(LOGO.get_height()) / float(LOGO.get_width()))
+	logo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(logo)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(spacer)
+	for corner: Dictionary in CORNERS:
+		if corner["side"] == &"right":
+			row.add_child(_corner_button(corner))
+	return holder
+
+
+## The stage: the carousel runs the full width, so the chosen card is centred on the screen, and the
+## book and history buttons stand in a column over its left side. The buttons are drawn after (above)
+## the cards, so a card sliding by while scrolling goes behind them, never over them.
+func _build_stage() -> Control:
+	var stage: Control = Control.new()
+	stage.name = "Stage"
+	stage.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y + 24.0)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	carousel = MenuCarousel.new()
+	carousel.name = "ModeCarousel"
+	carousel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(carousel)
+	carousel.setup("", MODES, Session.menu_mode)
 	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "Column"
-	column.add_theme_constant_override("separation", 14)
+	column.name = "Left"
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 16)
+	column.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	column.offset_right = CORNER_BUTTON
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_margin.add_child(column)
-	column.add_child(_build_top_bar())
-	column.add_child(_build_wordmark())
-	column.add_child(_build_map_model())
-	column.add_child(_build_buttons())
+	stage.add_child(column)
+	for corner: Dictionary in CORNERS:
+		if corner["side"] == &"left":
+			column.add_child(_corner_button(corner))
+	return stage
 
 
-## The map model, filling the space between the wordmark and the buttons (nothing moves).
-func _build_map_model() -> Control:
-	diorama = MenuDiorama.new()
-	diorama.name = "MapModel"
-	diorama.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	diorama.custom_minimum_size = Vector2(0.0, 300.0)
-	return diorama
+## One of the painted round-cornered icon buttons (book, history, settings).
+func _corner_button(corner: Dictionary) -> Button:
+	var id: StringName = corner["id"]
+	var button: Button = MenuDialog.make_button("", "blue", 20, Vector2(CORNER_BUTTON, CORNER_BUTTON))
+	button.name = "%sButton" % String(id).capitalize()
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var centre: CenterContainer = CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon: NavIcon = NavIcon.new(corner["icon"] as StringName)
+	icon.color = CREAM
+	centre.add_child(icon)
+	button.add_child(centre)
+	button.pressed.connect(open_page.bind(id))
+	corner_buttons[id] = button
+	return button
+
+
+## The mode's name and its one short phrase, centred in the space between the cards and the
+## action buttons.
+func _build_titles() -> Control:
+	var titles: VBoxContainer = VBoxContainer.new()
+	titles.name = "Titles"
+	titles.alignment = BoxContainer.ALIGNMENT_CENTER
+	titles.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	titles.size_flags_stretch_ratio = 1.0
+	titles.add_theme_constant_override("separation", 6)
+	titles.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mode_name_label = Label.new()
+	mode_name_label.name = "ModeName"
+	mode_name_label.theme_type_variation = &"DisplayLabel"
+	mode_name_label.add_theme_font_size_override("font_size", 40)
+	mode_name_label.add_theme_color_override("font_color", CREAM)
+	mode_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	titles.add_child(mode_name_label)
+	mode_text_label = Label.new()
+	mode_text_label.name = "ModeText"
+	mode_text_label.add_theme_font_size_override("font_size", 22)
+	mode_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mode_text_label.clip_text = true
+	mode_text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	titles.add_child(mode_text_label)
+	return titles
+
+
+## The action buttons in one row: Create and Join, or Start.
+func _build_actions() -> Control:
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "Actions"
+	actions.add_theme_constant_override("separation", 14)
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	primary_button = _action_button(actions, "PrimaryButton", "", "blue")
+	secondary_button = _action_button(actions, "SecondaryButton", "JOIN", "green")
+	return actions
+
+
+## The pages open here, over the home page, under a Back button.
+func _build_page_layer() -> VBoxContainer:
+	var layer: VBoxContainer = VBoxContainer.new()
+	layer.name = "PageLayer"
+	layer.visible = false
+	layer.add_theme_constant_override("separation", 12)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back_button = MenuDialog.make_button("< BACK", "grey", 26, Vector2(0.0, 76.0))
+	back_button.name = "BackButton"
+	back_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	back_button.custom_minimum_size = Vector2(190.0, 76.0)
+	back_button.pressed.connect(close_page)
+	layer.add_child(back_button)
+	_page_holder = Control.new()
+	_page_holder.name = "Pages"
+	_page_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_page_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_page_holder)
+	codex_page = CodexPage.new()
+	history_page = HistoryPage.new()
+	settings_page = SettingsPage.new()
+	pages = {&"codex": codex_page, &"history": history_page, &"settings": settings_page}
+	for id: StringName in pages:
+		var page: Control = pages[id]
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		page.visible = false
+		_page_holder.add_child(page)
+	settings_page.profile_pressed.connect(open_name_editor)
+	settings_page.quit_pressed.connect(open_quit_confirm)
+	# the book's two tabs are built when it enters the tree: expose them once it has
+	codex_page.ready.connect(func() -> void:
+		characters_page = codex_page.characters_page
+		weapons_page = codex_page.weapons_page)
+	return layer
+
+
+## Opens one of the pages (codex = the book, history, settings) over the home page.
+func open_page(id: StringName) -> void:
+	if not pages.has(id):
+		return
+	current_page = id
+	for other: StringName in pages:
+		pages[other].visible = other == id
+	if id == &"history":
+		history_page.refresh()
+	elif id == &"codex":
+		codex_page.show_tab(codex_page.current)
+	_home.visible = false
+	_page_layer.visible = true
+
+
+## Back to the home page.
+func close_page() -> void:
+	current_page = &""
+	_page_layer.visible = false
+	_home.visible = true
+
+
+func _action_button(parent: Control, button_name: String, text: String, color: String) -> Button:
+	var button: Button = MenuDialog.make_button(text, color, 32, Vector2(0.0, 88.0))
+	button.name = button_name
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(button)
+	return button
+
+
+## The chosen mode's name, one line of text and buttons: Hotspot and Online create or join a room
+## (side by side), Practice just starts.
+func _refresh_mode() -> void:
+	var mode: Dictionary = MODES[Session.menu_mode]
+	var rooms: bool = String(mode["id"]) != "practice"
+	mode_name_label.text = String(mode["title"])
+	mode_text_label.text = String(mode["text"])
+	primary_button.text = "CREATE" if rooms else "START"
+	secondary_button.visible = rooms
+	KalyeahTheme.style_button(primary_button, "blue" if rooms else "orange")
+
+
+func _on_mode_selected(index: int) -> void:
+	Session.menu_mode = index
+	_refresh_mode()
+
+
+func _on_primary_pressed() -> void:
+	match String(MODES[Session.menu_mode]["id"]):
+		"practice":
+			open_practice()
+		"online":
+			_open_lobby(LobbyScreen.Intent.CREATE, false)
+		_:
+			_open_lobby(LobbyScreen.Intent.CREATE, true)
+
+
+func _on_secondary_pressed() -> void:
+	_open_lobby(LobbyScreen.Intent.JOIN, String(MODES[Session.menu_mode]["id"]) == "hotspot")
 
 
 ## Keeps everything clear of notches, rounded corners and the home bar.
@@ -157,160 +412,13 @@ func safe_insets() -> Vector4:
 	return Vector4(minf(left * to_ui.x, 120.0), minf(top * to_ui.y, 120.0), minf(right * to_ui.x, 120.0), minf(bottom * to_ui.y, 120.0))
 
 
-func _build_top_bar() -> Control:
-	var bar: HBoxContainer = HBoxContainer.new()
-	bar.name = "TopBar"
-	bar.add_theme_constant_override("separation", 14)
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	profile_button = Button.new()
-	profile_button.name = "Profile"
-	profile_button.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
-	profile_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	profile_button.clip_text = true
-	var pill: StyleBoxTexture = KalyeahTheme.painted_pill()
-	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-		profile_button.add_theme_stylebox_override(state, pill)
-	MenuDialog.feel_press(profile_button)
-	bar.add_child(profile_button)
-	var inner: HBoxContainer = HBoxContainer.new()
-	inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	inner.offset_left = 14.0
-	inner.offset_right = -14.0
-	inner.add_theme_constant_override("separation", 14)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	profile_button.add_child(inner)
-	inner.add_child(_build_avatar())
-	var texts: VBoxContainer = VBoxContainer.new()
-	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	texts.add_theme_constant_override("separation", -2)
-	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(texts)
-	_name_label = Label.new()
-	_name_label.add_theme_font_size_override("font_size", 34)
-	_name_label.add_theme_color_override("font_color", Color.WHITE)
-	_name_label.clip_text = true
-	_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.add_child(_name_label)
-	var hint: Label = Label.new()
-	hint.text = "Tap to change your name"
-	hint.add_theme_font_size_override("font_size", 19)
-	hint.add_theme_color_override("font_color", Color(0.8, 0.88, 1.0, 0.8))
-	hint.add_theme_constant_override("outline_size", 0)
-	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.add_child(hint)
-	settings_button = DialogButtons.icon_button(GEAR, "blue", TAP_TARGET)
-	settings_button.name = "SettingsButton"
-	bar.add_child(settings_button)
-	return bar
-
-
-## The player's character face in a round gold ring.
-func _build_avatar() -> Control:
-	var holder: Control = Control.new()
-	holder.custom_minimum_size = Vector2(AVATAR, AVATAR)
-	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring: Panel = Panel.new()
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.1, 0.22)
-	style.set_corner_radius_all(int(AVATAR))
-	style.set_border_width_all(4)
-	style.border_color = GOLD
-	style.anti_aliasing = true
-	ring.add_theme_stylebox_override("panel", style)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(ring)
-	_avatar_texture = TextureRect.new()
-	_avatar_texture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_avatar_texture.offset_left = 5.0
-	_avatar_texture.offset_top = 5.0
-	_avatar_texture.offset_right = -5.0
-	_avatar_texture.offset_bottom = -5.0
-	_avatar_texture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_avatar_texture.stretch_mode = TextureRect.STRETCH_SCALE
-	_avatar_texture.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_avatar_texture.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var crop: ShaderMaterial = ShaderMaterial.new()
-	crop.shader = CROP_SHADER
-	crop.set_shader_parameter("rect_size", Vector2(AVATAR - 10.0, AVATAR - 10.0))
-	crop.set_shader_parameter("radius", (AVATAR - 10.0) / 2.0)
-	_avatar_texture.material = crop
-	holder.add_child(_avatar_texture)
-	return holder
-
-
-## KALYEAH! as a cardboard-sign wordmark (KAL white, YEAH! gold) with a ribbon tagline.
-func _build_wordmark() -> Control:
-	var box: VBoxContainer = VBoxContainer.new()
-	box.name = "Wordmark"
-	box.add_theme_constant_override("separation", 4)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var word: HBoxContainer = HBoxContainer.new()
-	word.alignment = BoxContainer.ALIGNMENT_CENTER
-	word.add_theme_constant_override("separation", 6)
-	word.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(word)
-	for part: Array in [["KAL", Color.WHITE], ["YEAH!", GOLD]]:
-		var label: Label = Label.new()
-		label.text = part[0] as String
-		label.add_theme_font_size_override("font_size", 104)
-		label.add_theme_color_override("font_color", part[1] as Color)
-		label.add_theme_color_override("font_outline_color", WORDMARK_OUTLINE)
-		label.add_theme_constant_override("outline_size", 24)
-		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.05, 0.45))
-		label.add_theme_constant_override("shadow_offset_y", 7)
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		word.add_child(label)
-	var ribbon: CenterContainer = CenterContainer.new()
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tagline: Label = Label.new()
-	tagline.theme_type_variation = &"HudPill"
-	tagline.text = "MGA LARONG PINOY SA KALYE"
-	tagline.add_theme_font_size_override("font_size", 23)
-	tagline.add_theme_color_override("font_color", CREAM)
-	tagline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ribbon.add_child(tagline)
-	box.add_child(ribbon)
-	return box
-
-
-## The four buttons in a 2x2 grid at the bottom, all the same size.
-func _build_buttons() -> Control:
-	var grid: GridContainer = GridContainer.new()
-	grid.name = "Buttons"
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	practice_button = _grid_button(grid, "PracticeButton", "PRACTICE", "orange")
-	hotspot_button = _grid_button(grid, "HotspotButton", "HOTSPOT", "green")
-	online_button = _grid_button(grid, "OnlineButton", "ONLINE", "blue")
-	quit_button = _grid_button(grid, "QuitButton", "QUIT", "red")
-	return grid
-
-
-func _grid_button(grid: GridContainer, button_name: String, text: String, color: String) -> Button:
-	var button: Button = MenuDialog.make_button(text, color, 42, Vector2(0.0, 124.0))
-	button.name = button_name
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	grid.add_child(button)
-	return button
-
-
 # ---- what the screen shows ---------------------------------------------------------------
-
-func _refresh_profile() -> void:
-	_name_label.text = Session.player_name
-	var face: Texture2D = KidModel.minimap_face(StringName(Session.avatar_id))
-	_avatar_texture.texture = face if face != null else KidModel.portrait(StringName(Session.avatar_id))
-
 
 ## The buttons pop up in turn when the screen opens.
 func _pop_in() -> void:
-	var buttons: Array[Control] = [practice_button, hotspot_button, online_button, quit_button]
+	var buttons: Array[Control] = [primary_button, secondary_button]
+	for id: StringName in corner_buttons:
+		buttons.append(corner_buttons[id])
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
@@ -323,34 +431,26 @@ func _pop_in() -> void:
 
 # ---- actions ----------------------------------------------------------------------------
 
-## PRACTICE: which street game to practise offline (no server needed).
+## Practice's Start: which street game to practise offline (no server needed).
 func open_practice() -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create("PRACTICE")
-	card.add_hint("Play offline against the computer.")
-	var base: Button = MenuDialog.make_button("AGAWAN BASE", "orange", 32)
-	var preso: Button = MenuDialog.make_button("TUMBANG PRESO", "green", 32)
-	base.name = "AgawanBaseButton"
-	preso.name = "TumbangPresoButton"
-	var patintero: Button = MenuDialog.make_button("PATINTERO", "blue", 32)
-	patintero.name = "PatinteroButton"
-	card.add_buttons([base])
-	card.add_hint("Tag the enemy base with your team.")
-	card.add_buttons([preso])
-	card.add_hint("Knock the can down, fetch your slipper, don't get tagged.")
-	card.add_buttons([patintero])
-	card.add_hint("Run past the taggers' lines and back home.")
+	var games: Array[Array] = [
+		["AgawanBaseButton", "AGAWAN BASE", "orange", "Tag their base.", PRACTICE_SCENE],
+		["TumbangPresoButton", "TUMBANG PRESO", "green", "Knock the can down.", PRESO_SCENE],
+		["PatinteroButton", "PATINTERO", "blue", "Run past the taggers' lines.", PATINTERO_SCENE],
+	]
+	for game: Array in games:
+		var button: Button = MenuDialog.make_button(game[1] as String, game[2] as String, 32)
+		button.name = game[0] as String
+		card.add_buttons([button])
+		card.add_hint(game[3] as String)
+		var scene: String = game[4] as String
+		button.pressed.connect(func() -> void:
+			card.close(false)
+			_load_match(scene))
 	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 28)
 	card.add_buttons([cancel])
 	cancel.pressed.connect(card.close)
-	base.pressed.connect(func() -> void:
-		card.close(false)
-		_load_match(PRACTICE_SCENE))
-	preso.pressed.connect(func() -> void:
-		card.close(false)
-		_load_match(PRESO_SCENE))
-	patintero.pressed.connect(func() -> void:
-		card.close(false)
-		_load_match(PATINTERO_SCENE))
 	_show_dialog(card)
 	return card
 
@@ -398,10 +498,11 @@ func _show_loading(message: String) -> void:
 	center.add_child(stack)
 	var text: Label = Label.new()
 	text.text = message
+	text.theme_type_variation = &"DisplayLabel"
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text.add_theme_font_size_override("font_size", 40)
-	text.add_theme_color_override("font_color", GOLD)
-	text.add_theme_constant_override("outline_size", 12)
+	text.add_theme_color_override("font_color", CREAM)
+	text.add_theme_constant_override("outline_size", 4)
 	stack.add_child(text)
 	_loading_dots = Label.new()
 	_loading_dots.text = "."
@@ -442,7 +543,7 @@ func open_name_editor() -> MenuDialog:
 	field.custom_minimum_size = Vector2(0.0, 84.0)
 	field.add_theme_font_size_override("font_size", 36)
 	card.body.add_child(field)
-	var hint: Label = card.add_hint("Up to %d letters. Your friends see this name." % Session.MAX_NAME_LENGTH)
+	var hint: Label = card.add_hint("%d characters max." % Session.MAX_NAME_LENGTH)
 	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 30)
 	var save: Button = MenuDialog.make_button("SAVE", "green", 30)
 	card.add_buttons([cancel, save])
@@ -454,7 +555,6 @@ func open_name_editor() -> MenuDialog:
 			return
 		Session.player_name = clean
 		Session.save()
-		_refresh_profile()
 		card.close()
 	save.pressed.connect(apply)
 	field.text_submitted.connect(func(_text: String) -> void: apply.call())
@@ -464,110 +564,10 @@ func open_name_editor() -> MenuDialog:
 	return card
 
 
-## ONLINE: create a room or join one on the game server.
-func open_online() -> MenuDialog:
-	return _open_play_dialog("ONLINE", false, "Play with friends on the game server.")
-
-
-## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi, on a game server running there.
-func open_hotspot() -> MenuDialog:
-	return _open_play_dialog("HOTSPOT", true, "Turn on a hotspot, run the game server on it, and type that device's address.")
-
-
-## The Create / Join choice. A hotspot also asks for the address of the server on the hotspot.
-func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog:
-	var card: MenuDialog = MenuDialog.create(title)
-	card.add_hint(hint)
-	var address: LineEdit = null
-	if hotspot:
-		address = LineEdit.new()
-		address.name = "AddressField"
-		address.text = Settings.hotspot_url
-		address.placeholder_text = "192.168.43.1:9080"
-		address.custom_minimum_size = Vector2(0.0, 76.0)
-		address.add_theme_font_size_override("font_size", 28)
-		card.body.add_child(address)
-	var create: Button = MenuDialog.make_button("CREATE ROOM", "blue", 32)
-	var join: Button = MenuDialog.make_button("JOIN ROOM", "green", 32)
-	create.name = "CreateRoomButton"
-	join.name = "JoinRoomButton"
-	card.add_buttons([create, join])
-	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 28)
-	card.add_buttons([cancel])
-	cancel.pressed.connect(card.close)
-	var go: Callable = func(intent: LobbyScreen.Intent) -> void:
-		if hotspot:
-			Settings.save_hotspot_url(address.text)
-		_open_lobby(intent, hotspot)
-	create.pressed.connect(go.bind(LobbyScreen.Intent.CREATE))
-	join.pressed.connect(go.bind(LobbyScreen.Intent.JOIN))
-	_show_dialog(card)
-	return card
-
-
-## Settings: sound volume, vibration (phones) and the online server address.
-func open_settings() -> MenuDialog:
-	var card: MenuDialog = MenuDialog.create("SETTINGS")
-	var sound: HBoxContainer = _settings_row(card, "Sound")
-	var slider: HSlider = DialogButtons.slider(Settings.volume)
-	slider.name = "VolumeSlider"
-	sound.add_child(slider)
-	var percent: Label = Label.new()
-	percent.custom_minimum_size = Vector2(84.0, 0.0)
-	percent.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	percent.add_theme_font_size_override("font_size", 28)
-	percent.text = "%d%%" % roundi(Settings.volume * 100.0)
-	sound.add_child(percent)
-	slider.value_changed.connect(func(value: float) -> void:
-		Settings.set_volume(value)
-		percent.text = "%d%%" % roundi(value * 100.0))
-	slider.drag_ended.connect(func(_changed: bool) -> void: Settings.play_ui())
-	if Settings.can_vibrate():
-		var buzz: HBoxContainer = _settings_row(card, "Vibration")
-		var toggle: Button = MenuDialog.make_button("ON" if Settings.vibration else "OFF", "green" if Settings.vibration else "grey", 28, Vector2(150.0, 72.0))
-		toggle.name = "VibrationToggle"
-		toggle.pressed.connect(func() -> void:
-			Settings.set_vibration(not Settings.vibration)
-			toggle.text = "ON" if Settings.vibration else "OFF"
-			KalyeahTheme.style_button(toggle, "green" if Settings.vibration else "grey"))
-		buzz.add_child(toggle)
-	card.add_label("Online server", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	var server: LineEdit = LineEdit.new()
-	server.name = "ServerField"
-	server.text = Settings.server_url
-	server.placeholder_text = "wss://your-server"
-	server.custom_minimum_size = Vector2(0.0, 76.0)
-	server.add_theme_font_size_override("font_size", 28)
-	card.body.add_child(server)
-	card.add_hint("Used by ONLINE. Leave it as it is unless you run your own server.")
-	var done: Button = MenuDialog.make_button("DONE", "green", 34)
-	card.add_buttons([done])
-	done.pressed.connect(card.close)
-	card.closed.connect(func() -> void:
-		var typed: String = server.text.strip_edges()
-		if typed != Settings.server_url:
-			Settings.save_server_url(typed))
-	_show_dialog(card)
-	return card
-
-
-func _settings_row(card: MenuDialog, label_text: String) -> HBoxContainer:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	var label: Label = Label.new()
-	label.text = label_text
-	label.custom_minimum_size = Vector2(170.0, 0.0)
-	label.add_theme_font_size_override("font_size", 28)
-	row.add_child(label)
-	card.body.add_child(row)
-	return row
-
-
 ## Quit: asks first (a stray tap must not close the game).
 func open_quit_confirm() -> MenuDialog:
-	var card: MenuDialog = MenuDialog.create("LEAVE KALYEAH?", 560.0)
-	card.add_label("Are you sure you want to quit?", 28)
-	var stay: Button = MenuDialog.make_button("STAY", "green", 32)
+	var card: MenuDialog = MenuDialog.create("QUIT GAME?", 560.0)
+	var stay: Button = MenuDialog.make_button("CANCEL", "grey", 32)
 	var leave: Button = MenuDialog.make_button("QUIT", "red", 32)
 	card.add_buttons([stay, leave])
 	stay.pressed.connect(card.close)
@@ -589,6 +589,14 @@ func _quit_game() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and (dialog == null or not is_instance_valid(dialog) or not dialog.is_open):
 		get_viewport().set_input_as_handled()
+		_go_back()
+
+
+## Back closes the open page; on the home page it asks to quit.
+func _go_back() -> void:
+	if current_page != &"":
+		close_page()
+	else:
 		open_quit_confirm()
 
 
@@ -598,4 +606,4 @@ func _notification(what: int) -> void:
 		if dialog != null and is_instance_valid(dialog) and dialog.is_open:
 			dialog.close()
 		else:
-			open_quit_confirm()
+			_go_back()

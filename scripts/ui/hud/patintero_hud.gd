@@ -83,7 +83,7 @@ func _build_game() -> void:
 func _build_intro_bar() -> void:
 	super._build_intro_bar()
 	intro_title.text = "PATINTERO!"
-	intro_sub.text = "Run to the far end and back without being tagged.\nTaggers stay on their lines. First to 3 wins!"
+	intro_sub.text = "RUN TO THE END AND BACK  •  DON'T GET TAGGED\nFIRST TO 3"
 
 
 func _build_result_card() -> void:

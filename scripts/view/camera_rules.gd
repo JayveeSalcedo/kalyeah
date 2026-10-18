@@ -11,6 +11,8 @@ extends Resource
 ## the camera never gets stuck while the hero walks to an edge. Pure math on data
 ## from data/rules/camera_rules.tres.
 
+## A lens curve of 1 is this barrel strength (k in shaders/lens_curve.gdshader).
+const LENS_K_AT_FULL: float = 0.5
 ## The design screen: portrait 9:16.
 const DESIGN_ASPECT: float = 9.0 / 16.0
 
@@ -20,6 +22,17 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 @export var yaw_offset_degrees: float = 0.0
 ## Pitch from horizontal, in degrees.
 @export var pitch_degrees: float = 0.0
+## The wide curve lens (0 = none, 0.5 = the owner's setting): distortion over the 3D view (negative = concave)
+## (shaders/lens_curve.gdshader). The camera renders a wider field of view to feed it, so the middle
+## of the picture keeps its size and the edges show more of the street.
+@export var lens_curve: float = 0.0
+## The soft focus beyond the two ends of the play area (shaders/depth_blur.gdshader): the blur
+## radius in pixels at full strength (0 = off) and how far past an end it takes to get there
+## (gradually), in screen heights.
+@export var far_blur_pixels: float = 0.0
+@export var far_blur_falloff: float = 0.4
+## The focus holds this far past an end (screen heights) before the blur starts.
+@export var far_blur_hold: float = 0.03
 ## VERTICAL field of view, in degrees.
 @export var vfov_degrees: float = 0.0
 ## Metres of lane width visible at the hero (the camera distance follows from it).
@@ -32,6 +45,17 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 ## Aspect ratios (width / height) the distance is computed for are kept in this range.
 @export var min_aspect: float = 0.0
 @export var max_aspect: float = 0.0
+
+
+## Barrel strength of the lens for `lens_curve` (a curve of 1 would be k = 0.5).
+func lens_k() -> float:
+	return lens_curve * LENS_K_AT_FULL
+
+
+## The vertical field of view the camera renders: the flat one widened by the lens, so the middle
+## of the bent picture is as big as the flat camera's.
+func render_vfov_degrees() -> float:
+	return rad_to_deg(2.0 * atan(tan(deg_to_rad(vfov_degrees / 2.0)) * (1.0 + lens_k())))
 
 
 ## Camera distance from the target for a screen of `aspect` (width / height):
@@ -63,7 +87,10 @@ func ground_offset(camera_distance: float, screen_y: float) -> float:
 	var pitch: float = deg_to_rad(pitch_degrees)
 	var height: float = camera_distance * sin(pitch)
 	var back: float = camera_distance * cos(pitch)
-	var below_axis: float = atan((screen_y * 2.0 - 1.0) * tan(deg_to_rad(vfov_degrees / 2.0)))
+	# the lens bends the picture: the screen position maps to the flat picture first
+	var from_middle: float = screen_y * 2.0 - 1.0
+	var flat: float = from_middle * (1.0 + lens_k() * from_middle * from_middle)
+	var below_axis: float = atan(flat * tan(deg_to_rad(vfov_degrees / 2.0)))
 	var depression: float = pitch + below_axis
 	if depression <= 0.001:
 		return -INF  # the top of the screen shows the sky
