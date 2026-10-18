@@ -4,7 +4,7 @@ extends RefCounted
 ## bottom left, no subtitle. If the owner's card art exists (assets/ui/cards/<id>.webp, 3:4) it
 ## fills the card.
 
-const CARD_SIZE: Vector2 = Vector2(312.0, 416.0)
+const CARD_SIZE: Vector2 = Vector2(360.0, 480.0)
 const PAD: float = 14.0
 const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 const ART_DIR: String = "res://assets/ui/cards/"

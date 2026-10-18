@@ -111,7 +111,7 @@ func test_the_centre_card_stays_centred_on_the_screen_and_the_buttons_are_drawn_
 	var book: Rect2 = screen.corner_buttons[&"codex"].get_global_rect()
 	var card: Rect2 = strip.cards[0].get_global_rect()
 	assert_lt(book.end.x, card.position.x, "at rest the buttons are clear of the centre card")
-	assert_gt(card.size.x, 290.0, "the centre card is as large as before")
+	assert_gt(card.size.x, 340.0, "the centre card is large")
 
 
 func test_the_cards_show_the_owners_pictures_and_no_text() -> void:
@@ -134,11 +134,12 @@ func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the
 	var strip: MenuCarousel = screen.carousel
 	var chosen: Rect2 = strip.cards[0].get_global_rect()
 	assert_almost_eq(chosen.size.x / chosen.size.y, 0.75, 0.01, "3:4")
-	assert_gt(chosen.size.x, 290.0, "large")
+	assert_gt(chosen.size.x, 340.0, "large")
 	for index: int in 3:
 		strip.select(index, false)
 		for card: Button in strip.cards:
-			assert_gt(card.modulate.a, 0.4, "%s is always visible" % ChoiceCard.choice_of(card))
+			assert_eq(card.modulate.a, 1.0, "%s is solid, never see-through" % ChoiceCard.choice_of(card))
+			assert_gt(card.modulate.r, 0.4, "and never too dark to see")
 			assert_gt(card.scale.x, 0.6)
 		var middle: Rect2 = strip.cards[index].get_global_rect()
 		assert_almost_eq(middle.get_center().x, 360.0, 2.0, "the chosen card is in the middle of the screen")
@@ -215,13 +216,14 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_almost_eq(middle.size.x / middle.size.y, 0.75, 0.01, "3:4 cards")
 	assert_almost_eq(middle.get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is in the middle of the screen")
 	assert_eq(middle.modulate.a, 1.0)
-	assert_lt(next.modulate.a, 1.0, "the next card is see-through")
+	assert_lt(next.modulate.r, middle.modulate.r, "the next card is shaded: depth")
+	assert_lt(next.position.y, middle.position.y, "and sits higher")
 	assert_lt(next.scale.x, middle.scale.x, "and smaller")
 	assert_lt(next.z_index, middle.z_index, "and behind")
 	assert_gt(next.get_global_rect().get_center().x, middle.get_global_rect().get_center().x, "and to its right")
 	strip.select(1, false)
-	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
-	assert_lt(strip.cards[0].modulate.a, 1.0)
+	assert_eq(strip.cards[1].modulate.r, 1.0, "the chosen card comes forward at full brightness")
+	assert_lt(strip.cards[0].modulate.r, 1.0)
 	assert_lt(strip.cards[0].get_global_rect().get_center().x, strip.cards[1].get_global_rect().get_center().x, "the previous card is on the left")
 	assert_eq(screen.mode_name_label.text, "ONLINE", "the details follow the chosen card")
 	assert_eq(screen.primary_button.text, "CREATE")
