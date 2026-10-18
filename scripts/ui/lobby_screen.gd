@@ -42,6 +42,8 @@ var _start_button: Button
 var _best_of_label: Label
 var _best_of_buttons: Dictionary[int, Button] = {}
 var _team_size: int = 1
+## The address the lobby connected to (kept so a dropped player can rejoin).
+var _connected_url: String = ""
 
 
 func _ready() -> void:
@@ -102,13 +104,17 @@ func status_text() -> String:
 ## Create / Join pressed: remember the name and server, connect if needed, then send.
 func submit() -> void:
 	var url: String = Settings.normalize_url(_url_edit.text)
-	if url.is_empty():
+	if Session.lobby_hotspot:
+		# a hotspot room has no address to type: the host's phone is the server, the code leads to it
+		url = _hotspot_url()
+		if url.is_empty():
+			return
+	elif url.is_empty():
 		_status.text = "Enter a server address."
 		return
-	if Session.lobby_hotspot:
-		Settings.save_hotspot_url(url)
 	else:
 		Settings.save_server_url(url)
+	_connected_url = url
 	Session.player_name = _name_edit.text.strip_edges()
 	Session.save()
 	client.player_name = Session.player_name
@@ -126,6 +132,27 @@ func submit() -> void:
 		_status.text = "Connecting..."
 		if client.connect_to(url) != OK:
 			_status.text = "Can't reach that address."
+
+
+## The address to connect to for a hotspot room, or "" (with the reason in the status line): when
+## creating, this phone starts the room server; when joining, the code holds the host's address.
+func _hotspot_url() -> String:
+	if intent == Intent.CREATE:
+		if not Net.can_host():
+			_status.text = "Hosting needs the Android app. Join a friend's room with their code."
+			return ""
+		var ip: String = HotspotCode.local_ip(IP.get_local_addresses())
+		if ip.is_empty():
+			_status.text = "Turn on your hotspot or connect to Wi-Fi first."
+			return ""
+		if Net.start_host(ip) != OK:
+			_status.text = "Can't start the room on this phone."
+			return ""
+		return Net.host_url()
+	var url: String = HotspotCode.url_for(_code_edit.text, NET_RULES)
+	if url.is_empty():
+		_status.text = "That isn't a hotspot room code."
+	return url
 
 
 ## Takes our slot in a running match back (after a reload or a long drop).
@@ -181,7 +208,7 @@ func _on_room_changed(room: Dictionary) -> void:
 	_show_room(true)
 	Session.room_code = room.get("code", "") as String
 	Session.reconnect_token = client.token
-	Session.reconnect_url = Settings.lobby_url(Session.lobby_hotspot)
+	Session.reconnect_url = _connected_url if Session.lobby_hotspot and not _connected_url.is_empty() else Settings.lobby_url(Session.lobby_hotspot)
 	Session.save()
 	var size: int = room.get("team_size", 1) as int
 	_code_label.text = Session.room_code
@@ -241,6 +268,7 @@ func _on_back() -> void:
 	if not client.room.is_empty():
 		client.leave_room()
 	client.close()
+	Net.stop_host()
 	get_tree().change_scene_to_file(TITLE_SCENE)
 
 
@@ -291,8 +319,11 @@ func _build_setup(parent: Control) -> void:
 	_setup = VBoxContainer.new()
 	_setup.add_theme_constant_override("separation", 10)
 	parent.add_child(_setup)
-	_setup.add_child(LobbyWidgets.field_label("ADDRESS" if Session.lobby_hotspot else "SERVER"))
-	_url_edit = LobbyWidgets.edit(Settings.lobby_url(Session.lobby_hotspot), "192.168.43.1:9080" if Session.lobby_hotspot else "wss://your-server.example.com", FONT)
+	var server_label: Label = LobbyWidgets.field_label("SERVER")
+	_url_edit = LobbyWidgets.edit(Settings.lobby_url(false), "wss://your-server.example.com", FONT)
+	server_label.visible = not Session.lobby_hotspot
+	_url_edit.visible = not Session.lobby_hotspot
+	_setup.add_child(server_label)
 	_setup.add_child(_url_edit)
 	_setup.add_child(LobbyWidgets.field_label("NAME"))
 	_name_edit = LobbyWidgets.edit(Session.player_name, "Player", FONT)

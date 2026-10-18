@@ -5,6 +5,12 @@ connections on `$PORT` (default 8080), keeps the rooms, and runs every match
 (server-authoritative; clients only send inputs). There's no database and no
 accounts. Rooms live in memory and vanish when the server restarts.
 
+## Hotspot rooms need no server
+
+A hotspot room is hosted by the Android app itself (the same server code runs inside the app,
+`Net.start_host`). The room code carries the host's address, so friends only type the code.
+This file is about the public **Online** server.
+
 ## Run it on a computer
 
 ```sh

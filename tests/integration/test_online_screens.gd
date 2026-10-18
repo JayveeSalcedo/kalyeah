@@ -156,3 +156,14 @@ func test_the_match_screen_reconnects_by_itself_after_a_drop() -> void:
 	assert_true(_until(func() -> bool: return member.connected, 3.0), "the server gave the slot back")
 	assert_eq(view.banner_text(), "Back online!", "success is shown only after the slot is reclaimed")
 	Session.reconnect_url = ""
+
+
+func test_a_hotspot_join_needs_only_a_code_and_refuses_a_foreign_one() -> void:
+	Session.lobby_hotspot = true
+	var lobby: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
+	assert_false(lobby._url_edit.visible, "no address to type on a hotspot")
+	lobby.set_fields("", "Ben", "ABCDEFGH")
+	lobby.submit()
+	assert_eq(lobby.status_text(), "That isn't a hotspot room code.")
+	assert_false(clients[0].is_online(), "nothing was dialled")
+	Session.lobby_hotspot = false
