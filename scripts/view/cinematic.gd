@@ -41,7 +41,7 @@ const BLUR_LAYER: int = -1
 const BLUR_SHADER: Shader = preload("res://shaders/depth_blur.gdshader")
 
 
-static func add_depth_blur(parent: Node, radius_px: float, falloff: float) -> ShaderMaterial:
+static func add_depth_blur(parent: Node, radius_px: float, falloff: float, hold: float) -> ShaderMaterial:
 	if radius_px <= 0.0:
 		return null
 	var layer: CanvasLayer = CanvasLayer.new()
@@ -55,6 +55,7 @@ static func add_depth_blur(parent: Node, radius_px: float, falloff: float) -> Sh
 	material.shader = BLUR_SHADER
 	material.set_shader_parameter("radius_px", radius_px)
 	material.set_shader_parameter("falloff", falloff)
+	material.set_shader_parameter("hold", hold)
 	rect.material = material
 	layer.add_child(rect)
 	parent.add_child(layer)
