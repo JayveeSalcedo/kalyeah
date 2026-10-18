@@ -22,8 +22,8 @@ enum Feed { TAGGED, RESCUED }
 const BANNER_TIME: float = 2.0
 const TOP_ROW_Y: float = 40.0
 const MARGIN: float = 14.0
-## The street is 3:4 (width:length), and so is its minimap.
-const MINIMAP_SIZE: Vector2 = Vector2(120.0, 160.0)
+## The street is 1:2 (width:length), and so is its minimap.
+const MINIMAP_SIZE: Vector2 = Vector2(100.0, 200.0)
 const GEAR_SIZE: float = 64.0
 const SCORE_SIZE: Vector2 = Vector2(210.0, 64.0)
 const FEED_TIME: float = 2.6
