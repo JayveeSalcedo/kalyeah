@@ -48,6 +48,7 @@ var winner: int = -1
 
 var _inputs: Dictionary[int, PlayerInput] = {}
 var _brains: Dictionary[int, PatinteroBrain] = {}
+## The street edges and the cardboard walls.
 var _blocking: Array[Rect2] = []
 
 
@@ -57,6 +58,8 @@ func _init(p_rules: GameRules, p_patintero: PatinteroRules, p_layout: MapLayout,
 	layout = p_layout
 	rng.seed = seed_value
 	_blocking = layout.boundary_rects()
+	# the street's cardboard walls stop kids like in Agawan Base
+	_blocking.append_array(layout.obstacle_rects())
 
 
 func add_player(id: int, team: int) -> PatinteroPlayer:

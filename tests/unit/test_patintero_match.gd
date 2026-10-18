@@ -81,10 +81,12 @@ func test_the_result_card_shows_who_won() -> void:
 	assert_false(screen.hud.joystick.visible)
 
 
-func test_the_street_has_no_tag_the_base_pieces() -> void:
+func test_the_street_keeps_its_props_but_no_base_markings() -> void:
 	var screen: PatinteroMatch = _match()
 	var map: StreetMap = screen.get_node("%Map") as StreetMap
 	assert_false(map.tag_zones)
+	assert_eq(map._posts.size(), 2, "the street keeps its posts")
+	assert_true(map._base_materials.is_empty(), "but no base circles or rescue areas")
 
 
 func test_without_input_you_stay_put() -> void:

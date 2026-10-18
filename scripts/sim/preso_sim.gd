@@ -64,7 +64,10 @@ var next_taya: int = -1
 
 var _inputs: Dictionary[int, PlayerInput] = {}
 var _brains: Dictionary[int, PresoBrain] = {}
+## The street edges and the cardboard walls: they stop the kids and the slippers.
 var _blocking: Array[Rect2] = []
+## The cardboard walls on the street (from the map layout).
+var _obstacles: Array[Rect2] = []
 
 
 func _init(p_rules: GameRules, p_preso: PresoRules, p_layout: MapLayout, seed_value: int) -> void:
@@ -72,7 +75,9 @@ func _init(p_rules: GameRules, p_preso: PresoRules, p_layout: MapLayout, seed_va
 	preso = p_preso
 	layout = p_layout
 	rng.seed = seed_value
+	_obstacles = layout.obstacle_rects()
 	_blocking = layout.boundary_rects()
+	_blocking.append_array(_obstacles)
 	can_position = preso.can_spot
 
 
@@ -312,6 +317,10 @@ func _step_slippers(dt: float) -> void:
 			elif not street.has_point(slipper.position):
 				slipper.position = slipper.position.clamp(street.position, street.end)
 				slipper.flying = false
+			elif _in_obstacle(slipper.position):
+				# a cardboard wall stops it: it drops just in front
+				slipper.position = previous
+				slipper.flying = false
 		if slipper.travelled >= preso.slipper_range:
 			slipper.flying = false
 
@@ -320,6 +329,8 @@ func _knock_can(slipper: Slipper) -> void:
 	var street: Rect2 = layout.lane_rect().grow(-preso.edge_margin)
 	var rest: Vector2 = (preso.can_spot + slipper.direction * preso.knock_distance).clamp(street.position, street.end)
 	rest.y = minf(rest.y, preso.throw_line_z - preso.can_line_margin)
+	# never inside a cardboard wall, where the taya could not reach it
+	rest = Collision.resolve(rest, preso.can_pickup_distance / 2.0, _obstacles)
 	can_state = CanState.DOWN
 	can_position = rest
 	# the slipper drops by the can
@@ -410,6 +421,13 @@ func _forward_clamped(direction: Vector2) -> Vector2:
 	if absf(angle) <= limit:
 		return direction.normalized()
 	return FORWARD.rotated(signf(angle) * limit)
+
+
+func _in_obstacle(point: Vector2) -> bool:
+	for rect: Rect2 in _obstacles:
+		if rect.has_point(point):
+			return true
+	return false
 
 
 ## Shortest distance from `point` to the segment a-b.

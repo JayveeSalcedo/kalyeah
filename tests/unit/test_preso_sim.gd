@@ -284,3 +284,22 @@ func test_every_kid_gets_a_different_character_and_you_keep_yours() -> void:
 	for id: int in sim.players:
 		seen[sim.players[id].character_id] = true
 	assert_eq(seen.size(), 4)
+
+
+func test_a_cardboard_wall_blocks_kids_and_stops_slippers() -> void:
+	var sim: PresoSim = _sim()
+	var me: PresoPlayer = sim.players[1]
+	var wall: Rect2 = LAYOUT.obstacle_rects()[0]
+	me.position = Vector2(wall.get_center().x, wall.end.y + 1.5)
+	sim.set_input(1, PlayerInput.create(Vector2(0, -1), Vector2.ZERO, 0, 0))
+	_wait(sim, 1.0)
+	assert_gt(me.position.y, wall.end.y, "stopped at the wall")
+	sim.set_input(1, PlayerInput.create(Vector2.ZERO, Vector2.ZERO, 0, 0))
+	me.position = Vector2(wall.get_center().x, wall.end.y + 1.5)
+	me.shot_time = 0.0
+	assert_true(sim.throw(me, Vector2(0, -1)))
+	_wait(sim, 1.0)
+	var slipper: PresoSim.Slipper = sim.slippers[1]
+	assert_false(slipper.flying)
+	assert_gt(slipper.position.y, wall.position.y, "dropped in front of the wall")
+	assert_lt(slipper.position.distance_to(me.position), 2.0)
