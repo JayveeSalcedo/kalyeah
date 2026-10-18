@@ -1,13 +1,13 @@
 shader_type canvas_item;
-// The main screen's bottom bar as a castle wall of light stone slabs (Clash of Clans style): rows of
-// bevelled blocks laid like bricks, soft highlights on the top and left of every slab, a shaded
-// bottom and right, dark mortar between them, a gentle tone change from slab to slab and a fine
-// grain. Everything is drawn here from the control's size, no image file.
+// The main screen's bottom bar: dark blue cement with lighter partition lines between the tabs and
+// a smooth, lighter top (no hard top line). The open tab's slot is a little lighter. Everything is
+// drawn here from the control's size, no image file.
 
 uniform vec2 rect_size = vec2(720.0, 104.0);
-uniform vec2 slab = vec2(120.0, 50.0);
-uniform vec3 stone : source_color = vec3(0.84, 0.81, 0.74);
-uniform vec3 mortar : source_color = vec3(0.50, 0.47, 0.42);
+uniform float tabs = 5.0;
+uniform float active_tab = 2.0;
+uniform vec3 cement : source_color = vec3(0.10, 0.17, 0.32);
+uniform vec3 top_light : source_color = vec3(0.34, 0.47, 0.70);
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -24,44 +24,28 @@ float value_noise(vec2 p) {
 
 void fragment() {
 	vec2 p = UV * rect_size;
-	// the first row of slabs starts just under the bar's lip
-	float lip = 7.0;
-	float y = max(p.y - lip, 0.0);
-	float row = floor(y / slab.y);
-	// (a bar one slab high has a single row: every tab sits on its own slab)
-	float shift = mod(row, 2.0) * slab.x * 0.5;
-	vec2 q = vec2(p.x + shift, y);
-	vec2 cell = floor(q / slab);
-	vec2 f = fract(q / slab) * slab;
-	float to_left = f.x;
-	float to_right = slab.x - f.x;
-	float to_top = f.y;
-	float to_bottom = slab.y - f.y;
-	float nearest = min(min(to_left, to_right), min(to_top, to_bottom));
-
-	float tone = hash(cell) - 0.5;
-	vec3 colour = stone * (1.0 + tone * 0.10);
-	// soft blotches inside the slab and a fine grain
-	colour *= 1.0 + (value_noise(p / 17.0 + cell * 3.1) - 0.5) * 0.07;
-	colour *= 1.0 + (value_noise(p / 2.5) - 0.5) * 0.05;
-	// bevel: lit top and left edges, shaded bottom and right edges
-	float lit = (1.0 - smoothstep(2.0, 9.0, to_top)) + 0.6 * (1.0 - smoothstep(2.0, 8.0, to_left));
-	float shaded = (1.0 - smoothstep(2.0, 10.0, to_bottom)) + 0.6 * (1.0 - smoothstep(2.0, 9.0, to_right));
-	colour += lit * 0.09;
-	colour -= shaded * 0.13;
-	// a faint dent in the middle of each slab
-	colour -= 0.03 * smoothstep(0.35, 0.0, length((f - slab * 0.5) / slab));
-
-	// mortar between the slabs
-	float joint = 1.0 - smoothstep(1.2, 3.2, nearest);
-	colour = mix(colour, mortar, joint);
-
-	// the lip: a lighter cap along the top edge with a dark line under it
-	if (p.y < lip) {
-		colour = stone * 1.08 + 0.04 * (1.0 - p.y / lip);
-		colour = mix(colour, mortar * 0.85, smoothstep(lip - 3.0, lip - 1.0, p.y));
+	float tab_w = rect_size.x / tabs;
+	vec3 colour = cement;
+	// cement: soft blotches, a mottle and a fine grain
+	colour *= 1.0 + (value_noise(p / 60.0) - 0.5) * 0.18;
+	colour *= 1.0 + (value_noise(p / 14.0 + 5.0) - 0.5) * 0.14;
+	colour *= 1.0 + (value_noise(p / 2.5) - 0.5) * 0.10;
+	// the open tab's slot is lighter, brightest at the top
+	float slot = step(float(int(p.x / tab_w)), active_tab) * step(active_tab, float(int(p.x / tab_w)));
+	colour += slot * mix(vec3(0.13, 0.17, 0.26), vec3(0.04, 0.06, 0.10), smoothstep(0.0, rect_size.y, p.y));
+	// a smooth, lighter top: the light fades down into the cement
+	float fade = 1.0 - smoothstep(0.0, 34.0, p.y);
+	colour = mix(colour, top_light, fade * fade * 0.85);
+	// lighter partition lines between the tabs, each with a thin dark edge beside it
+	float edge = rect_size.x / tabs;
+	float k = floor(p.x / edge + 0.5);
+	if (k >= 1.0 && k <= tabs - 1.0) {
+		float d = p.x - k * edge;
+		float line = 1.0 - smoothstep(0.6, 1.8, abs(d));
+		float shadow = 1.0 - smoothstep(0.6, 2.4, abs(d - 3.0));
+		float reach = smoothstep(2.0, 16.0, p.y);
+		colour += vec3(0.20, 0.28, 0.42) * line * reach;
+		colour -= vec3(0.05, 0.07, 0.10) * shadow * reach;
 	}
-	// a thin shadow along the very top so the bar sits on the screen
-	colour *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 2.0, p.y));
 	COLOR = vec4(clamp(colour, 0.0, 1.0), 1.0);
 }

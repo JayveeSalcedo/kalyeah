@@ -15,13 +15,16 @@ const TABS: Array[Dictionary] = [
 ]
 ## The strip's height without the phone's home-bar inset.
 const HEIGHT: float = 104.0
-## The stone cap along the top edge (the shader's lip).
-const LIP: float = 7.0
 const STONE_SHADER: Shader = preload("res://shaders/nav_stone.gdshader")
-const BAR_COLOR: Color = Color(0.84, 0.81, 0.74)
-## Icons on the light stone: dark gray when idle, burnt orange when open.
-const IDLE: Color = Color("5a564f")
-const LIT: Color = Color("c85f00")
+const BAR_COLOR: Color = Color(0.10, 0.17, 0.32)
+## Icons on the dark blue cement: soft blue-gray when idle, amber when open.
+const IDLE: Color = Color("8fa3c4")
+const LIT: Color = Color("ffbf3c")
+const NAME_COLOR: Color = Color("fff3d6")
+## The open tab's icon grows and rises past the bar's top edge to make room for its name.
+const LIT_SCALE: float = 1.5
+const LIT_RISE: float = 30.0
+const MOVE_TIME: float = 0.16
 
 var current: StringName = &"battle"
 var buttons: Dictionary[StringName, Button] = {}
@@ -33,24 +36,19 @@ var _labels: Dictionary[StringName, Label] = {}
 func _init() -> void:
 	name = "BottomNav"
 	custom_minimum_size = Vector2(0.0, HEIGHT)
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color.TRANSPARENT
-	style.border_width_top = 2
-	style.border_color = Color(0.0, 0.0, 0.0, 0.18)
-	add_theme_stylebox_override("panel", style)
-	var cement: ColorRect = ColorRect.new()
-	cement.name = "Stone"
-	cement.color = BAR_COLOR
-	cement.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cement.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip_contents = false
+	# a plain panel: no border, no rounding, no shadow (the look is the shader behind the tabs)
+	add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var stone: ColorRect = ColorRect.new()
+	stone.name = "Stone"
+	stone.color = BAR_COLOR
+	stone.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stone.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = STONE_SHADER
-	cement.material = material
-	cement.resized.connect(func() -> void:
-		material.set_shader_parameter("rect_size", cement.size)
-		# one slab per tab: the bar's height under the lip, a fifth of its width
-		material.set_shader_parameter("slab", Vector2(cement.size.x / float(TABS.size()), cement.size.y - LIP)))
-	add_child(cement)
+	stone.material = material
+	stone.resized.connect(func() -> void: material.set_shader_parameter("rect_size", stone.size))
+	add_child(stone)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "Tabs"
 	row.add_theme_constant_override("separation", 0)
@@ -60,34 +58,35 @@ func _init() -> void:
 		var button: Button = Button.new()
 		button.name = String(id).capitalize()
 		button.focus_mode = Control.FOCUS_NONE
+		button.clip_contents = false
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		button.custom_minimum_size = Vector2(0.0, HEIGHT - 2.0)
+		button.custom_minimum_size = Vector2(0.0, HEIGHT)
 		button.pressed.connect(select.bind(id))
 		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
 		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
 			button.add_theme_stylebox_override(state, empty)
-		var stack: VBoxContainer = VBoxContainer.new()
-		stack.alignment = BoxContainer.ALIGNMENT_CENTER
-		stack.add_theme_constant_override("separation", 2)
-		stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		button.add_child(stack)
 		var icon: NavIcon = NavIcon.new(id)
-		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		stack.add_child(icon)
+		icon.pivot_offset = Vector2(NavIcon.SIZE, NavIcon.SIZE) / 2.0
+		button.add_child(icon)
 		var label: Label = Label.new()
 		label.text = String(tab["label"])
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 17)
-		label.add_theme_color_override("font_color", LIT)
+		label.add_theme_font_size_override("font_size", 18)
+		label.add_theme_color_override("font_color", NAME_COLOR)
+		label.add_theme_color_override("font_outline_color", Color(0.02, 0.05, 0.12))
+		label.add_theme_constant_override("outline_size", 4)
+		label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		label.offset_top = -32.0
+		label.offset_bottom = -6.0
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		stack.add_child(label)
+		button.add_child(label)
+		button.resized.connect(_place.bind(id, false))
 		row.add_child(button)
 		buttons[id] = button
 		_icons[id] = icon
 		_labels[id] = label
-	_restyle()
+	_restyle(false)
 
 
 ## Opens `tab` (emits `tab_selected` when it is a different one).
@@ -95,20 +94,48 @@ func select(tab: StringName) -> void:
 	if tab == current:
 		return
 	current = tab
-	_restyle()
+	_restyle(true)
 	tab_selected.emit(tab)
 
 
-## Makes the strip reach the phone's bottom edge: the tabs stay above the home bar.
+## Makes the bar reach the phone's bottom edge: the tabs stay above the home bar.
 func set_bottom_inset(inset: float) -> void:
 	add_theme_constant_override("margin_bottom", int(inset))
-	var style: StyleBoxFlat = get_theme_stylebox("panel") as StyleBoxFlat
-	style.content_margin_bottom = inset
 
 
-func _restyle() -> void:
+func _restyle(animate: bool) -> void:
 	for id: StringName in buttons:
-		var lit: bool = id == current
-		_icons[id].color = LIT if lit else IDLE
-		# only the open tab shows its name; the others keep the space so nothing jumps
-		_labels[id].modulate.a = 1.0 if lit else 0.0
+		_place(id, animate)
+	var material: ShaderMaterial = (find_child("Stone", true, false) as ColorRect).material as ShaderMaterial
+	material.set_shader_parameter("active_tab", float(_index_of(current)))
+
+
+func _index_of(tab: StringName) -> int:
+	for i: int in TABS.size():
+		if TABS[i]["id"] == tab:
+			return i
+	return 0
+
+
+## Puts a tab's icon where it belongs: the open one big and rising past the bar's top edge with its
+## name under it, the others small and centred in the bar.
+func _place(id: StringName, animate: bool) -> void:
+	var lit: bool = id == current
+	var button: Button = buttons[id]
+	var icon: NavIcon = _icons[id]
+	var x: float = (button.size.x - NavIcon.SIZE) / 2.0
+	var y: float = (HEIGHT - NavIcon.SIZE) / 2.0 - LIT_RISE if lit else (HEIGHT - NavIcon.SIZE) / 2.0
+	var grown: Vector2 = Vector2.ONE * (LIT_SCALE if lit else 1.0)
+	icon.color = LIT if lit else IDLE
+	_labels[id].visible = lit
+	var tween_key: String = "move_%s" % id
+	if animate and is_inside_tree():
+		if has_meta(tween_key):
+			(get_meta(tween_key) as Tween).kill()
+		var move: Tween = create_tween().set_parallel(true)
+		move.tween_property(icon, "position", Vector2(x, y), MOVE_TIME).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		move.tween_property(icon, "scale", grown, MOVE_TIME).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		set_meta(tween_key, move)
+	else:
+		icon.position = Vector2(x, y)
+		icon.scale = grown

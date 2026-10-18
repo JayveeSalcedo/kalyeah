@@ -44,41 +44,51 @@ func test_the_bar_has_the_five_tabs_in_order_with_battle_open() -> void:
 		assert_false(screen.pages[id].visible, "%s is closed" % id)
 
 
-func test_the_bar_is_a_flat_gray_strip_edge_to_edge_with_no_margin() -> void:
+func test_the_bar_is_flat_dark_blue_cement_edge_to_edge_with_no_margin_and_no_top_line() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var bar: Rect2 = screen.nav.get_global_rect()
 	assert_almost_eq(bar.position.x, 0.0, 0.5, "no margin on the left")
 	assert_almost_eq(bar.end.x, 720.0, 0.5, "or the right")
 	assert_almost_eq(bar.end.y, 1280.0, 0.5, "or the bottom")
-	var style: StyleBoxFlat = screen.nav.get_theme_stylebox("panel") as StyleBoxFlat
-	assert_eq(style.corner_radius_top_left, 0, "not a rounded card")
-	assert_eq(style.shadow_size, 0, "no card shadow")
+	assert_almost_eq(bar.size.y, BottomNav.HEIGHT, 0.5, "the bar keeps its height")
+	assert_true(screen.nav.get_theme_stylebox("panel") is StyleBoxEmpty, "no card, border or top line")
 	var stone: ColorRect = screen.nav.find_child("Stone", true, false) as ColorRect
-	assert_true(stone.material is ShaderMaterial, "light stone slabs from a shader")
-	assert_between(stone.color.v, 0.7, 0.95, "light")
-	assert_eq((stone.material as ShaderMaterial).get_shader_parameter("rect_size"), stone.size, "the slabs are sized to the bar")
+	assert_true(stone.material is ShaderMaterial, "dark blue cement from a shader")
+	assert_gt(stone.color.b, stone.color.r * 2.0, "blue")
+	assert_lt(stone.color.v, 0.5, "dark")
+	assert_eq((stone.material as ShaderMaterial).get_shader_parameter("rect_size"), stone.size, "the cement is sized to the bar")
 	for tab: Dictionary in BottomNav.TABS:
 		var button: Button = screen.nav.buttons[tab["id"]]
 		assert_gte(button.get_global_rect().size.y, 88.0, "%s is tall enough for a thumb" % tab["label"])
 		assert_almost_eq(button.get_global_rect().size.x, 144.0, 2.0, "five equal tabs")
-	assert_lt(screen.carousel.get_global_rect().end.y, bar.position.y, "the battle page ends above the bar")
 
 
-func test_tabs_are_icons_and_only_the_open_one_shows_its_name() -> void:
+func test_tabs_are_icons_and_only_the_open_one_is_big_named_and_past_the_bar() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
+	var bar: Rect2 = screen.nav.get_global_rect()
 	for tab: Dictionary in BottomNav.TABS:
 		var id: StringName = tab["id"]
 		var button: Button = screen.nav.buttons[id]
+		var icon: NavIcon = screen.nav._icons[id]
 		assert_eq(button.text, "", "no text on the button itself: an icon and a caption")
-		assert_not_null(button.find_child("*", true, false))
-		var label: Label = screen.nav._labels[id]
-		assert_eq(label.modulate.a, 1.0 if id == &"battle" else 0.0, "%s caption" % id)
-		assert_eq(screen.nav._icons[id].color, BottomNav.LIT if id == &"battle" else BottomNav.IDLE)
+		var lit: bool = id == &"battle"
+		assert_eq(screen.nav._labels[id].visible, lit, "%s name" % id)
+		assert_eq(icon.color, BottomNav.LIT if lit else BottomNav.IDLE)
+		if lit:
+			assert_almost_eq(icon.scale.x, BottomNav.LIT_SCALE, 0.01, "bigger")
+			assert_lt(icon.get_global_rect().position.y, bar.position.y, "it goes past the bar's top edge")
+		else:
+			assert_eq(icon.scale.x, 1.0)
+			assert_gte(icon.get_global_rect().position.y, bar.position.y, "inside the bar")
 	screen.nav.select(&"history")
-	assert_eq(screen.nav._labels[&"history"].modulate.a, 1.0)
-	assert_eq(screen.nav._labels[&"battle"].modulate.a, 0.0, "the old tab loses its name")
+	await wait_seconds(0.4)
+	assert_true(screen.nav._labels[&"history"].visible)
+	assert_false(screen.nav._labels[&"battle"].visible, "the old tab loses its name")
+	assert_almost_eq(screen.nav._icons[&"history"].scale.x, BottomNav.LIT_SCALE, 0.01)
+	assert_almost_eq(screen.nav._icons[&"battle"].scale.x, 1.0, 0.01, "and shrinks back")
+	assert_eq(screen.nav.get_global_rect().size.y, BottomNav.HEIGHT, "the bar never changes height")
 
 
 func test_tapping_a_tab_shows_only_its_page() -> void:
