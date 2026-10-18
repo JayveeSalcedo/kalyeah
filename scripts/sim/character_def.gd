@@ -25,5 +25,9 @@ enum Extra { NONE, BIMPO, HAIR_CLIP, HEADBAND_BELT_BAG, ICE_CANDY, PONY_BANDS }
 @export var shoe_color: Color = Color(0.2, 0.5, 0.9)
 @export var extra: Extra = Extra.NONE
 @export var extra_color: Color = Color.WHITE
+## True when the kid's model plays its own animation clips at their own speed: the run is not
+## paced to the ground speed, a cast is not squeezed into the weapon's cast time and a spell does
+## not skip the start of its clip (Junjun's rebuilt rig). Purely visual.
+@export var native_animation: bool = false
 ## Visual body width (Popoy is chubbier). Never the hitbox: that is GameRules.
 @export var body_width: float = 1.0

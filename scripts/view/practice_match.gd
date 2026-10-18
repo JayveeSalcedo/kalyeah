@@ -19,6 +19,8 @@ const WEAPON_SLOTS: int = 2
 const RECONNECT_INTERVAL: float = 2.0
 ## Practice-only debug button to test getting tagged without an enemy that fights back.
 const DEBUG_DAMAGE: int = 30
+## How long a status from the practice menu lasts (seconds), long enough to watch its animation.
+const STATUS_TEST_TIME: float = 3.0
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 
 @export var rules: GameRules
@@ -131,6 +133,16 @@ func aim_started(slot: int) -> void:
 ## A weapon button was let go with a screen-space `aim` (zero = auto-aim).
 func aim_released(aim: Vector2, cancelled: bool, slot: int) -> void:
 	input.aim_released(_screen_to_world(aim), cancelled, slot)
+
+
+## Practice menu: plays the animation a skill hit causes (stunned, airborne, knocked down) on the
+## local kid by giving it that status for a few seconds, and closes the menu to watch it.
+func play_status_test(type: int) -> void:
+	if online:
+		return
+	sim.players[local_id].effects.apply(type as StatusEffects.Type, STATUS_TEST_TIME)
+	hud.menu.close()
+	_presentation.sync(0.0)
 
 
 func hurt_local(amount: int) -> void:
