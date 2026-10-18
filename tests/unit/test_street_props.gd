@@ -3,7 +3,7 @@ extends GutTest
 ## (tricycle, e-bike, sacks, sewing machine, NO ID NO ENTRY sign) across both ends.
 
 const MAP_SCENE: PackedScene = preload("res://scenes/map/street_map.tscn")
-const NEW_BARRIERS: Array[String] = ["tricycle", "ebike", "sacks", "sewing_machine", "no_id_no_entry"]
+const NEW_BARRIERS: Array[String] = ["tricycle", "ebike", "sacks", "sewing_machine", "no_id_no_entry", "plank_fence", "roof_wall", "roof_wall_2"]
 
 
 func _map() -> StreetMap:
