@@ -6,7 +6,7 @@ extends SubViewportContainer
 ## in its own 3D world inside a transparent SubViewport, so it floats over the screen background.
 
 const CAMERA_FOV: float = 34.0
-const CAMERA_PITCH: float = 72.0
+const CAMERA_PITCH: float = 50.0
 ## How much of the frame the model may fill (1 = touching the edges).
 const FRAME_FILL: float = 0.98
 
@@ -62,7 +62,7 @@ func frame() -> void:
 	if camera == null or map == null:
 		return
 	var pitch: float = deg_to_rad(CAMERA_PITCH)
-	var half_x: float = map.layout.lane_width / 2.0
+	var half_x: float = map.layout.lane_width / 2.0 + StreetMap.PLATFORM_MARGIN
 	var half_z: float = map.layout.lane_length / 2.0
 	# only the far half is shown: from the far end to the middle line
 	var middle: Vector3 = Vector3(0.0, 0.0, -half_z / 2.0)
@@ -78,8 +78,8 @@ func frame() -> void:
 		var eye: Vector3 = middle - forward * distance
 		var fits: bool = true
 		for cx: float in [-half_x, half_x]:
-			for cy: float in [-StreetMap.PLINTH_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
-				for cz: float in [-half_z, 0.0]:
+			for cy: float in [-StreetMap.PLINTH_HEIGHT - StreetMap.PLATFORM_HEIGHT - 0.1, StreetMap.POST_HEIGHT]:
+				for cz: float in [-half_z - StreetMap.PLATFORM_MARGIN, StreetMap.PLATFORM_MARGIN]:
 					var rel: Vector3 = Vector3(cx, cy, cz) - eye
 					var depth: float = rel.dot(forward)
 					if absf(rel.dot(right)) > depth * tan_h * FRAME_FILL or absf(rel.dot(up)) > depth * tan_v * FRAME_FILL:

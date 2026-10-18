@@ -51,6 +51,10 @@ const END_REACH: float = 16.0
 ## walls of the tagged boxes). No sidewalks, no team colours and no street past the ends.
 const PLINTH: Color = Color(0.4, 0.43, 0.54)
 const PLINTH_HEIGHT: float = 4.0
+## The main-screen model sits on a thicker blue platform that reaches this far past it.
+const PLATFORM: Color = Color(0.16, 0.36, 0.8)
+const PLATFORM_HEIGHT: float = 6.0
+const PLATFORM_MARGIN: float = 2.0
 const HOUSE_SPACING: float = 6.4
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -287,6 +291,8 @@ func _street() -> ArrayMesh:
 		kit.plain_box(Vector3(0.0, -0.05, -half / 2.0), Vector3(layout.lane_width, 0.1, half), CEMENT, CEMENT)
 		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
 		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width, PLINTH_HEIGHT, half), PLINTH, PLINTH)
+		var under: float = -0.1 - PLINTH_HEIGHT
+		kit.box(Vector3(0.0, under - PLATFORM_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width + PLATFORM_MARGIN * 2.0, PLATFORM_HEIGHT, half + PLATFORM_MARGIN * 2.0), PLATFORM, PLATFORM)
 		return kit.commit()
 	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
