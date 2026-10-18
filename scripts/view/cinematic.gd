@@ -17,7 +17,7 @@ const LENS_SHADER: Shader = preload("res://shaders/lens_curve.gdshader")
 ## Bends everything the 3D camera shows (not the HUD) like a wide-angle lens, barrel strength `k`
 ## (CameraRules.lens_k). Returns its layer, or null when the lens is off.
 static func add_lens(parent: Node, k: float) -> CanvasLayer:
-	if k <= 0.0:
+	if is_zero_approx(k):
 		return null
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.name = "WideCurveLens"

@@ -22,7 +22,7 @@ const DESIGN_ASPECT: float = 9.0 / 16.0
 @export var yaw_offset_degrees: float = 0.0
 ## Pitch from horizontal, in degrees.
 @export var pitch_degrees: float = 0.0
-## The wide curve lens (0 = none, 0.5 = the owner's setting): barrel distortion over the 3D view
+## The wide curve lens (0 = none, 0.5 = the owner's setting): distortion over the 3D view (negative = concave)
 ## (shaders/lens_curve.gdshader). The camera renders a wider field of view to feed it, so the middle
 ## of the picture keeps its size and the edges show more of the street.
 @export var lens_curve: float = 0.0
