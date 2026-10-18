@@ -103,8 +103,9 @@ func test_prompts_follow_the_slipper_and_the_can() -> void:
 	assert_eq(PresoHud.prompt_for(sim, PresoMatch.LOCAL_ID), "THE CAN IS DOWN - GET YOUR SLIPPER!")
 
 
-func test_the_street_has_no_tag_the_base_pieces() -> void:
+func test_the_street_keeps_its_props_but_no_base_markings() -> void:
 	var screen: PresoMatch = _match()
 	var map: StreetMap = screen.get_node("%Map") as StreetMap
 	assert_false(map.tag_zones)
-	assert_true(map._posts.is_empty(), "no electric posts")
+	assert_eq(map._posts.size(), 2, "the street keeps its posts")
+	assert_true(map._base_materials.is_empty(), "but no base circles or rescue areas")

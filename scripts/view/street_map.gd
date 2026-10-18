@@ -128,8 +128,8 @@ const BARRIER_SETBACK: float = 0.15
 @export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
-## Off for games that are not tag-the-base (Tumbang Preso): no cover, posts, bases or boxes,
-## just the street and what stands round it.
+## Off for games that are not tag-the-base (Tumbang Preso, Patintero): the street keeps its posts
+## and cardboard walls, but the base circles, tagged boxes and rescue areas are not drawn.
 @export var tag_zones: bool = true
 ## What stands in each end's barrier row (index 0 = the far end), for tests and the minimap.
 var barrier_rows: Array[Array] = []
@@ -266,15 +266,6 @@ func _build_map() -> void:
 		_add_corner_props()
 		return
 	_add_ground_textures()
-	if tag_zones:
-		_add_tag_zones()
-	_add_barricades()
-	_add_houses()
-	_add_details()
-
-
-## The cover, and each side's post, base circle, tagged box and rescue area.
-func _add_tag_zones() -> void:
 	for index: int in layout.obstacle_rects().size():
 		_add_obstacle(index)
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
@@ -282,12 +273,16 @@ func _add_tag_zones() -> void:
 		var center: Vector2 = layout.base_center(side)
 		var post: Node3D = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
 		_posts[side] = post
-		var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
-		_add_jail(side)
-		var rescue: Array[StandardMaterial3D] = _add_rescue_area(side, color)
-		_base_materials[side] = [base[0], base[1], rescue[0], rescue[1]]
 		_side_tint[side] = color
+		if tag_zones:
+			var base: Array[StandardMaterial3D] = _add_base_zone(side, color)
+			_add_jail(side)
+			var rescue: Array[StandardMaterial3D] = _add_rescue_area(side, color)
+			_base_materials[side] = [base[0], base[1], rescue[0], rescue[1]]
 	_turn_posts(MapLayout.SIDE_OWN)
+	_add_barricades()
+	_add_houses()
+	_add_details()
 
 
 ## The main-screen model's props: each base's electric post and each tagged box's cardboard walls.
