@@ -23,7 +23,9 @@ const PERCENT_FONT: Font = preload("res://assets/fonts/lost_tumbler/Lost_Tumbler
 const BASE_COLOR: Color = Color(0.085, 0.085, 0.09)
 
 ## The loading base along the bottom edge (the phone's home-bar inset is added to it).
-const BAND_HEIGHT: float = 104.0
+const BAND_HEIGHT: float = 52.0
+## The percentage is this tall; it straddles the base's top edge (half over the art, half over the base).
+const PERCENT_HEIGHT: float = 64.0
 ## One tip is shown per launch.
 const TIPS: Array[String] = [
 	"Lure the other team away from their post, then dash in to capture it.",
@@ -159,16 +161,16 @@ func _layout() -> void:
 	var scale_to_base: float = maxf(base_size.y / FILL_REGION.size.y, base_size.x / FILL_REGION.size.x)
 	_fill_rect.position = Vector2.ZERO
 	_fill_rect.size = FILL_REGION.size * scale_to_base
-	# the percentage is centred in the part above the phone's home-bar inset
-	_percent.position = origin
-	_percent.size = Vector2(size.x, BAND_HEIGHT)
-	_percent.add_theme_font_size_override("font_size", int(BAND_HEIGHT * 0.5))
+	# the percentage is centred vertically on the base's top edge, overlapping it
+	_percent.size = Vector2(size.x, PERCENT_HEIGHT)
+	_percent.position = Vector2(0.0, origin.y - PERCENT_HEIGHT / 2.0)
+	_percent.add_theme_font_size_override("font_size", int(PERCENT_HEIGHT * 0.78))
 	# the tip floats just above the base, over the art
 	var side: float = size.x * 0.08
 	# a wrapping label works out its height from its width, so give it the width first
 	_tip.custom_minimum_size = Vector2(size.x - side * 2.0, 0.0)
 	_tip.size = Vector2(size.x - side * 2.0, 112.0)
-	_tip.position = Vector2(side, size.y - band - _tip.size.y - 8.0)
+	_tip.position = Vector2(side, size.y - band - PERCENT_HEIGHT / 2.0 - _tip.size.y - 6.0)
 	_apply_progress()
 
 

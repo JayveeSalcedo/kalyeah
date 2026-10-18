@@ -39,13 +39,14 @@ func test_a_matte_black_layer_is_underneath_with_a_matte_black_base_and_no_white
 	boot.queue_free()
 
 
-func test_the_cardboard_keeps_its_proportions_at_the_bases_scale_and_the_base_crops_it() -> void:
+func test_the_base_is_short_and_the_cardboard_keeps_its_proportions_at_the_bases_scale_and_the_base_crops_it() -> void:
 	var boot: BootScreen = _boot()
 	boot.progress = 1.0
 	boot._layout()
 	var scale_now: float = boot._fill_rect.size.y / BootScreen.FILL_REGION.size.y
 	assert_almost_eq(boot._fill_rect.size.x / BootScreen.FILL_REGION.size.x, scale_now, 0.001, "no stretching: the same scale both ways")
-	assert_almost_eq(boot._fill_rect.size.y, boot._base.size.y, 0.5, "as tall as the base")
+	assert_gte(boot._fill_rect.size.y, boot._base.size.y - 0.5, "at least as tall as the base (it covers it)")
+	assert_lt(boot._base.size.y, 80.0, "a short base")
 	assert_gte(boot._fill_rect.size.x, boot._base.size.x, "wider than the base, so the base crops it")
 	assert_eq(boot._fill_clip.size, boot._base.size, "full at 100%")
 	boot.progress = 0.25
@@ -64,8 +65,10 @@ func test_the_percentage_is_lost_tumbler_text_in_the_middle_of_the_base_instead_
 	boot._layout()
 	assert_eq(boot._percent.text, "50%")
 	assert_eq(boot._percent.get_theme_font("font"), BootScreen.PERCENT_FONT, "the Lost Tumbler font")
-	assert_almost_eq(boot._percent.get_global_rect().get_center().x, 360.0, 1.0, "centred on the base")
-	assert_almost_eq(boot._percent.get_global_rect().get_center().y, boot._base.get_global_rect().position.y + BootScreen.BAND_HEIGHT / 2.0, 1.0)
+	assert_almost_eq(boot._percent.get_global_rect().get_center().x, 360.0, 1.0, "centred left to right")
+	assert_almost_eq(boot._percent.get_global_rect().get_center().y, boot._base.get_global_rect().position.y, 1.0, "vertically centred on the base's top edge")
+	assert_lt(boot._percent.get_global_rect().position.y, boot._base.get_global_rect().position.y, "it overlaps the base")
+	assert_gt(boot._percent.get_global_rect().end.y, boot._base.get_global_rect().position.y)
 	boot.progress = 1.0
 	boot._apply_progress()
 	assert_eq(boot._percent.text, "100%")
@@ -78,7 +81,7 @@ func test_a_tip_floats_just_above_the_base_and_fits_the_screen() -> void:
 	boot._layout()
 	assert_true(BootScreen.TIPS.has(boot._tip.text), "one of the tips")
 	var tip: Rect2 = boot._tip.get_global_rect()
-	assert_lte(tip.end.y, 1280.0 - boot.band_height() + 1.0, "above the base")
+	assert_lte(tip.end.y, boot._percent.get_global_rect().position.y + 1.0, "above the base and its percentage")
 	assert_gte(tip.position.x, 0.0)
 	assert_lte(tip.end.x, 720.0)
 	assert_eq(boot._tip.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
