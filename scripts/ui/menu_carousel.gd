@@ -9,13 +9,15 @@ signal selected(index: int)
 
 const CARD: Vector2 = ChoiceCard.CARD_SIZE
 ## Distance between the middles of two neighbouring cards: less than a card's width, so they overlap.
-const STEP: float = 88.0
+const STEP: float = 98.0
 ## Each step away from the middle shrinks a card by this much (and a card is never smaller than the
 ## one two steps away).
 const SCALE_LOSS: float = 0.17
 ## Cards further back are darker and sit higher, so the stack reads as depth.
-const SHADE_LOSS: float = 0.3
-const RISE: float = 26.0
+const SHADE_LOSS: float = 0.36
+const RISE: float = 30.0
+## ... and slightly see-through too.
+const BACK_ALPHA: float = 0.86
 const DRAG_START: float = 12.0
 const SNAP_TIME: float = 0.18
 
@@ -89,9 +91,9 @@ func _layout() -> void:
 		var card: Button = cards[i]
 		card.scale = Vector2.ONE * (1.0 - SCALE_LOSS * away)
 		card.position = Vector2(size.x / 2.0 + offset * STEP - CARD.x / 2.0, (size.y - CARD.y) / 2.0 - RISE * away)
-		# every card stays visible and solid: the ones further back are shaded, not see-through
+		# every card stays visible: the ones further back are darker and slightly see-through
 		var shade: float = 1.0 - SHADE_LOSS * away
-		card.modulate = Color(shade, shade, shade, 1.0)
+		card.modulate = Color(shade, shade, shade, lerpf(1.0, BACK_ALPHA, clampf(absf(offset), 0.0, 1.0)))
 		card.z_index = 10 - int(roundf(absf(offset) * 5.0))
 
 
