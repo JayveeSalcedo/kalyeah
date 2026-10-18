@@ -15,17 +15,11 @@ const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 ## The game modes, first is the default (owner: hotspot first, not online).
 const MODES: Array[Dictionary] = [
 	{"id": "hotspot", "title": "HOTSPOT", "color": "blue",
-		"text": "Play with friends on the same phone hotspot or Wi-Fi. One phone hosts: no server, address or code."},
+		"text": "Same hotspot or Wi-Fi."},
 	{"id": "online", "title": "ONLINE", "color": "orange",
-		"text": "Play with anyone through the game server. Create a room and share its code, or join with a code."},
+		"text": "Rooms on the game server."},
 	{"id": "practice", "title": "PRACTICE", "color": "green",
-		"text": "Train alone against dummies. No connection needed."},
-]
-## The maps (street games), first is the default. Only Agawan Base can be played yet.
-const MAPS: Array[Dictionary] = [
-	{"id": "agawan_base", "title": "AGAWAN BASE", "playable": true},
-	{"id": "tumbang_preso", "title": "TUMBANG PRESO", "playable": false},
-	{"id": "patintero", "title": "PATINTERO", "playable": false},
+		"text": "Alone against dummies."},
 ]
 const LOGO: String = "res://assets/ui/k_logo.png"
 
@@ -48,7 +42,6 @@ var logo: Control
 var carousel: MenuCarousel
 var mode_name_label: Label
 var mode_text_label: Label
-var map_button: Button
 var primary_button: Button
 var secondary_button: Button
 var quit_button: Button
@@ -80,7 +73,6 @@ func _ready() -> void:
 	carousel.selected.connect(_on_mode_selected)
 	primary_button.pressed.connect(_on_primary_pressed)
 	secondary_button.pressed.connect(_on_secondary_pressed)
-	map_button.pressed.connect(_on_map_pressed)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
 	_pop_in.call_deferred()
@@ -149,7 +141,7 @@ func _build_middle() -> Control:
 	carousel.custom_minimum_size = Vector2(ChoiceCard.CARD_SIZE.x * (1.0 - MenuCarousel.HIDDEN_LEFT) - SIDE_MARGIN, 560.0)
 	carousel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	middle.add_child(carousel)
-	carousel.setup("Mode", MODES, Session.menu_mode)
+	carousel.setup("", MODES, Session.menu_mode)
 	middle.add_child(_build_details())
 	return middle
 
@@ -161,11 +153,6 @@ func _build_details() -> Control:
 	details.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	details.add_theme_constant_override("separation", 12)
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var kind: Label = Label.new()
-	kind.text = "Game mode"
-	kind.theme_type_variation = &"MutedLabel"
-	kind.add_theme_font_size_override("font_size", 20)
-	details.add_child(kind)
 	mode_name_label = Label.new()
 	mode_name_label.name = "ModeName"
 	mode_name_label.theme_type_variation = &"DisplayLabel"
@@ -176,15 +163,16 @@ func _build_details() -> Control:
 	mode_text_label = Label.new()
 	mode_text_label.name = "ModeText"
 	mode_text_label.add_theme_font_size_override("font_size", 21)
-	mode_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	mode_text_label.custom_minimum_size = Vector2(0.0, 130.0)
+	mode_text_label.clip_text = true
+	mode_text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	details.add_child(mode_text_label)
-	map_button = MenuDialog.make_button("", "grey", 24, Vector2(0.0, 88.0))
-	map_button.name = "MapButton"
-	map_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details.add_child(map_button)
-	primary_button = _action_button(details, "PrimaryButton", "", "orange")
-	secondary_button = _action_button(details, "SecondaryButton", "", "green")
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.name = "Actions"
+	actions.add_theme_constant_override("separation", 12)
+	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	details.add_child(actions)
+	primary_button = _action_button(actions, "PrimaryButton", "", "blue")
+	secondary_button = _action_button(actions, "SecondaryButton", "JOIN", "green")
 	return details
 
 
@@ -196,32 +184,20 @@ func _action_button(parent: Control, button_name: String, text: String, color: S
 	return button
 
 
-## The chosen mode's name, text and buttons: Hotspot and Online create or join a room, Practice
-## starts. A map that can't be played yet turns every action off.
+## The chosen mode's name, one line of text and buttons: Hotspot and Online create or join a room
+## (side by side), Practice just starts.
 func _refresh_mode() -> void:
 	var mode: Dictionary = MODES[Session.menu_mode]
-	var map: Dictionary = MAPS[Session.menu_map]
 	var rooms: bool = String(mode["id"]) != "practice"
 	mode_name_label.text = String(mode["title"])
 	mode_text_label.text = String(mode["text"])
-	map_button.text = "Map: %s" % String(map["title"])
-	primary_button.text = "CREATE ROOM" if rooms else "START"
-	secondary_button.text = "JOIN ROOM"
+	primary_button.text = "CREATE" if rooms else "START"
 	secondary_button.visible = rooms
 	KalyeahTheme.style_button(primary_button, "blue" if rooms else "orange")
-	var playable: bool = bool(map["playable"])
-	primary_button.disabled = not playable
-	secondary_button.disabled = not playable
 
 
 func _on_mode_selected(index: int) -> void:
 	Session.menu_mode = index
-	_refresh_mode()
-
-
-## The map button steps through the street games (only Agawan Base is playable so far).
-func _on_map_pressed() -> void:
-	Session.menu_map = (Session.menu_map + 1) % MAPS.size()
 	_refresh_mode()
 
 

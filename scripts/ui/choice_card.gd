@@ -31,6 +31,7 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	top.offset_left = PAD + left_pad
 	top.offset_top = PAD - 2.0
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.visible = not heading.is_empty()
 	card.add_child(top)
 	var name_label: Label = Label.new()
 	name_label.name = "Choice"

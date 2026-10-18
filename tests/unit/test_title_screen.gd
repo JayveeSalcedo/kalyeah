@@ -29,7 +29,6 @@ func after_each() -> void:
 	Settings.save_server_url(_saved_url)
 	Settings.save_hotspot_url(_saved_hotspot)
 	Session.lobby_hotspot = false
-	Session.menu_map = 0
 	Session.menu_mode = 0
 
 
@@ -69,9 +68,9 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_not_null(screen.settings_button, "settings")
 	assert_not_null(screen.carousel, "the mode carousel")
 	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
-	assert_eq(screen.map_button.text, "Map: AGAWAN BASE", "agawan base is the default map")
-	assert_eq(screen.primary_button.text, "CREATE ROOM")
-	assert_eq(screen.secondary_button.text, "JOIN ROOM")
+	assert_null(screen.find_child("MapButton", true, false), "no map button")
+	assert_eq(screen.primary_button.text, "CREATE")
+	assert_eq(screen.secondary_button.text, "JOIN")
 	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
@@ -93,10 +92,11 @@ func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void
 	assert_almost_eq(logo.get_center().y, gear.get_center().y, 8.0, "one top row")
 	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
 	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
-	assert_lt(buttons.end.x, 720.0)
-	assert_gt(buttons.size.x, 300.0, "the details and buttons get the room the hidden card edge frees")
+	var join: Rect2 = screen.secondary_button.get_global_rect()
+	assert_lte(join.end.x, 720.0)
+	assert_gt(join.end.x - buttons.position.x, 400.0, "the details and buttons get the room the hidden card edge frees")
 	assert_lt(screen.secondary_button.get_global_rect().end.y, 1280.0)
-	assert_lt(buttons.position.y, screen.secondary_button.get_global_rect().position.y)
+	assert_almost_eq(buttons.position.y, join.position.y, 1.0, "create and join are in one row")
 
 
 func test_a_fifth_of_each_card_is_past_the_screens_left_edge() -> void:
@@ -128,7 +128,7 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
 	assert_lt(strip.cards[0].modulate.a, 1.0)
 	assert_eq(screen.mode_name_label.text, "ONLINE", "the details follow the chosen card")
-	assert_eq(screen.primary_button.text, "CREATE ROOM")
+	assert_eq(screen.primary_button.text, "CREATE")
 	strip.select(2, false)
 	assert_eq(screen.mode_name_label.text, "PRACTICE")
 	assert_eq(screen.primary_button.text, "START", "practice just starts")
@@ -168,22 +168,26 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	assert_eq(strip.index, 1, "tapping the card above brings it to the middle")
 
 
-func test_the_map_button_steps_through_the_street_games() -> void:
-	var screen: TitleScreen = _screen()
-	screen.map_button.pressed.emit()
-	assert_eq(screen.map_button.text, "Map: TUMBANG PRESO")
-	assert_true(screen.primary_button.disabled, "only agawan base can be played yet")
-	assert_true(screen.secondary_button.disabled)
-	screen.map_button.pressed.emit()
-	screen.map_button.pressed.emit()
-	assert_eq(screen.map_button.text, "Map: AGAWAN BASE")
-	assert_false(screen.primary_button.disabled)
+func test_create_and_join_share_one_row_and_the_texts_are_one_line() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	var create: Rect2 = screen.primary_button.get_global_rect()
+	var join: Rect2 = screen.secondary_button.get_global_rect()
+	assert_almost_eq(create.position.y, join.position.y, 1.0, "one row")
+	assert_lt(create.end.x, join.position.x, "create then join")
+	assert_false(screen.primary_button.text.contains("ROOM"), "no word room")
+	assert_null(_find(screen, "ModeLabel"))
+	assert_false(_all_text(screen).contains("Game mode"), "no 'Game mode' caption")
+	for card: Button in screen.carousel.cards:
+		assert_false((card.get_node("Heading") as Label).visible, "no 'Mode' on the cards")
+	for mode: Dictionary in TitleScreen.MODES:
+		assert_lt(String(mode["text"]).length(), 34, "one short line")
+	assert_lt(screen.mode_text_label.get_minimum_size().y, 40.0, "it stays on one line")
 
 
 func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
 	var screen: TitleScreen = _screen()
 	var text: String = _all_text(screen)
-	assert_false(text.contains("ONLINE  "), "no ONLINE caption")
 	assert_false(text.contains("Server"), "no server line")
 	assert_false(text.contains("No server"), "no server hint")
 	assert_eq(text.count("v0."), 0, "no version")
@@ -209,7 +213,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.primary_button, screen.secondary_button, screen.map_button, screen.settings_button]:
+	for button: Button in [screen.primary_button, screen.secondary_button, screen.settings_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
