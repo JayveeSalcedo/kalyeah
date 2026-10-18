@@ -1,6 +1,6 @@
-class_name MapCarousel
+class_name MenuCarousel
 extends Control
-## A vertical carousel of 2:1 cards. The chosen card is in the middle at full size; the previous
+## A vertical carousel of 2:1 cards sitting at the left edge of the screen. The chosen card is in the middle at full size; the previous
 ## and next ones peek out above and below it, smaller, see-through and behind it. Drag or swipe up
 ## and down (or use the mouse wheel) to scroll, tap a card to bring it to the middle.
 
@@ -12,10 +12,15 @@ const STEP: float = 104.0
 const SIDE_SCALE: float = 0.84
 const SIDE_ALPHA: float = 0.45
 const DRAG_START: float = 12.0
+## The share of each card's width that is outside the screen on the left; its text starts after it.
+const HIDDEN_LEFT: float = 0.2
 const SNAP_TIME: float = 0.18
 
 var index: int = 0
 var cards: Array[Button] = []
+## Where the cards' left edge sits, in this control's pixels. Negative: the cards stick out past the
+## screen's left edge (the main screen hides a fifth of them there to leave room for the details).
+var left_offset: float = 0.0
 
 var _position: float = 0.0
 var _pressed: bool = false
@@ -25,13 +30,14 @@ var _press_position: float = 0.0
 var _tween: Tween
 
 
-## `options` are {id, title, color}; the card at `current` starts in the middle.
-func setup(options: Array[Dictionary], current: int) -> void:
+## `options` are {id, title, color}; the card at `current` starts in the middle. `heading` is the
+## small word at the top left of every card.
+func setup(heading: String, options: Array[Dictionary], current: int) -> void:
 	for card: Button in cards:
 		card.queue_free()
 	cards.clear()
 	for option: Dictionary in options:
-		var card: Button = ChoiceCard.make_card("Map", String(option["title"]), String(option["color"]), CARD, String(option["id"]))
+		var card: Button = ChoiceCard.make_card(heading, String(option["title"]), String(option["color"]), CARD, String(option["id"]), HIDDEN_LEFT * CARD.x)
 		card.size = CARD
 		card.pivot_offset = CARD / 2.0
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -43,7 +49,7 @@ func setup(options: Array[Dictionary], current: int) -> void:
 
 
 func _ready() -> void:
-	clip_contents = true
+	clip_contents = false
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_layout()
 
@@ -69,6 +75,11 @@ func select(at: int, animate: bool = true) -> void:
 		selected.emit(index)
 
 
+## Lays the cards out again (the left edge moved).
+func setup_layout() -> void:
+	_layout()
+
+
 func _move_to(value: float) -> void:
 	_position = value
 	_layout()
@@ -83,7 +94,7 @@ func _layout() -> void:
 		var card: Button = cards[i]
 		var scale_now: float = lerpf(1.0, SIDE_SCALE, near)
 		card.scale = Vector2.ONE * scale_now
-		card.position = Vector2((size.x - CARD.x) / 2.0, size.y / 2.0 + offset * STEP - CARD.y / 2.0)
+		card.position = Vector2(left_offset, size.y / 2.0 + offset * STEP - CARD.y / 2.0)
 		card.modulate.a = lerpf(1.0, SIDE_ALPHA, near) if absf(offset) < 2.0 else 0.0
 		card.z_index = 10 - int(roundf(absf(offset) * 5.0))
 

@@ -30,6 +30,7 @@ func after_each() -> void:
 	Settings.save_hotspot_url(_saved_hotspot)
 	Session.lobby_hotspot = false
 	Session.menu_map = 0
+	Session.menu_mode = 0
 
 
 func _screen() -> TitleScreen:
@@ -66,13 +67,18 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
 	assert_not_null(screen.logo, "the K! logo")
 	assert_not_null(screen.settings_button, "settings")
-	assert_not_null(screen.carousel, "the map carousel")
-	assert_eq(screen.map_name_label.text, "AGAWAN BASE", "agawan base is the default map")
-	assert_eq(screen.hotspot_button.text, "HOTSPOT")
-	assert_eq(screen.online_button.text, "ONLINE")
-	assert_eq(screen.practice_button.text, "PRACTICE")
+	assert_not_null(screen.carousel, "the mode carousel")
+	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
+	assert_eq(screen.map_button.text, "Map: AGAWAN BASE", "agawan base is the default map")
+	assert_eq(screen.primary_button.text, "CREATE ROOM")
+	assert_eq(screen.secondary_button.text, "JOIN ROOM")
 	assert_null(screen.quit_button, "quit stays out of the main action area")
-	assert_null(screen.find_child("ModeCard", true, false), "the mode cards are gone: the buttons are the modes")
+
+
+func test_the_logo_is_the_loading_screens_k() -> void:
+	var screen: TitleScreen = _screen()
+	assert_true(screen.logo is TextureRect, "the owner's picture, not a stand-in")
+	assert_eq((screen.logo as TextureRect).texture.get_size(), (load("res://assets/ui/boot/boot_icon.png") as Texture2D).get_size(), "the K! of the loading screen")
 
 
 func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void:
@@ -81,24 +87,35 @@ func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void
 	var logo: Rect2 = screen.logo.get_global_rect()
 	var gear: Rect2 = screen.settings_button.get_global_rect()
 	var strip: Rect2 = screen.carousel.get_global_rect()
-	var buttons: Rect2 = screen.hotspot_button.get_global_rect()
+	var buttons: Rect2 = screen.primary_button.get_global_rect()
 	assert_lt(logo.position.x, 120.0, "the logo is on the left")
 	assert_gt(gear.end.x, 720.0 - 120.0, "settings is on the right")
 	assert_almost_eq(logo.position.y, gear.position.y, 8.0, "one top row")
 	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
 	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
-	assert_lt(screen.map_name_label.get_global_rect().position.x, buttons.end.x)
 	assert_lt(buttons.end.x, 720.0)
-	assert_lt(screen.practice_button.get_global_rect().end.y, 1280.0)
-	assert_lt(screen.hotspot_button.get_global_rect().position.y, screen.online_button.get_global_rect().position.y, "hotspot first, not online")
-	assert_lt(screen.online_button.get_global_rect().position.y, screen.practice_button.get_global_rect().position.y)
+	assert_gt(buttons.size.x, 300.0, "the details and buttons get the room the hidden card edge frees")
+	assert_lt(screen.secondary_button.get_global_rect().end.y, 1280.0)
+	assert_lt(buttons.position.y, screen.secondary_button.get_global_rect().position.y)
 
 
-func test_the_carousel_keeps_the_chosen_card_in_front_and_the_others_behind_and_fainter() -> void:
+func test_a_fifth_of_each_card_is_past_the_screens_left_edge() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var strip: MapCarousel = screen.carousel
+	var middle: Button = screen.carousel.cards[0]
+	var shown: Rect2 = middle.get_global_rect()
+	assert_almost_eq(shown.position.x, -0.2 * ChoiceCard.CARD_SIZE.x, 1.0, "20% of the card is outside the screen")
+	assert_almost_eq(shown.end.x, 0.8 * ChoiceCard.CARD_SIZE.x, 1.0)
+
+
+func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	var strip: MenuCarousel = screen.carousel
 	assert_eq(strip.cards.size(), 3)
+	assert_eq(ChoiceCard.choice_of(strip.cards[0]), "HOTSPOT", "hotspot first, not online")
+	assert_eq(ChoiceCard.choice_of(strip.cards[1]), "ONLINE")
+	assert_eq(ChoiceCard.choice_of(strip.cards[2]), "PRACTICE")
 	var middle: Button = strip.cards[0]
 	var next: Button = strip.cards[1]
 	assert_almost_eq(middle.size.x / middle.size.y, 2.0, 0.01, "2:1 cards")
@@ -110,16 +127,18 @@ func test_the_carousel_keeps_the_chosen_card_in_front_and_the_others_behind_and_
 	strip.select(1, false)
 	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
 	assert_lt(strip.cards[0].modulate.a, 1.0)
-	assert_eq(screen.map_name_label.text, "TUMBANG PRESO", "the details follow the chosen card")
-	assert_true(screen.hotspot_button.disabled, "only agawan base can be played yet")
-	strip.select(0, false)
-	assert_false(screen.hotspot_button.disabled)
+	assert_eq(screen.mode_name_label.text, "ONLINE", "the details follow the chosen card")
+	assert_eq(screen.primary_button.text, "CREATE ROOM")
+	strip.select(2, false)
+	assert_eq(screen.mode_name_label.text, "PRACTICE")
+	assert_eq(screen.primary_button.text, "START", "practice just starts")
+	assert_false(screen.secondary_button.visible, "and has nothing to join")
 
 
 func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var strip: MapCarousel = screen.carousel
+	var strip: MenuCarousel = screen.carousel
 	var wheel: InputEventMouseButton = InputEventMouseButton.new()
 	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
 	wheel.pressed = true
@@ -128,11 +147,11 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	await wait_seconds(0.4)
 	var press: InputEventMouseButton = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
-	press.position = Vector2(150.0, strip.size.y / 2.0 + 300.0)
+	press.position = Vector2(100.0, strip.size.y / 2.0 + 300.0)
 	press.pressed = true
 	strip._gui_input(press)
 	var drag: InputEventMouseMotion = InputEventMouseMotion.new()
-	drag.position = Vector2(150.0, strip.size.y / 2.0 + 300.0 - MapCarousel.STEP * 1.1)
+	drag.position = Vector2(100.0, strip.size.y / 2.0 + 300.0 - MenuCarousel.STEP * 1.1)
 	strip._gui_input(drag)
 	press.pressed = false
 	press.position = drag.position
@@ -141,7 +160,7 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	await wait_seconds(0.4)
 	var tap: InputEventMouseButton = InputEventMouseButton.new()
 	tap.button_index = MOUSE_BUTTON_LEFT
-	tap.position = Vector2(150.0, strip.size.y / 2.0 - MapCarousel.STEP)
+	tap.position = Vector2(100.0, strip.size.y / 2.0 - MenuCarousel.STEP)
 	tap.pressed = true
 	strip._gui_input(tap)
 	tap.pressed = false
@@ -149,13 +168,16 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	assert_eq(strip.index, 1, "tapping the card above brings it to the middle")
 
 
-func test_the_action_buttons_open_their_modes() -> void:
+func test_the_map_button_steps_through_the_street_games() -> void:
 	var screen: TitleScreen = _screen()
-	screen.hotspot_button.pressed.emit()
-	assert_not_null(screen.dialog, "hotspot opens its create / join card")
-	assert_null(screen.dialog.find_child("AddressField", true, false), "a hotspot room needs no address or code")
-	screen.online_button.pressed.emit()
-	assert_null(screen.dialog.find_child("AddressField", true, false), "online has no address field")
+	screen.map_button.pressed.emit()
+	assert_eq(screen.map_button.text, "Map: TUMBANG PRESO")
+	assert_true(screen.primary_button.disabled, "only agawan base can be played yet")
+	assert_true(screen.secondary_button.disabled)
+	screen.map_button.pressed.emit()
+	screen.map_button.pressed.emit()
+	assert_eq(screen.map_button.text, "Map: AGAWAN BASE")
+	assert_false(screen.primary_button.disabled)
 
 
 func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
@@ -187,7 +209,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.hotspot_button, screen.online_button, screen.practice_button, screen.settings_button]:
+	for button: Button in [screen.primary_button, screen.secondary_button, screen.map_button, screen.settings_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
@@ -296,24 +318,16 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 		assert_between(value, 0.0, 120.0)
 
 
-func test_online_offers_create_and_join_on_the_game_server() -> void:
-	var screen: TitleScreen = _screen()
-	var card: MenuDialog = screen.open_online()
-	assert_not_null(_find(card, "CreateRoomButton"))
-	assert_not_null(_find(card, "JoinRoomButton"))
-	assert_null(_find(card, "AddressField"), "the server is set in Settings")
-	card.close(false)
-
-
-func test_hotspot_opens_the_lobby_with_no_address_to_type() -> void:
+func test_hotspot_creates_and_joins_without_an_address_or_code() -> void:
 	var screen: TitleScreen = _screen()
 	var opened: Array = []
 	screen.open_lobby_action = func(intent: int) -> void: opened.append(intent)
-	var card: MenuDialog = screen.open_hotspot()
-	(_find(card, "JoinRoomButton") as Button).pressed.emit()
+	screen.primary_button.pressed.emit()
 	assert_true(Session.lobby_hotspot, "the lobby is in hotspot mode")
+	assert_eq(Session.lobby_intent, LobbyScreen.Intent.CREATE)
+	screen.secondary_button.pressed.emit()
 	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
-	assert_eq(opened.size(), 1)
+	assert_eq(opened.size(), 2)
 	assert_eq(Settings.lobby_url(false), Settings.server_url, "the online server is left alone")
 
 
@@ -321,11 +335,13 @@ func test_online_opens_the_lobby_on_the_game_server() -> void:
 	var screen: TitleScreen = _screen()
 	var opened: Array = []
 	screen.open_lobby_action = func(intent: int) -> void: opened.append(intent)
-	var card: MenuDialog = screen.open_online()
-	(_find(card, "CreateRoomButton") as Button).pressed.emit()
+	screen.carousel.select(1, false)
+	screen.primary_button.pressed.emit()
 	assert_false(Session.lobby_hotspot)
 	assert_eq(Session.lobby_intent, LobbyScreen.Intent.CREATE)
-	assert_eq(opened.size(), 1)
+	screen.secondary_button.pressed.emit()
+	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
+	assert_eq(opened.size(), 2)
 
 
 func test_private_addresses_use_plain_ws_and_public_ones_wss() -> void:

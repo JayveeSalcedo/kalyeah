@@ -9,7 +9,7 @@ const ART_DIR: String = "res://assets/ui/cards/"
 
 
 ## A 2:1 card: `heading` small at the top left, `choice` big at the bottom left, no subtitle.
-static func make_card(heading: String, choice: String, color: String, size: Vector2 = CARD_SIZE, art_id: String = "") -> Button:
+static func make_card(heading: String, choice: String, color: String, size: Vector2 = CARD_SIZE, art_id: String = "", left_pad: float = 0.0) -> Button:
 	var card: Button = MenuDialog.make_button("", color, 26, size)
 	var art_path: String = "%s%s.png" % [ART_DIR, art_id]
 	if not art_id.is_empty() and ResourceLoader.exists(art_path):
@@ -28,7 +28,7 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	top.add_theme_color_override("font_color", KalyeahTheme.semantic_text_color(color))
 	top.modulate.a = 0.75
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	top.offset_left = PAD
+	top.offset_left = PAD + left_pad
 	top.offset_top = PAD - 2.0
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(top)
@@ -42,7 +42,7 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	name_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	name_label.offset_left = PAD
+	name_label.offset_left = PAD + left_pad
 	name_label.offset_right = -PAD
 	name_label.offset_bottom = -PAD + 2.0
 	name_label.text = choice
