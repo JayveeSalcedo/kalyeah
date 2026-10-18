@@ -1,8 +1,9 @@
 class_name TitleScreen
 extends Control
 ## The main screen. The home page: a top row with the KALYEAH! logo (left) and the settings button
-## (right); under it the book and history buttons in a column at the left of a horizontal carousel
-## of large 3:4 mode cards (Hotspot, Online, Practice) that never draws over them, every card always
+## (right); under it a horizontal carousel of large 3:4 mode cards (Hotspot, Online, Practice), centred
+## on the screen, with the book and history buttons in a column over its left side (cards scroll
+## behind them, never over them), every card always
 ## visible, stacked behind the chosen one; and the chosen
 ## mode's name and one phrase centred between the cards and the action buttons, which sit low on
 ## the screen. A page opens over the home page with a Back button (so does Android Back). Settings holds the player's name and the infrequent quit
@@ -200,28 +201,30 @@ func _build_top_row() -> Control:
 	return holder
 
 
-## The stage: the book and history buttons in a column at the left, the card carousel to the right
-## of them. The carousel clips its cards, so scrolling never draws them over the buttons.
+## The stage: the carousel runs the full width, so the chosen card is centred on the screen, and the
+## book and history buttons stand in a column over its left side. The buttons are drawn after (above)
+## the cards, so a card sliding by while scrolling goes behind them, never over them.
 func _build_stage() -> Control:
-	var stage: HBoxContainer = HBoxContainer.new()
+	var stage: Control = Control.new()
 	stage.name = "Stage"
-	stage.add_theme_constant_override("separation", 14)
+	stage.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y + 24.0)
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	carousel = MenuCarousel.new()
+	carousel.name = "ModeCarousel"
+	carousel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	stage.add_child(carousel)
+	carousel.setup("", MODES, Session.menu_mode)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.name = "Left"
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 16)
+	column.set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
+	column.offset_right = CORNER_BUTTON
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(column)
 	for corner: Dictionary in CORNERS:
 		if corner["side"] == &"left":
 			column.add_child(_corner_button(corner))
-	carousel = MenuCarousel.new()
-	carousel.name = "ModeCarousel"
-	carousel.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y + 24.0)
-	carousel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	stage.add_child(carousel)
-	carousel.setup("", MODES, Session.menu_mode)
 	return stage
 
 

@@ -86,8 +86,8 @@ func test_the_logo_is_top_left_settings_top_right_and_book_and_history_left_of_t
 	assert_almost_eq(book.position.x, history.position.x, 1.0, "the book and history are in one column")
 	assert_lt(book.position.y, history.position.y, "the book above history")
 	assert_almost_eq(book.position.x, TitleScreen.SIDE_MARGIN, 1.0, "at the left margin")
-	assert_lte(book.end.x, strip.position.x + 1.0, "left of the cards")
-	assert_lte(history.end.x, strip.position.x + 1.0)
+	assert_lte(book.end.x, screen.carousel.cards[0].get_global_rect().position.x, "left of the cards")
+	assert_lte(history.end.x, screen.carousel.cards[0].get_global_rect().position.x)
 	assert_gt(book.position.y, mark.end.y, "under the top row")
 	for id: StringName in screen.corner_buttons:
 		assert_gte(screen.corner_buttons[id].get_global_rect().size.y, 80.0, "%s is tall enough for a thumb" % id)
@@ -97,24 +97,21 @@ func test_the_logo_is_top_left_settings_top_right_and_book_and_history_left_of_t
 	assert_null(screen.find_child("BottomNav", true, false), "no bottom nav bar")
 
 
-func test_scrolling_the_cards_never_draws_them_over_the_book_or_history() -> void:
+func test_the_centre_card_stays_centred_on_the_screen_and_the_buttons_are_drawn_above_the_cards() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var strip: MenuCarousel = screen.carousel
-	assert_true(strip.clip_contents, "the carousel clips its cards")
-	var left_edge: float = screen.corner_buttons[&"history"].get_global_rect().end.x
 	for index: int in 3:
 		strip.select(index, false)
-		for card: Button in strip.cards:
-			var visible_part: Rect2 = card.get_global_rect().intersection(strip.get_global_rect())
-			assert_gte(visible_part.position.x, left_edge - 0.5, "the visible part of every card stays right of the buttons")
-	# mid-swipe the cards slide further than rest: they are cut off, not drawn over the buttons
-	strip._position = -0.6
-	strip._layout()
-	for card: Button in strip.cards:
-		var visible_part: Rect2 = card.get_global_rect().intersection(strip.get_global_rect())
-		if visible_part.size.x > 0.0:
-			assert_gte(visible_part.position.x, left_edge - 0.5)
+		assert_almost_eq(strip.cards[index].get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is centred on the screen")
+	var stage: Node = strip.get_parent()
+	var column: Node = stage.find_child("Left", false, false)
+	assert_gt(column.get_index(), strip.get_index(), "the book and history are drawn after (above) the cards")
+	strip.select(0, false)
+	var book: Rect2 = screen.corner_buttons[&"codex"].get_global_rect()
+	var card: Rect2 = strip.cards[0].get_global_rect()
+	assert_lt(book.end.x, card.position.x, "at rest the buttons are clear of the centre card")
+	assert_gt(card.size.x, 290.0, "the centre card is as large as before")
 
 
 func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the_chosen_one() -> void:
@@ -130,7 +127,7 @@ func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the
 			assert_gt(card.modulate.a, 0.4, "%s is always visible" % ChoiceCard.choice_of(card))
 			assert_gt(card.scale.x, 0.6)
 		var middle: Rect2 = strip.cards[index].get_global_rect()
-		assert_almost_eq(middle.get_center().x, screen.carousel.get_global_rect().get_center().x, 2.0, "the chosen card is in the middle of the carousel")
+		assert_almost_eq(middle.get_center().x, 360.0, 2.0, "the chosen card is in the middle of the screen")
 		for other: int in 3:
 			if other == index:
 				continue
@@ -138,8 +135,8 @@ func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the
 			assert_lt(strip.cards[other].z_index, strip.cards[index].z_index, "behind")
 			assert_lt(absf(behind.get_center().x - middle.get_center().x), 260.0, "pushed only a little to the side, mostly behind")
 			assert_gt(behind.get_center().x - middle.get_center().x if other > index else middle.get_center().x - behind.get_center().x, 0.0, "later cards on the right, earlier on the left")
-			assert_gte(behind.position.x, strip.get_global_rect().position.x - 1.0, "inside the carousel")
-			assert_lte(behind.end.x, strip.get_global_rect().end.x + 1.0)
+			assert_gte(behind.position.x, -5.0, "inside the screen")
+			assert_lte(behind.end.x, 725.0)
 
 
 func test_the_actions_sit_low_on_the_screen_but_not_at_the_very_bottom() -> void:
@@ -202,7 +199,7 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	var middle: Button = strip.cards[0]
 	var next: Button = strip.cards[1]
 	assert_almost_eq(middle.size.x / middle.size.y, 0.75, 0.01, "3:4 cards")
-	assert_almost_eq(middle.get_global_rect().get_center().x, strip.get_global_rect().get_center().x, 2.0, "the chosen card is in the middle of the carousel")
+	assert_almost_eq(middle.get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is in the middle of the screen")
 	assert_eq(middle.modulate.a, 1.0)
 	assert_lt(next.modulate.a, 1.0, "the next card is see-through")
 	assert_lt(next.scale.x, middle.scale.x, "and smaller")

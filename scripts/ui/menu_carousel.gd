@@ -1,7 +1,7 @@
 class_name MenuCarousel
 extends Control
 ## A horizontal carousel of 3:4 cards. The chosen card is in the middle at full size; every other
-## card is stacked behind it, pushed only a little to its left or right (and kept inside this control), smaller and see-through but
+## card is stacked behind it, pushed only a little to its left or right, smaller and see-through but
 ## always visible. Drag or swipe sideways (or use the mouse wheel) to scroll, tap a card to bring it to
 ## the middle.
 
@@ -47,7 +47,6 @@ func setup(heading: String, options: Array[Dictionary], current: int) -> void:
 
 
 func _ready() -> void:
-	# cards never leave this rectangle: scrolling can't draw them over the buttons beside it
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_layout()
