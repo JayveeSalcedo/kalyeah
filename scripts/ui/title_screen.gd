@@ -18,9 +18,9 @@ const TOP_MARGIN: float = 26.0
 const BOTTOM_MARGIN: float = 22.0
 const TAP_TARGET: float = 88.0
 const AVATAR: float = 76.0
-const GOLD: Color = Color(1.0, 0.84, 0.2)
-const WORDMARK_OUTLINE: Color = Color(0.2, 0.1, 0.07)
-const CREAM: Color = Color(1.0, 0.95, 0.82)
+const GOLD: Color = KalyeahTheme.AMBER
+const WORDMARK_OUTLINE: Color = KalyeahTheme.INK_DEEP
+const CREAM: Color = KalyeahTheme.CREAM
 
 ## The screen asks for the game to close (replaced in tests).
 var quit_action: Callable = _quit_game
@@ -163,7 +163,7 @@ func _build_top_bar() -> Control:
 	profile_button.custom_minimum_size = Vector2(0.0, TAP_TARGET + 8.0)
 	profile_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile_button.clip_text = true
-	var pill: StyleBoxTexture = KalyeahTheme.painted_pill()
+	var pill: StyleBoxFlat = KalyeahTheme.painted_pill()
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
 		profile_button.add_theme_stylebox_override(state, pill)
 	MenuDialog.feel_press(profile_button)
@@ -183,6 +183,7 @@ func _build_top_bar() -> Control:
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(texts)
 	_name_label = Label.new()
+	_name_label.theme_type_variation = &"DisplayLabel"
 	_name_label.add_theme_font_size_override("font_size", 34)
 	_name_label.add_theme_color_override("font_color", Color.WHITE)
 	_name_label.clip_text = true
@@ -191,8 +192,9 @@ func _build_top_bar() -> Control:
 	texts.add_child(_name_label)
 	var hint: Label = Label.new()
 	hint.text = "Tap to change your name"
+	hint.theme_type_variation = &"MutedLabel"
 	hint.add_theme_font_size_override("font_size", 19)
-	hint.add_theme_color_override("font_color", Color(0.8, 0.88, 1.0, 0.8))
+	hint.add_theme_color_override("font_color", KalyeahTheme.TEXT_MUTED)
 	hint.add_theme_constant_override("outline_size", 0)
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.add_child(hint)
@@ -252,12 +254,13 @@ func _build_wordmark() -> Control:
 	for part: Array in [["KAL", Color.WHITE], ["YEAH!", GOLD]]:
 		var label: Label = Label.new()
 		label.text = part[0] as String
-		label.add_theme_font_size_override("font_size", 104)
+		label.theme_type_variation = &"DisplayLabel"
+		label.add_theme_font_size_override("font_size", 100)
 		label.add_theme_color_override("font_color", part[1] as Color)
 		label.add_theme_color_override("font_outline_color", WORDMARK_OUTLINE)
-		label.add_theme_constant_override("outline_size", 24)
+		label.add_theme_constant_override("outline_size", 8)
 		label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.05, 0.45))
-		label.add_theme_constant_override("shadow_offset_y", 7)
+		label.add_theme_constant_override("shadow_offset_y", 5)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		word.add_child(label)
 	var ribbon: CenterContainer = CenterContainer.new()
@@ -282,14 +285,14 @@ func _build_buttons() -> Control:
 	grid.add_theme_constant_override("v_separation", 18)
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	practice_button = _grid_button(grid, "PracticeButton", "PRACTICE", "orange")
-	hotspot_button = _grid_button(grid, "HotspotButton", "HOTSPOT", "green")
+	hotspot_button = _grid_button(grid, "HotspotButton", "HOTSPOT", "blue")
 	online_button = _grid_button(grid, "OnlineButton", "ONLINE", "blue")
-	quit_button = _grid_button(grid, "QuitButton", "QUIT", "red")
+	quit_button = _grid_button(grid, "QuitButton", "QUIT", "grey")
 	return grid
 
 
 func _grid_button(grid: GridContainer, button_name: String, text: String, color: String) -> Button:
-	var button: Button = MenuDialog.make_button(text, color, 42, Vector2(0.0, 124.0))
+	var button: Button = MenuDialog.make_button(text, color, 38, Vector2(0.0, 118.0))
 	button.name = button_name
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_child(button)
@@ -361,10 +364,11 @@ func _show_loading(message: String) -> void:
 	center.add_child(stack)
 	var text: Label = Label.new()
 	text.text = message
+	text.theme_type_variation = &"DisplayLabel"
 	text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text.add_theme_font_size_override("font_size", 40)
-	text.add_theme_color_override("font_color", GOLD)
-	text.add_theme_constant_override("outline_size", 12)
+	text.add_theme_color_override("font_color", CREAM)
+	text.add_theme_constant_override("outline_size", 4)
 	stack.add_child(text)
 	_loading_dots = Label.new()
 	_loading_dots.text = "."

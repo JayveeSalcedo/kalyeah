@@ -1,17 +1,16 @@
 class_name MenuDialog
 extends Control
-## A centred card over a dimmed screen (settings, rename, quit): the painted navy panel with a gold
-## frame, a gold title, then whatever the screen adds to `body`. Pops in; Escape or the back button
-## close it (the owner of the dialog connects `closed`).
+## A centred card over a dimmed screen (settings, rename, quit). Typography,
+## spacing and focus states come from KalyeahTheme so every modal reads as one system.
 
 signal closed
 
 const POP_SECONDS: float = 0.22
-const DIM: Color = Color(0.02, 0.04, 0.12, 0.62)
-const TITLE_COLOR: Color = Color(1.0, 0.84, 0.2)
-const TITLE_SIZE: int = 46
+const DIM: Color = Color(0.01, 0.025, 0.06, 0.76)
+const TITLE_COLOR: Color = KalyeahTheme.CREAM
+const TITLE_SIZE: int = 44
 const TEXT_SIZE: int = 28
-const HINT_COLOR: Color = Color(0.85, 0.9, 1.0, 0.75)
+const HINT_COLOR: Color = KalyeahTheme.TEXT_MUTED
 
 var panel: PanelContainer
 var body: VBoxContainer
@@ -39,12 +38,13 @@ static func create(title: String, width: float = 600.0) -> MenuDialog:
 	dialog.add_child(center)
 	dialog.panel = PanelContainer.new()
 	dialog.panel.custom_minimum_size = Vector2(width, 0.0)
-	dialog.panel.add_theme_stylebox_override("panel", KalyeahTheme.painted_panel(34.0))
+	dialog.panel.add_theme_stylebox_override("panel", KalyeahTheme.painted_panel(36.0))
 	center.add_child(dialog.panel)
 	dialog.body = VBoxContainer.new()
-	dialog.body.add_theme_constant_override("separation", 18)
+	dialog.body.add_theme_constant_override("separation", 20)
 	dialog.panel.add_child(dialog.body)
-	dialog.title_label = dialog.add_label(title, TITLE_SIZE, TITLE_COLOR)
+	dialog.title_label = dialog.add_label(title, TITLE_SIZE, TITLE_COLOR, HORIZONTAL_ALIGNMENT_LEFT)
+	dialog.title_label.theme_type_variation = &"DisplayLabel"
 	return dialog
 
 
@@ -89,12 +89,14 @@ func add_label(text: String, size: int = TEXT_SIZE, color: Color = Color.WHITE, 
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	label.add_theme_constant_override("outline_size", 0)
 	body.add_child(label)
 	return label
 
 
 func add_hint(text: String) -> Label:
 	var label: Label = add_label(text, 22, HINT_COLOR)
+	label.theme_type_variation = &"MutedLabel"
 	label.add_theme_constant_override("outline_size", 0)
 	return label
 
@@ -102,7 +104,7 @@ func add_hint(text: String) -> Label:
 ## A row of equally wide buttons at the bottom of the card.
 func add_buttons(buttons: Array[Button]) -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 16)
+	row.add_theme_constant_override("separation", 14)
 	for button: Button in buttons:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(button)
