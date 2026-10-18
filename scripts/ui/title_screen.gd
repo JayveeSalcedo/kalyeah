@@ -1,6 +1,7 @@
 class_name TitleScreen
 extends Control
-## The main screen. Top row: the K! logo on the left, Settings on the right. Middle: a vertical
+## The main screen with a bottom nav bar (Characters, Weapons, Battle, History, Menu). The Battle
+## tab is the home page. Its top row: the K! logo on the left, Settings on the right. Middle: a vertical
 ## carousel of 2:1 mode cards at the left edge (a fifth of each card is past the screen's edge) and
 ## the chosen mode's details with its action buttons on the right. Settings holds the player's name
 ## and the infrequent quit action, while Android Back also opens its confirmation.
@@ -47,6 +48,12 @@ var primary_button: Button
 var secondary_button: Button
 var quit_button: Button
 var dialog: MenuDialog
+var nav: BottomNav
+var pages: Dictionary[StringName, Control] = {}
+var characters_page: CharactersPage
+var weapons_page: WeaponsPage
+var history_page: HistoryPage
+var menu_page: MenuPage
 
 var _name_label: Label
 var _avatar_texture: TextureRect
@@ -124,14 +131,49 @@ func _build_layout() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
-	# the middle row is centred in the space under the top row
-	var centre: VBoxContainer = VBoxContainer.new()
-	centre.name = "MiddleCentre"
-	centre.alignment = BoxContainer.ALIGNMENT_CENTER
-	centre.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(centre)
-	centre.add_child(_build_middle())
+	column.add_child(_build_pages())
+	nav = BottomNav.new()
+	nav.tab_selected.connect(_on_tab)
+	column.add_child(nav)
+
+
+## One page per tab, stacked: only the open one shows. Battle (the carousel and its details,
+## centred in the space between the top row and the bar) is the home page.
+func _build_pages() -> Control:
+	var stack: Control = Control.new()
+	stack.name = "Pages"
+	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var battle: VBoxContainer = VBoxContainer.new()
+	battle.name = "BattlePage"
+	battle.alignment = BoxContainer.ALIGNMENT_CENTER
+	battle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	battle.add_child(_build_middle())
+	characters_page = CharactersPage.new()
+	weapons_page = WeaponsPage.new()
+	history_page = HistoryPage.new()
+	menu_page = MenuPage.new()
+	pages = {&"characters": characters_page, &"weapons": weapons_page, &"battle": battle, &"history": history_page, &"menu": menu_page}
+	for id: StringName in pages:
+		var page: Control = pages[id]
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		page.visible = id == &"battle"
+		stack.add_child(page)
+	characters_page.chosen.connect(func(_id: String) -> void: _refresh_profile())
+	menu_page.profile_pressed.connect(open_name_editor)
+	menu_page.settings_pressed.connect(open_settings)
+	menu_page.quit_pressed.connect(open_quit_confirm)
+	return stack
+
+
+## Shows the page of the tab that was tapped.
+func _on_tab(tab: StringName) -> void:
+	for id: StringName in pages:
+		pages[id].visible = id == tab
+	if tab == &"history":
+		history_page.refresh()
+	elif tab == &"characters":
+		characters_page.refresh()
 
 
 ## The mode carousel on the left, the details and the action buttons on the right, centred in the

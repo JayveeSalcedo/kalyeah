@@ -214,6 +214,11 @@ func _on_point_scored(team: int, _how: int) -> void:
 
 func _on_match_won(team: int) -> void:
 	owner.show_banner("VICTORY!" if team == owner.local_team else "DEFEAT")
+	var mode: String = "practice"
+	if owner.online:
+		mode = "hotspot" if Session.lobby_hotspot else "online"
+	var points: Array[int] = owner.sim.score.points
+	MatchHistory.record(mode, team == owner.local_team, points[owner.local_team], points[1 - owner.local_team])
 
 
 func _on_again_pressed() -> void:
