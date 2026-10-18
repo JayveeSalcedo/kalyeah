@@ -29,6 +29,8 @@ func after_each() -> void:
 	Settings.save_server_url(_saved_url)
 	Settings.save_hotspot_url(_saved_hotspot)
 	Session.lobby_hotspot = false
+	Session.menu_mode = 0
+	Session.menu_map = 0
 
 
 func _screen() -> TitleScreen:
@@ -57,13 +59,13 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_not_null(screen.settings_button, "settings")
 	assert_not_null(screen.diorama, "the map model")
 	assert_eq((_find(screen, "MapTitle") as Label).text, "AGAWAN BASE")
-	assert_eq(screen.practice_button.text, "PRACTICE")
-	assert_eq(screen.hotspot_button.text, "HOTSPOT")
-	assert_eq(screen.online_button.text, "ONLINE")
+	assert_eq(screen.mode_card.text, "MODE\nHOTSPOT", "hotspot is the default mode")
+	assert_eq(screen.map_card.text, "MAP\nAGAWAN BASE", "agawan base is the default map")
+	assert_eq(screen.start_button.text, "START")
 	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
-func test_online_is_the_dominant_action_above_two_alternate_modes() -> void:
+func test_two_to_one_cards_and_start_at_the_right_most_side() -> void:
 	var phone: Control = autofree(Control.new()) as Control
 	phone.custom_minimum_size = Vector2(720.0, 1280.0)
 	phone.size = Vector2(720.0, 1280.0)
@@ -71,19 +73,50 @@ func test_online_is_the_dominant_action_above_two_alternate_modes() -> void:
 	var screen: TitleScreen = autofree(TITLE_SCENE.instantiate()) as TitleScreen
 	phone.add_child(screen)
 	await wait_frames(3)
-	var p: Rect2 = screen.practice_button.get_global_rect()
-	var h: Rect2 = screen.hotspot_button.get_global_rect()
-	var o: Rect2 = screen.online_button.get_global_rect()
-	assert_almost_eq(p.position.y, h.position.y, 1.0, "alternate modes share one row")
-	assert_lt(h.position.x, p.position.x)
-	assert_lt(o.position.y, h.position.y)
-	assert_lt(o.end.y, h.position.y)
-	assert_gt(o.size.x, p.size.x * 1.9, "online spans the action area")
-	assert_gt(o.size.y, p.size.y, "online is visually dominant")
-	assert_lt(p.end.y, 1280.0)
-	assert_gt(o.position.y, 1280.0 * 0.6, "actions stay in the bottom part")
+	var mode: Rect2 = screen.mode_card.get_global_rect()
+	var map: Rect2 = screen.map_card.get_global_rect()
+	var start: Rect2 = screen.start_button.get_global_rect()
+	assert_almost_eq(mode.size.x / mode.size.y, 2.0, 0.05, "the mode card is 2:1")
+	assert_almost_eq(map.size.x / map.size.y, 2.0, 0.05, "the map card is 2:1")
+	assert_lt(mode.end.x, map.position.x, "mode, then map")
+	assert_lt(map.end.x, start.position.x, "start is the right-most")
+	assert_almost_eq(mode.position.y, map.position.y, 1.0, "one row")
+	assert_lt(start.end.x, 720.0)
+	assert_lt(start.end.y, 1280.0)
 	assert_gt(screen.diorama.get_global_rect().end.y, 0.0)
-	assert_lte(screen.diorama.get_global_rect().end.y, o.position.y + 1.0, "the map model is above the buttons")
+	assert_lte(screen.diorama.get_global_rect().end.y, mode.position.y + 1.0, "the map model is above the cards")
+
+
+func test_the_cards_open_a_carousel_of_choices_over_a_tint() -> void:
+	var screen: TitleScreen = _screen()
+	var modes: ChoiceCarousel = screen.open_mode_choices()
+	await wait_frames(2)
+	assert_not_null(modes.find_child("Tint", true, false), "a tint behind the choices")
+	assert_eq(modes.cards.size(), 3)
+	assert_true(modes.cards[0].text.begins_with("HOTSPOT"), "hotspot first, not online")
+	assert_true(modes.cards[1].text.begins_with("ONLINE"))
+	assert_true(modes.cards[2].text.begins_with("PRACTICE"))
+	modes.cards[2].pressed.emit()
+	assert_eq(screen.mode_card.text, "MODE\nPRACTICE")
+	var maps: ChoiceCarousel = screen.open_map_choices()
+	await wait_frames(2)
+	assert_eq(maps.cards.size(), 3)
+	assert_true(maps.cards[0].text.begins_with("AGAWAN BASE"))
+	assert_true(maps.cards[1].text.begins_with("TUMBANG PRESO"))
+	assert_true(maps.cards[2].text.begins_with("PATINTERO"))
+	maps.cards[1].pressed.emit()
+	assert_eq((_find(screen, "MapTitle") as Label).text, "TUMBANG PRESO")
+	assert_true(screen.start_button.disabled, "only agawan base is playable yet")
+
+
+func test_start_plays_the_chosen_mode() -> void:
+	var screen: TitleScreen = _screen()
+	screen.start()
+	assert_not_null(screen.dialog, "hotspot opens its create / join card")
+	assert_eq(screen.dialog.find_child("AddressField", true, false) != null, true)
+	Session.menu_mode = 1
+	screen.start()
+	assert_null(screen.dialog.find_child("AddressField", true, false), "online has no address field")
 
 
 func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
@@ -115,7 +148,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.practice_button, screen.hotspot_button, screen.online_button, screen.settings_button, screen.profile_button]:
+	for button: Button in [screen.mode_card, screen.map_card, screen.start_button, screen.settings_button, screen.profile_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
