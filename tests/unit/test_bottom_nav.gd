@@ -169,20 +169,15 @@ func test_the_history_keeps_the_last_thirty_and_words_the_age() -> void:
 	assert_eq(MatchHistory.ago(0, 200000), "2 days ago")
 
 
-func test_the_settings_page_has_profile_sound_server_and_quit() -> void:
+func test_the_settings_page_has_profile_sound_and_quit_but_no_server_address() -> void:
 	var screen: TitleScreen = _phone_screen()
 	screen.nav.select(&"settings")
 	await wait_frames(2)
 	var page: SettingsPage = screen.settings_page
 	assert_true(page.visible)
 	assert_not_null(page.find_child("VolumeSlider", true, false), "sound")
-	assert_not_null(page.find_child("ServerField", true, false), "the online server")
+	assert_null(page.find_child("ServerField", true, false), "no server address: it is built into the game")
 	assert_not_null(page.profile_button, "profile")
-	var saved: String = Settings.server_url
-	page.server_field.text = "wss://example.test"
-	page.save_server()
-	assert_eq(Settings.server_url, "wss://example.test", "the server is remembered")
-	Settings.save_server_url(saved)
 	page.quit_button.pressed.emit()
 	assert_not_null(screen.dialog, "quit asks first")
 

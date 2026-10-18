@@ -7,7 +7,6 @@ var _saved_name: String
 var _saved_avatar: String
 var _saved_volume: float
 var _saved_url: String
-var _saved_hotspot: String
 var _saved_vibration: bool
 
 
@@ -16,7 +15,6 @@ func before_each() -> void:
 	_saved_avatar = Session.avatar_id
 	_saved_volume = Settings.volume
 	_saved_url = Settings.server_url
-	_saved_hotspot = Settings.hotspot_url
 	_saved_vibration = Settings.vibration
 
 
@@ -26,8 +24,7 @@ func after_each() -> void:
 	Session.save()
 	Settings.set_volume(_saved_volume)
 	Settings.set_vibration(_saved_vibration)
-	Settings.save_server_url(_saved_url)
-	Settings.save_hotspot_url(_saved_hotspot)
+	Settings.server_url = _saved_url
 	Session.lobby_hotspot = false
 	Session.menu_mode = 0
 
@@ -255,17 +252,15 @@ func _settings_open(screen: TitleScreen) -> SettingsPage:
 	return screen.settings_page
 
 
-func test_settings_change_the_volume_and_remember_the_server() -> void:
+func test_settings_change_the_volume() -> void:
 	var screen: TitleScreen = _screen()
 	var page: SettingsPage = _settings_open(screen)
 	var slider: HSlider = _find(page, "VolumeSlider") as HSlider
 	slider.value = 0.4
 	assert_almost_eq(Settings.volume, 0.4, 0.001)
 	assert_almost_eq(AudioServer.get_bus_volume_db(0), linear_to_db(0.4), 0.01, "the master volume follows")
-	(_find(page, "ServerField") as LineEdit).text = "wss://example.org"
+	assert_null(_find(page, "ServerField"), "no server address to type")
 	assert_eq((_find(page, "QuitButton") as Button).text, "QUIT GAME")
-	page.save_server()
-	assert_eq(Settings.server_url, "wss://example.org")
 	slider.value = 0.0
 	assert_true(AudioServer.is_bus_mute(0), "zero is silent")
 
@@ -322,7 +317,6 @@ func test_hotspot_creates_and_joins_without_an_address_or_code() -> void:
 	screen.secondary_button.pressed.emit()
 	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
 	assert_eq(opened.size(), 2)
-	assert_eq(Settings.lobby_url(false), Settings.server_url, "the online server is left alone")
 
 
 func test_online_opens_the_lobby_on_the_game_server() -> void:

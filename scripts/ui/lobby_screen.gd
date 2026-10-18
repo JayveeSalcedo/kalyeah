@@ -28,7 +28,6 @@ var _pending: Callable = Callable()
 
 var _setup: VBoxContainer
 var _room_box: VBoxContainer
-var _url_edit: LineEdit
 var _name_edit: LineEdit
 var _code_edit: LineEdit
 var _size_buttons: Array[Button] = []
@@ -70,8 +69,10 @@ func set_intent(value: Intent) -> void:
 	_intent_set = true
 
 
+## Tests: fill in the name and code. `url` stands in for the server the game would ship with.
 func set_fields(url: String, player_name: String, code: String = "") -> void:
-	_url_edit.text = url
+	if not url.is_empty():
+		Settings.server_url = url
 	_name_edit.text = player_name
 	if _code_edit != null:
 		_code_edit.text = code
@@ -111,11 +112,11 @@ func submit() -> void:
 	if Session.lobby_hotspot:
 		_submit_hotspot()
 		return
-	var url: String = Settings.normalize_url(_url_edit.text)
+	var url: String = Settings.normalize_url(Settings.server_url)
 	if url.is_empty():
-		_status.text = "Enter a server address."
+		# the online server is built into the game; players never type it
+		_status.text = "Online isn't available yet."
 		return
-	Settings.save_server_url(url)
 	_connected_url = url
 	if intent == Intent.CREATE:
 		_pending = client.create_room.bind(_team_size)
@@ -228,7 +229,7 @@ func _on_room_changed(room: Dictionary) -> void:
 	_show_room(true)
 	Session.room_code = room.get("code", "") as String
 	Session.reconnect_token = client.token
-	Session.reconnect_url = _connected_url if Session.lobby_hotspot and not _connected_url.is_empty() else Settings.lobby_url(Session.lobby_hotspot)
+	Session.reconnect_url = _connected_url
 	Session.save()
 	var size: int = room.get("team_size", 1) as int
 	_code_label.text = Session.room_code
@@ -340,12 +341,6 @@ func _build_setup(parent: Control) -> void:
 	_setup = VBoxContainer.new()
 	_setup.add_theme_constant_override("separation", 10)
 	parent.add_child(_setup)
-	var server_label: Label = LobbyWidgets.field_label("SERVER")
-	_url_edit = LobbyWidgets.edit(Settings.lobby_url(false), "wss://your-server.example.com", FONT)
-	server_label.visible = not Session.lobby_hotspot
-	_url_edit.visible = not Session.lobby_hotspot
-	_setup.add_child(server_label)
-	_setup.add_child(_url_edit)
 	_setup.add_child(LobbyWidgets.field_label("NAME"))
 	_name_edit = LobbyWidgets.edit(Session.player_name, "Player", FONT)
 	_name_edit.max_length = 12
