@@ -117,7 +117,7 @@ func test_start_plays_the_chosen_mode() -> void:
 	var screen: TitleScreen = _screen()
 	screen.start()
 	assert_not_null(screen.dialog, "hotspot opens its create / join card")
-	assert_eq(screen.dialog.find_child("AddressField", true, false) != null, true)
+	assert_null(screen.dialog.find_child("AddressField", true, false), "a hotspot room needs no address, only a code")
 	Session.menu_mode = 1
 	screen.start()
 	assert_null(screen.dialog.find_child("AddressField", true, false), "online has no address field")
@@ -308,18 +308,15 @@ func test_online_offers_create_and_join_on_the_game_server() -> void:
 	card.close(false)
 
 
-func test_hotspot_remembers_the_address_and_opens_the_lobby_on_it() -> void:
+func test_hotspot_opens_the_lobby_with_no_address_to_type() -> void:
 	var screen: TitleScreen = _screen()
 	var opened: Array = []
 	screen.open_lobby_action = func(intent: int) -> void: opened.append(intent)
 	var card: MenuDialog = screen.open_hotspot()
-	(_find(card, "AddressField") as LineEdit).text = "192.168.43.1:9080"
 	(_find(card, "JoinRoomButton") as Button).pressed.emit()
-	assert_eq(Settings.hotspot_url, "ws://192.168.43.1:9080")
-	assert_true(Session.lobby_hotspot, "the lobby uses the hotspot address")
+	assert_true(Session.lobby_hotspot, "the lobby is in hotspot mode")
 	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
 	assert_eq(opened.size(), 1)
-	assert_eq(Settings.lobby_url(true), "ws://192.168.43.1:9080")
 	assert_eq(Settings.lobby_url(false), Settings.server_url, "the online server is left alone")
 
 

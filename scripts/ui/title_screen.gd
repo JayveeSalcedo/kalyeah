@@ -65,6 +65,7 @@ func _ready() -> void:
 		get_tree().change_scene_to_file.call_deferred(SERVER_SCENE)
 		return
 	Session.ensure_profile()
+	Net.stop_host()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_background()
 	_build_layout()
@@ -504,25 +505,16 @@ func open_online() -> MenuDialog:
 	return _open_play_dialog("ONLINE", false, "")
 
 
-## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi, on a game server running there.
+## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi; the host's phone runs the room.
 func open_hotspot() -> MenuDialog:
-	return _open_play_dialog("HOTSPOT", true, "Same Wi-Fi or phone hotspot.")
+	return _open_play_dialog("HOTSPOT", true, "Create makes a room code on this phone (Android). Friends on the same hotspot or Wi-Fi join with it.")
 
 
-## The Create / Join choice. A hotspot also asks for the address of the server on the hotspot.
+## The Create / Join choice.
 func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog:
 	var card: MenuDialog = MenuDialog.create(title)
 	if not hint.is_empty():
 		card.add_hint(hint)
-	var address: LineEdit = null
-	if hotspot:
-		address = LineEdit.new()
-		address.name = "AddressField"
-		address.text = Settings.hotspot_url
-		address.placeholder_text = "192.168.43.1:9080"
-		address.custom_minimum_size = Vector2(0.0, 76.0)
-		address.add_theme_font_size_override("font_size", 28)
-		card.body.add_child(address)
 	var create: Button = MenuDialog.make_button("CREATE", "blue", 32)
 	var join: Button = MenuDialog.make_button("JOIN", "green", 32)
 	create.name = "CreateRoomButton"
@@ -532,8 +524,6 @@ func _open_play_dialog(title: String, hotspot: bool, hint: String) -> MenuDialog
 	card.add_buttons([cancel])
 	cancel.pressed.connect(card.close)
 	var go: Callable = func(intent: LobbyScreen.Intent) -> void:
-		if hotspot:
-			Settings.save_hotspot_url(address.text)
 		_open_lobby(intent, hotspot)
 	create.pressed.connect(go.bind(LobbyScreen.Intent.CREATE))
 	join.pressed.connect(go.bind(LobbyScreen.Intent.JOIN))
