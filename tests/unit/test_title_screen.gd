@@ -64,8 +64,9 @@ func _phone_screen() -> TitleScreen:
 
 func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
-	assert_not_null(screen.logo, "the K! logo")
-	assert_not_null(screen.settings_button, "settings")
+	assert_null(screen.find_child("TopBar", true, false), "no top row: no K! and no settings icon")
+	assert_null(screen.find_child("SettingsButton", true, false))
+	assert_null(screen.find_child("Logo", true, false))
 	assert_not_null(screen.carousel, "the mode carousel")
 	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
 	assert_null(screen.find_child("MapButton", true, false), "no map button")
@@ -74,30 +75,19 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
-func test_the_logo_is_the_loading_screens_k() -> void:
-	var screen: TitleScreen = _screen()
-	assert_true(screen.logo is TextureRect, "the owner's picture, not a stand-in")
-	assert_eq((screen.logo as TextureRect).texture.get_size(), (load("res://assets/ui/boot/boot_icon.png") as Texture2D).get_size(), "the K! of the loading screen")
-
-
-func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void:
+func test_the_battle_page_starts_at_the_top_with_the_carousel_left_and_details_right() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var logo: Rect2 = screen.logo.get_global_rect()
-	var gear: Rect2 = screen.settings_button.get_global_rect()
 	var strip: Rect2 = screen.carousel.get_global_rect()
 	var buttons: Rect2 = screen.primary_button.get_global_rect()
-	assert_lt(logo.position.x, 120.0, "the logo is on the left")
-	assert_gt(gear.end.x, 720.0 - 120.0, "settings is on the right")
-	assert_almost_eq(logo.get_center().y, gear.get_center().y, 8.0, "one top row")
-	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
-	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
-	assert_almost_eq(screen.mode_name_label.get_global_rect().position.y, screen.carousel.cards[0].get_global_rect().position.y, 20.0, "the details start level with the chosen card")
 	var join: Rect2 = screen.secondary_button.get_global_rect()
+	assert_gt(strip.position.y, 60.0, "below the safe top, with no top row")
+	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
 	assert_lte(join.end.x, 720.0)
 	assert_gt(join.end.x - buttons.position.x, 400.0, "the details and buttons get the room the hidden card edge frees")
-	assert_lt(screen.secondary_button.get_global_rect().end.y, 1280.0)
+	assert_lt(join.end.y, screen.nav.get_global_rect().position.y, "and end above the bar")
 	assert_almost_eq(buttons.position.y, join.position.y, 1.0, "create and join are in one row")
+	assert_almost_eq(screen.mode_name_label.get_global_rect().position.y, screen.carousel.cards[0].get_global_rect().position.y, 20.0, "the details start level with the chosen card")
 
 
 func test_a_fifth_of_each_card_is_past_the_screens_left_edge() -> void:
@@ -215,9 +205,8 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.primary_button, screen.secondary_button, screen.settings_button]:
+	for button: Button in [screen.primary_button, screen.secondary_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
-	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
 
 func test_a_new_player_gets_a_name_and_a_face() -> void:
@@ -232,13 +221,7 @@ func test_a_new_player_gets_a_name_and_a_face() -> void:
 	assert_eq(Session.player_name, name_now, "an existing profile is kept")
 
 
-func test_the_profile_shows_your_name_and_your_character_face() -> void:
-	Session.player_name = "Juan"
-	Session.avatar_id = "toni"
-	var screen: TitleScreen = _screen()
-	screen.open_settings()
-	var name_label: Label = screen.profile_button.find_children("*", "Label", true, false)[0] as Label
-	assert_eq(name_label.text, "Juan")
+func test_every_character_has_a_face_for_the_avatar() -> void:
 	for kid: String in Session.AVATARS:
 		assert_not_null(KidModel.minimap_face(StringName(kid)), "%s has a face for the avatar" % kid)
 
@@ -267,16 +250,21 @@ func test_cancelling_the_rename_keeps_the_old_name() -> void:
 	assert_eq(Session.player_name, "Pedro")
 
 
+func _settings_open(screen: TitleScreen) -> SettingsPage:
+	screen.nav.select(&"settings")
+	return screen.settings_page
+
+
 func test_settings_change_the_volume_and_remember_the_server() -> void:
 	var screen: TitleScreen = _screen()
-	var card: MenuDialog = screen.open_settings()
-	var slider: HSlider = _find(card, "VolumeSlider") as HSlider
+	var page: SettingsPage = _settings_open(screen)
+	var slider: HSlider = _find(page, "VolumeSlider") as HSlider
 	slider.value = 0.4
 	assert_almost_eq(Settings.volume, 0.4, 0.001)
 	assert_almost_eq(AudioServer.get_bus_volume_db(0), linear_to_db(0.4), 0.01, "the master volume follows")
-	(_find(card, "ServerField") as LineEdit).text = "wss://example.org"
-	assert_eq((_find(card, "QuitButton") as Button).text, "QUIT GAME")
-	card.close(false)
+	(_find(page, "ServerField") as LineEdit).text = "wss://example.org"
+	assert_eq((_find(page, "QuitButton") as Button).text, "QUIT GAME")
+	page.save_server()
 	assert_eq(Settings.server_url, "wss://example.org")
 	slider.value = 0.0
 	assert_true(AudioServer.is_bus_mute(0), "zero is silent")
@@ -284,8 +272,8 @@ func test_settings_change_the_volume_and_remember_the_server() -> void:
 
 func test_vibration_is_only_offered_on_phones() -> void:
 	var screen: TitleScreen = _screen()
-	var card: MenuDialog = screen.open_settings()
-	assert_eq(_find(card, "VibrationToggle") != null, Settings.can_vibrate())
+	var page: SettingsPage = _settings_open(screen)
+	assert_eq(_find(page, "VibrationToggle") != null, Settings.can_vibrate())
 	assert_false(Settings.can_vibrate(), "tests do not run on a phone")
 
 
@@ -310,7 +298,7 @@ func test_quit_asks_first_and_only_quits_on_yes() -> void:
 
 func test_only_one_dialog_is_open_at_a_time() -> void:
 	var screen: TitleScreen = _screen()
-	var first: MenuDialog = screen.open_settings()
+	var first: MenuDialog = screen.open_name_editor()
 	var second: MenuDialog = screen.open_quit_confirm()
 	assert_false(first.is_open)
 	assert_true(second.is_open)
