@@ -1,7 +1,7 @@
 class_name BottomNav
 extends PanelContainer
-## The main screen's bottom bar: a flat, slightly dark gray strip across the whole bottom edge (no
-## margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
+## The main screen's bottom bar: a flat strip of slightly light gray cement across the whole bottom
+## edge (no margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
 ## open tab is lit and shows its name.
 
 signal tab_selected(tab: StringName)
@@ -15,8 +15,11 @@ const TABS: Array[Dictionary] = [
 ]
 ## The strip's height without the phone's home-bar inset.
 const HEIGHT: float = 104.0
-const BAR_COLOR: Color = Color("2a2c31")
-const IDLE: Color = Color("9a9fa8")
+const CEMENT_SHADER: Shader = preload("res://shaders/nav_cement.gdshader")
+const BAR_COLOR: Color = Color(0.66, 0.665, 0.675)
+## Icons on the light cement: dark gray when idle, burnt orange when open.
+const IDLE: Color = Color("4b4e55")
+const LIT: Color = Color("c85f00")
 
 var current: StringName = &"battle"
 var buttons: Dictionary[StringName, Button] = {}
@@ -29,10 +32,19 @@ func _init() -> void:
 	name = "BottomNav"
 	custom_minimum_size = Vector2(0.0, HEIGHT)
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = BAR_COLOR
+	style.bg_color = Color.TRANSPARENT
 	style.border_width_top = 2
-	style.border_color = Color(1, 1, 1, 0.07)
+	style.border_color = Color(0.0, 0.0, 0.0, 0.18)
 	add_theme_stylebox_override("panel", style)
+	var cement: ColorRect = ColorRect.new()
+	cement.name = "Cement"
+	cement.color = BAR_COLOR
+	cement.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cement.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = CEMENT_SHADER
+	cement.material = material
+	add_child(cement)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "Tabs"
 	row.add_theme_constant_override("separation", 0)
@@ -62,7 +74,7 @@ func _init() -> void:
 		label.text = String(tab["label"])
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.add_theme_font_size_override("font_size", 17)
-		label.add_theme_color_override("font_color", KalyeahTheme.AMBER)
+		label.add_theme_color_override("font_color", LIT)
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(label)
 		row.add_child(button)
@@ -91,6 +103,6 @@ func set_bottom_inset(inset: float) -> void:
 func _restyle() -> void:
 	for id: StringName in buttons:
 		var lit: bool = id == current
-		_icons[id].color = KalyeahTheme.AMBER if lit else IDLE
+		_icons[id].color = LIT if lit else IDLE
 		# only the open tab shows its name; the others keep the space so nothing jumps
 		_labels[id].modulate.a = 1.0 if lit else 0.0

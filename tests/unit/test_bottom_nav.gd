@@ -54,9 +54,10 @@ func test_the_bar_is_a_flat_gray_strip_edge_to_edge_with_no_margin() -> void:
 	var style: StyleBoxFlat = screen.nav.get_theme_stylebox("panel") as StyleBoxFlat
 	assert_eq(style.corner_radius_top_left, 0, "not a rounded card")
 	assert_eq(style.shadow_size, 0, "no card shadow")
-	var shade: Color = style.bg_color
-	assert_almost_eq(shade.r, shade.g, 0.05, "gray, not tinted")
-	assert_between(shade.v, 0.1, 0.3, "slightly dark")
+	var cement: ColorRect = screen.nav.find_child("Cement", true, false) as ColorRect
+	assert_true(cement.material is ShaderMaterial, "light gray cement from a shader")
+	assert_almost_eq(cement.color.r, cement.color.g, 0.03, "gray, not tinted")
+	assert_between(cement.color.v, 0.55, 0.8, "slightly light")
 	for tab: Dictionary in BottomNav.TABS:
 		var button: Button = screen.nav.buttons[tab["id"]]
 		assert_gte(button.get_global_rect().size.y, 88.0, "%s is tall enough for a thumb" % tab["label"])
@@ -74,7 +75,7 @@ func test_tabs_are_icons_and_only_the_open_one_shows_its_name() -> void:
 		assert_not_null(button.find_child("*", true, false))
 		var label: Label = screen.nav._labels[id]
 		assert_eq(label.modulate.a, 1.0 if id == &"battle" else 0.0, "%s caption" % id)
-		assert_eq(screen.nav._icons[id].color, KalyeahTheme.AMBER if id == &"battle" else BottomNav.IDLE)
+		assert_eq(screen.nav._icons[id].color, BottomNav.LIT if id == &"battle" else BottomNav.IDLE)
 	screen.nav.select(&"history")
 	assert_eq(screen.nav._labels[&"history"].modulate.a, 1.0)
 	assert_eq(screen.nav._labels[&"battle"].modulate.a, 0.0, "the old tab loses its name")
