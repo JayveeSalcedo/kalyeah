@@ -90,7 +90,7 @@ func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void
 	var buttons: Rect2 = screen.primary_button.get_global_rect()
 	assert_lt(logo.position.x, 120.0, "the logo is on the left")
 	assert_gt(gear.end.x, 720.0 - 120.0, "settings is on the right")
-	assert_almost_eq(logo.position.y, gear.position.y, 8.0, "one top row")
+	assert_almost_eq(logo.get_center().y, gear.get_center().y, 8.0, "one top row")
 	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
 	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
 	assert_lt(buttons.end.x, 720.0)
