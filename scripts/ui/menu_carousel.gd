@@ -1,6 +1,6 @@
 class_name MenuCarousel
 extends Control
-## A horizontal carousel of 3:4 cards. The chosen card is in the middle at full size; every other
+## A horizontal carousel of 2.5:4 cards. The chosen card is in the middle at full size; every other
 ## card is stacked behind it, pushed only a little to its left or right, smaller and see-through but
 ## always visible. Drag or swipe sideways (or use the mouse wheel) to scroll, tap a card to bring it to
 ## the middle.
@@ -9,11 +9,15 @@ signal selected(index: int)
 
 const CARD: Vector2 = ChoiceCard.CARD_SIZE
 ## Distance between the middles of two neighbouring cards: less than a card's width, so they overlap.
-const STEP: float = 76.0
+const STEP: float = 98.0
 ## Each step away from the middle shrinks a card by this much (and a card is never smaller than the
 ## one two steps away).
-const SCALE_LOSS: float = 0.14
-const SIDE_ALPHA: float = 0.6
+const SCALE_LOSS: float = 0.17
+## Cards further back are darker and sit higher, so the stack reads as depth.
+const SHADE_LOSS: float = 0.36
+const RISE: float = 30.0
+## ... and slightly see-through too.
+const BACK_ALPHA: float = 0.86
 const DRAG_START: float = 12.0
 const SNAP_TIME: float = 0.18
 
@@ -29,7 +33,7 @@ var _tween: Tween
 
 
 ## `options` are {id, title, color}; the card at `current` starts in the middle. `heading` is the
-## small word at the top left of every card.
+## 
 func setup(heading: String, options: Array[Dictionary], current: int) -> void:
 	for card: Button in cards:
 		card.queue_free()
@@ -86,9 +90,10 @@ func _layout() -> void:
 		var away: float = clampf(absf(offset), 0.0, 2.0)
 		var card: Button = cards[i]
 		card.scale = Vector2.ONE * (1.0 - SCALE_LOSS * away)
-		card.position = Vector2(size.x / 2.0 + offset * STEP - CARD.x / 2.0, (size.y - CARD.y) / 2.0)
-		# every card stays visible: the middle one is solid, the others a little see-through
-		card.modulate.a = lerpf(1.0, SIDE_ALPHA, clampf(absf(offset), 0.0, 1.0))
+		card.position = Vector2(size.x / 2.0 + offset * STEP - CARD.x / 2.0, (size.y - CARD.y) / 2.0 - RISE * away)
+		# every card stays visible: the ones further back are darker and slightly see-through
+		var shade: float = 1.0 - SHADE_LOSS * away
+		card.modulate = Color(shade, shade, shade, lerpf(1.0, BACK_ALPHA, clampf(absf(offset), 0.0, 1.0)))
 		card.z_index = 10 - int(roundf(absf(offset) * 5.0))
 
 
