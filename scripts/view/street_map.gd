@@ -60,6 +60,8 @@ const CORNER_RADIUS: float = 1.8
 const HOUSE_SPACING: float = 6.4
 ## The owner's shopfront models, in the order they repeat, and how wide each is on the street.
 const BUILDINGS: Array[String] = ["vulcanizing", "barber_shop", "nena_store"]
+## The two houses that fill in between the shopfronts (shop, house, shop, house, ...).
+const FILLER_HOUSES: Array[String] = ["house_1", "house_2"]
 const BUILDING_WIDTH: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -581,7 +583,7 @@ func _add_barricades() -> void:
 			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
-## The owner's three shopfronts (Nena store, vulcanizing, barber shop) along both sides of the street, running on past
+## The owner's three shopfronts (Nena store, vulcanizing, barber shop) with his two houses between them, along both sides of the street, running on past
 ## the ends (none across the ends), one of them (the Nena store) where the sari-sari store stood.
 func _add_houses() -> void:
 	var half_w: float = layout.lane_width / 2.0
@@ -592,7 +594,7 @@ func _add_houses() -> void:
 	for side: float in [-1.0, 1.0]:
 		var z: float = -half_l + HOUSE_SPACING / 2.0
 		while z < half_l:
-			var id: String = BUILDINGS[variant % BUILDINGS.size()]
+			var id: String = BUILDINGS[(variant / 2) % BUILDINGS.size()] if variant % 2 == 0 else FILLER_HOUSES[(variant / 2) % FILLER_HOUSES.size()]
 			if side < 0.0 and absf(z - store_z) < HOUSE_SPACING / 2.0:
 				id = "nena_store"
 				z = store_z
