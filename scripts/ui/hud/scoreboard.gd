@@ -6,7 +6,7 @@ extends Control
 
 const OWN: Color = Color(0.2, 0.5, 1.0)
 const ENEMY: Color = Color(1.0, 0.3, 0.3)
-const PANEL: Color = Color(0.1, 0.08, 0.14, 0.88)
+const PANEL: Color = Color(0.055, 0.09, 0.16, 0.94)
 const RIM: Color = Color(1.0, 0.82, 0.35)
 const BIG_FONT: int = 40
 const SMALL_FONT: int = 17
@@ -39,17 +39,24 @@ func summary() -> String:
 
 
 func _draw() -> void:
-	var font: Font = ThemeDB.fallback_font
 	var w: float = size.x
 	var h: float = size.y
-	_round_rect(Rect2(0.0, 4.0, w, h), Color(0, 0, 0, 0.35), 18.0)
-	_round_rect(Rect2(0.0, 0.0, w, h), PANEL, 18.0)
+	var frame: StyleBoxFlat = StyleBoxFlat.new()
+	frame.bg_color = PANEL
+	frame.border_color = RIM
+	frame.set_border_width_all(3)
+	frame.set_corner_radius_all(18)
+	frame.shadow_color = Color(0.0, 0.0, 0.0, 0.48)
+	frame.shadow_size = 3
+	frame.shadow_offset = Vector2(0.0, 4.0)
+	draw_style_box(frame, Rect2(0.0, 0.0, w, h))
 	var box: float = h - 12.0
 	_round_rect(Rect2(6.0, 6.0, box * 1.25, box), OWN, 12.0)
 	_round_rect(Rect2(w - 6.0 - box * 1.25, 6.0, box * 1.25, box), ENEMY, 12.0)
-	_center_text(font, str(mine), Vector2(6.0 + box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
-	_center_text(font, str(theirs), Vector2(w - 6.0 - box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
-	_center_text(font, clock_text(), Vector2(w / 2.0, h / 2.0), SMALL_FONT + 6, Color.WHITE)
+	_center_text(KalyeahTheme.ACTION_FONT, str(mine), Vector2(6.0 + box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
+	_center_text(KalyeahTheme.ACTION_FONT, str(theirs), Vector2(w - 6.0 - box * 0.625, h / 2.0), BIG_FONT, Color.WHITE)
+	_center_text(KalyeahTheme.BODY_FONT, clock_text(), Vector2(w / 2.0, h * 0.36), SMALL_FONT + 4, Color.WHITE)
+	_center_text(KalyeahTheme.ACTION_FONT, "BO%d" % best_of, Vector2(w / 2.0, h * 0.72), SMALL_FONT - 3, KalyeahTheme.AMBER)
 
 
 func _round_rect(rect: Rect2, color: Color, radius: float) -> void:

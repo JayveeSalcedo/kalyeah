@@ -11,7 +11,7 @@ const MATCH_SCENE: String = "res://scenes/match/online.tscn"
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
 const BACKGROUND: Texture2D = preload("res://assets/ui/main_bg.webp")
 const NET_RULES: NetRules = preload("res://data/rules/net_rules.tres")
-const TEAM_NAMES: Array[String] = ["Blue team", "Red team"]
+const TEAM_NAMES: Array[String] = ["BLUE TEAM", "RED TEAM"]
 const TEAM_COLORS: Array[Color] = [Color(0.45, 0.65, 1.0), Color(1.0, 0.45, 0.45)]
 const FONT: int = 28
 const BIG_FONT: int = 56
@@ -103,7 +103,7 @@ func status_text() -> String:
 func submit() -> void:
 	var url: String = Settings.normalize_url(_url_edit.text)
 	if url.is_empty():
-		_status.text = "Enter the game server address first\\n(see server/README.md)."
+		_status.text = "Enter a server address."
 		return
 	if Session.lobby_hotspot:
 		Settings.save_hotspot_url(url)
@@ -123,7 +123,7 @@ func submit() -> void:
 	if client.is_online():
 		_send_pending()
 	else:
-		_status.text = "Connecting..."
+		_status.text = "CONNECTING..."
 		if client.connect_to(url) != OK:
 			_status.text = "Can't reach that address."
 
@@ -135,7 +135,7 @@ func rejoin() -> void:
 	client.token = Session.reconnect_token
 	client.player_name = Session.player_name
 	_rejoining = true
-	_status.text = "Rejoining..."
+	_status.text = "REJOINING..."
 	if client.connect_to(Session.reconnect_url) != OK:
 		_status.text = "Can't reach that address."
 
@@ -184,7 +184,7 @@ func _on_room_changed(room: Dictionary) -> void:
 	Session.reconnect_url = Settings.lobby_url(Session.lobby_hotspot)
 	Session.save()
 	var size: int = room.get("team_size", 1) as int
-	_code_label.text = "%s   (%dv%d)" % [Session.room_code, size, size]
+	_code_label.text = Session.room_code
 	var members: Array = room.get("members", []) as Array
 	for team: int in 2:
 		var list: VBoxContainer = _team_lists[team]
@@ -196,21 +196,23 @@ func _on_room_changed(room: Dictionary) -> void:
 				continue
 			count += 1
 			var line: String = member["name"] as String
-			if member["player_id"] == room.get("host", -1):
-				line += " (host)"
+			var tags: PackedStringArray = PackedStringArray()
 			if member["player_id"] == client.player_id:
-				line += " - you"
-			line += "   READY" if member["ready"] else "   ..."
-			list.add_child(LobbyWidgets.label(line, FONT, TEAM_COLORS[team]))
+				tags.append("YOU")
+			if member["player_id"] == room.get("host", -1):
+				tags.append("HOST")
+			tags.append("READY" if member["ready"] else "WAITING")
+			line += "  •  " + "  •  ".join(tags)
+			list.add_child(LobbyWidgets.label(line, 24, TEAM_COLORS[team]))
 		for empty: int in size - count:
-			list.add_child(LobbyWidgets.label("(open)", FONT, Color(1, 1, 1, 0.4)))
+			list.add_child(LobbyWidgets.label("OPEN SLOT", 22, Color(1, 1, 1, 0.42)))
 		_team_buttons[team].disabled = client.my_team() == team or count >= size
 	var me_ready: bool = false
 	for member: Dictionary in members:
 		if member["player_id"] == client.player_id:
 			me_ready = member["ready"] as bool
 	_ready_button.button_pressed = me_ready
-	_ready_button.text = "READY" if me_ready else "NOT READY"
+	_ready_button.text = "READY" if me_ready else "READY UP"
 	var best_of: int = room.get("best_of", 3) as int
 	_best_of_label.text = "BEST OF %d  •  FIRST TO %d" % [best_of, best_of / 2 + 1]
 	for count: int in _best_of_buttons:
@@ -251,10 +253,10 @@ func _build() -> void:
 	LobbyWidgets.add_backdrop(self, BACKGROUND)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 32)
-	margin.add_theme_constant_override("margin_right", 32)
-	margin.add_theme_constant_override("margin_top", 44)
-	margin.add_theme_constant_override("margin_bottom", 38)
+	margin.add_theme_constant_override("margin_left", 20)
+	margin.add_theme_constant_override("margin_right", 20)
+	margin.add_theme_constant_override("margin_top", 28)
+	margin.add_theme_constant_override("margin_bottom", 24)
 	add_child(margin)
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 16)
@@ -268,7 +270,7 @@ func _build() -> void:
 	var card: PanelContainer = PanelContainer.new()
 	card.name = "LobbyCard"
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	card.add_theme_stylebox_override("panel", KalyeahTheme.painted_panel(28.0))
+	card.add_theme_stylebox_override("panel", KalyeahTheme.painted_panel(20.0))
 	scroll.add_child(card)
 	var content: VBoxContainer = VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -278,7 +280,7 @@ func _build() -> void:
 	_build_room(content)
 	_status = LobbyWidgets.label("", 24, Color("ffb4a8"))
 	_status.name = "Status"
-	_status.custom_minimum_size = Vector2(0.0, 38.0)
+	_status.custom_minimum_size = Vector2(0.0, 30.0)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_status)
 	var gate: Node = (load("res://scenes/ui/orientation_gate.tscn") as PackedScene).instantiate()
@@ -299,11 +301,12 @@ func _build_setup(parent: Control) -> void:
 	if intent == Intent.CREATE:
 		_setup.add_child(LobbyWidgets.field_label("TEAM SIZE"))
 		var sizes: HBoxContainer = HBoxContainer.new()
-		sizes.add_theme_constant_override("separation", 12)
+		sizes.add_theme_constant_override("separation", 8)
 		_setup.add_child(sizes)
 		for size: int in [1, 2, 3]:
 			var button: Button = LobbyWidgets.button("%dv%d" % [size, size], choose_size.bind(size), "grey")
 			LobbyWidgets.make_toggle(button)
+			button.custom_minimum_size = Vector2(0.0, 66.0)
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			sizes.add_child(button)
 			_size_buttons.append(button)
@@ -330,7 +333,7 @@ func _build_setup(parent: Control) -> void:
 
 func _build_room(parent: Control) -> void:
 	_room_box = VBoxContainer.new()
-	_room_box.add_theme_constant_override("separation", 16)
+	_room_box.add_theme_constant_override("separation", 12)
 	parent.add_child(_room_box)
 	var code_hint: Label = LobbyWidgets.label("SHARE WITH FRIENDS", 20, KalyeahTheme.TEXT_MUTED)
 	code_hint.theme_type_variation = &"MutedLabel"
@@ -340,7 +343,7 @@ func _build_room(parent: Control) -> void:
 	_room_box.add_child(_code_label)
 	for team: int in 2:
 		var team_card: PanelContainer = PanelContainer.new()
-		var team_style: StyleBoxFlat = KalyeahTheme.surface_box(16, 2, 18.0)
+		var team_style: StyleBoxFlat = KalyeahTheme.surface_box(16, 2, 14.0)
 		team_style.bg_color = Color(KalyeahTheme.INK, 0.72)
 		team_style.border_color = Color(TEAM_COLORS[team], 0.72)
 		team_style.shadow_size = 3
@@ -357,7 +360,7 @@ func _build_room(parent: Control) -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		header.add_child(name_label)
 		var join_team: Button = LobbyWidgets.button("JOIN", client.pick_team.bind(team), "blue" if team == 0 else "red")
-		join_team.custom_minimum_size = Vector2(120.0, 58.0)
+		join_team.custom_minimum_size = Vector2(104.0, 56.0)
 		header.add_child(join_team)
 		_team_buttons.append(join_team)
 		var list: VBoxContainer = VBoxContainer.new()
@@ -367,15 +370,16 @@ func _build_room(parent: Control) -> void:
 	_best_of_label = LobbyWidgets.label("", FONT, KalyeahTheme.CREAM)
 	_room_box.add_child(_best_of_label)
 	var counts: HBoxContainer = HBoxContainer.new()
-	counts.add_theme_constant_override("separation", 12)
+	counts.add_theme_constant_override("separation", 8)
 	_room_box.add_child(counts)
 	for count: int in [3, 5, 7]:
-		var choice: Button = LobbyWidgets.button("BEST OF %d" % count, client.set_best_of.bind(count), "grey")
+		var choice: Button = LobbyWidgets.button("BO%d" % count, client.set_best_of.bind(count), "grey", 25)
 		LobbyWidgets.make_toggle(choice)
+		choice.custom_minimum_size = Vector2(0.0, 62.0)
 		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		counts.add_child(choice)
 		_best_of_buttons[count] = choice
-	_ready_button = LobbyWidgets.button("NOT READY", func() -> void: client.set_ready(_ready_button.button_pressed), "grey")
+	_ready_button = LobbyWidgets.button("READY UP", func() -> void: client.set_ready(_ready_button.button_pressed), "grey")
 	LobbyWidgets.make_toggle(_ready_button)
 	_ready_button.custom_minimum_size = Vector2(0, 96)
 	_room_box.add_child(_ready_button)

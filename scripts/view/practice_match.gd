@@ -82,7 +82,7 @@ func _ready() -> void:
 	_pick_screen.confirmed.connect(_on_pick_confirmed)
 	_pick_screen.swapped.connect(_on_swapped)
 	_pick_screen.closed.connect(_set_controls_active.bind(true))
-	_open_pick("CHOOSE YOUR KID + 2 WEAPONS", [])
+	_open_pick("PICK A KID + 2 WEAPONS", [])
 	_opening_pick = true
 	if online:
 		client.stage_changed.connect(_on_stage_changed)

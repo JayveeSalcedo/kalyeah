@@ -17,13 +17,13 @@ signal swapped(picks: Array[StringName])
 signal closed
 
 ## The character cards are exactly 3:4 (width:height).
-const PROFILE_SIZE: Vector2 = Vector2(108.0, 144.0)
-const CARD_HEIGHT: float = 100.0
-const CARD_ICON: float = 76.0
-const TITLE_FONT: int = 30
+const PROFILE_SIZE: Vector2 = Vector2(102.0, 136.0)
+const CARD_HEIGHT: float = 94.0
+const CARD_ICON: float = 68.0
+const TITLE_FONT: int = 28
 const TAB_FONT: int = 17
-const NAME_FONT: int = 24
-const DESCRIPTION_FONT: int = 18
+const NAME_FONT: int = 22
+const DESCRIPTION_FONT: int = 16
 const STAT_FONT: int = 15
 const SOCKET_SIZE: float = 76.0
 const BACKDROP: Color = Color(0.05, 0.06, 0.14, 0.92)
@@ -230,7 +230,7 @@ func _refresh() -> void:
 	if swap_mode:
 		_ready_button.text = "DONE"
 	else:
-		_ready_button.text = "READY!" if pick.can_confirm() else "Pick %d more" % (WeaponPick.SLOTS - pick.picks.size())
+		_ready_button.text = "READY" if pick.can_confirm() else "PICK %d" % (WeaponPick.SLOTS - pick.picks.size())
 
 
 # ---- building -----------------------------------------------------------------------
@@ -260,7 +260,7 @@ func _build(defs: Array[WeaponDef]) -> void:
 	column.add_child(_tab_row(defs))
 	column.add_child(_weapon_pages(defs))
 	_ready_button = Button.new()
-	_ready_button.custom_minimum_size = Vector2(360.0, 84.0)
+	_ready_button.custom_minimum_size = Vector2(300.0, 78.0)
 	_ready_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_ready_button.add_theme_font_size_override("font_size", 32)
 	_ready_button.pressed.connect(press_ready)
@@ -269,15 +269,20 @@ func _build(defs: Array[WeaponDef]) -> void:
 
 ## Row 1: the six characters as 3:4 profile cards.
 func _profile_row() -> Control:
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Characters"
+	scroll.custom_minimum_size = Vector2(0.0, PROFILE_SIZE.y)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Characters"
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 8)
 	for character: CharacterDef in _characters:
 		var card: Button = _profile_card(character)
 		row.add_child(card)
 		_profiles[character.id] = card
-	return row
+	scroll.add_child(row)
+	return scroll
 
 
 ## One character: their portrait (top-aligned, so the face shows) and name on a 3:4 card.
@@ -333,9 +338,13 @@ func _profile_card(character: CharacterDef) -> Button:
 
 ## Row 2: one tab per street game.
 func _tab_row(defs: Array[WeaponDef]) -> Control:
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Tabs"
+	scroll.custom_minimum_size = Vector2(0.0, 54.0)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "Tabs"
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
 	for def: WeaponDef in defs:
 		if _tabs.has(def.street_game):
@@ -344,8 +353,7 @@ func _tab_row(defs: Array[WeaponDef]) -> Control:
 		tab.name = "Tab_" + def.street_game
 		tab.text = def.street_game
 		tab.toggle_mode = true
-		tab.custom_minimum_size = Vector2(0.0, 56.0)
-		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.custom_minimum_size = Vector2(148.0, 50.0)
 		tab.add_theme_font_size_override("font_size", TAB_FONT)
 		tab.add_theme_color_override("font_color", Color.WHITE)
 		tab.add_theme_color_override("font_pressed_color", INK)
@@ -358,7 +366,8 @@ func _tab_row(defs: Array[WeaponDef]) -> Control:
 		tab.pressed.connect(_open_tab.bind(def.street_game))
 		row.add_child(tab)
 		_tabs[def.street_game] = tab
-	return row
+	scroll.add_child(row)
+	return scroll
 
 
 ## The weapon cards of every street game, one page per tab (only one shows), scrollable.
@@ -391,7 +400,8 @@ func _header() -> Control:
 	_title = Label.new()
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_title.custom_minimum_size = Vector2(440.0, 70.0)
+	_title.custom_minimum_size = Vector2(0.0, 66.0)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title.add_theme_font_size_override("font_size", TITLE_FONT)
 	_title.add_theme_color_override("font_color", Color.WHITE)
 	_title.add_theme_color_override("font_outline_color", INK)
@@ -399,7 +409,7 @@ func _header() -> Control:
 	_title.add_theme_stylebox_override("normal", KalyeahTheme.painted_button("gold"))
 	row.add_child(_title)
 	_ring = CountdownRing.new()
-	_ring.custom_minimum_size = Vector2(84.0, 84.0)
+	_ring.custom_minimum_size = Vector2(72.0, 72.0)
 	row.add_child(_ring)
 	_timer = Label.new()
 	_timer.visible = false
@@ -415,7 +425,7 @@ func _loadout() -> Control:
 	for slot: int in WeaponPick.SLOTS:
 		var socket: LoadoutSocket = LoadoutSocket.new()
 		socket.number = slot + 1
-		socket.custom_minimum_size = Vector2(220.0, SOCKET_SIZE + 36.0)
+		socket.custom_minimum_size = Vector2(180.0, SOCKET_SIZE + 30.0)
 		row.add_child(socket)
 		_sockets.append(socket)
 	return row
