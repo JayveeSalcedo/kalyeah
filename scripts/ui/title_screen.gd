@@ -1,9 +1,10 @@
 class_name TitleScreen
 extends Control
-## The main screen with a bottom nav bar (Characters, Weapons, Battle, History, Menu). The Battle
-## tab is the home page: a vertical carousel of 2:1 mode cards at the left edge (a fifth of each card is past the screen's edge) and
-## the chosen mode's details with its action buttons on the right. Settings holds the player's name
-## and the infrequent quit action, while Android Back also opens its confirmation.
+## The main screen. The home page: a horizontal carousel of 3:4 mode cards (Hotspot, Online,
+## Practice), the chosen mode's name and one phrase, its action buttons below, then a section of
+## buttons that open the Characters, Weapons, History and Settings pages. A page opens over the home
+## page with a Back button (so does Android Back). Settings holds the player's name and the
+## infrequent quit action, while Android Back on the home page asks to quit.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -19,7 +20,14 @@ const MODES: Array[Dictionary] = [
 	{"id": "practice", "title": "PRACTICE", "color": "green",
 		"text": "Train alone against dummies."},
 ]
-const CAROUSEL_HEIGHT: float = 340.0
+const CAROUSEL_HEIGHT: float = 350.0
+## The section of page buttons under the mode actions.
+const SECTIONS: Array[Dictionary] = [
+	{"id": &"characters", "label": "Characters"},
+	{"id": &"weapons", "label": "Weapons"},
+	{"id": &"history", "label": "History"},
+	{"id": &"settings", "label": "Settings"},
+]
 
 const SIDE_MARGIN: float = 34.0
 const TOP_MARGIN: float = 26.0
@@ -38,8 +46,10 @@ var primary_button: Button
 var secondary_button: Button
 var quit_button: Button
 var dialog: MenuDialog
-var nav: BottomNav
+var section_buttons: Dictionary[StringName, Button] = {}
 var pages: Dictionary[StringName, Control] = {}
+var current_page: StringName = &""
+var back_button: Button
 var characters_page: CharactersPage
 var weapons_page: WeaponsPage
 var history_page: HistoryPage
@@ -103,6 +113,9 @@ func _build_background() -> void:
 
 
 var _margin: MarginContainer
+var _home: VBoxContainer
+var _page_layer: VBoxContainer
+var _page_holder: Control
 
 
 func _build_layout() -> void:
@@ -112,110 +125,147 @@ func _build_layout() -> void:
 	_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_margin)
 	_apply_safe_area()
-	var column: VBoxContainer = VBoxContainer.new()
-	column.name = "Column"
-	column.add_theme_constant_override("separation", 16)
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_margin.add_child(column)
-	column.add_child(_build_pages())
-	# the bar is not part of the padded column: it runs edge to edge along the bottom
-	nav = BottomNav.new()
-	nav.tab_selected.connect(_on_tab)
-	nav.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	add_child(nav)
+	_home = _build_home()
+	_margin.add_child(_home)
+	_page_layer = _build_page_layer()
+	_margin.add_child(_page_layer)
 
 
-## One page per tab, stacked: only the open one shows. Battle (the carousel and its details,
-## centred in the space between the top row and the bar) is the home page.
-func _build_pages() -> Control:
-	var stack: Control = Control.new()
-	stack.name = "Pages"
-	stack.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var battle: VBoxContainer = VBoxContainer.new()
-	battle.name = "BattlePage"
-	battle.alignment = BoxContainer.ALIGNMENT_CENTER
-	battle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	battle.add_child(_build_middle())
-	characters_page = CharactersPage.new()
-	weapons_page = WeaponsPage.new()
-	history_page = HistoryPage.new()
-	settings_page = SettingsPage.new()
-	pages = {&"characters": characters_page, &"weapons": weapons_page, &"battle": battle, &"history": history_page, &"settings": settings_page}
-	for id: StringName in pages:
-		var page: Control = pages[id]
-		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		page.visible = id == &"battle"
-		stack.add_child(page)
-	settings_page.profile_pressed.connect(open_name_editor)
-	settings_page.quit_pressed.connect(open_quit_confirm)
-	return stack
-
-
-## Shows the page of the tab that was tapped.
-func _on_tab(tab: StringName) -> void:
-	for id: StringName in pages:
-		pages[id].visible = id == tab
-	if tab == &"history":
-		history_page.refresh()
-	elif tab == &"characters":
-		characters_page.refresh()
-
-
-## The mode carousel on the left, the details and the action buttons on the right, centred in the
-## space under the top row.
-func _build_middle() -> Control:
-	var middle: HBoxContainer = HBoxContainer.new()
-	middle.name = "Middle"
-	middle.size_flags_horizontal = Control.SIZE_FILL
-	middle.alignment = BoxContainer.ALIGNMENT_CENTER
-	middle.add_theme_constant_override("separation", 24)
-	middle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+## The home page, centred: the mode carousel, the chosen mode's details and actions, then the
+## section of page buttons.
+func _build_home() -> VBoxContainer:
+	var home: VBoxContainer = VBoxContainer.new()
+	home.name = "Home"
+	home.alignment = BoxContainer.ALIGNMENT_CENTER
+	home.add_theme_constant_override("separation", 14)
+	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	carousel = MenuCarousel.new()
 	carousel.name = "ModeCarousel"
-	# the visible part of a card: 80% of it, counted from the screen's edge (the margin is part of it)
-	carousel.custom_minimum_size = Vector2(ChoiceCard.CARD_SIZE.x * (1.0 - MenuCarousel.HIDDEN_LEFT) - SIDE_MARGIN, CAROUSEL_HEIGHT)
-	carousel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	middle.add_child(carousel)
+	carousel.custom_minimum_size = Vector2(0.0, CAROUSEL_HEIGHT)
+	carousel.size_flags_horizontal = Control.SIZE_FILL
+	home.add_child(carousel)
 	carousel.setup("", MODES, Session.menu_mode)
-	middle.add_child(_build_details())
-	return middle
+	home.add_child(_build_details())
+	home.add_child(_build_sections())
+	return home
 
 
 func _build_details() -> Control:
 	var details: VBoxContainer = VBoxContainer.new()
 	details.name = "Details"
-	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	details.add_theme_constant_override("separation", 12)
+	details.add_theme_constant_override("separation", 8)
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the details start level with the top of the chosen card (the carousel has room for the
-	# neighbouring cards above it)
-	var level: Control = Control.new()
-	level.custom_minimum_size = Vector2(0.0, (CAROUSEL_HEIGHT - ChoiceCard.CARD_SIZE.y) / 2.0 - 12.0)
-	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	details.add_child(level)
 	mode_name_label = Label.new()
 	mode_name_label.name = "ModeName"
 	mode_name_label.theme_type_variation = &"DisplayLabel"
-	mode_name_label.add_theme_font_size_override("font_size", 38)
+	mode_name_label.add_theme_font_size_override("font_size", 40)
 	mode_name_label.add_theme_color_override("font_color", CREAM)
-	mode_name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	mode_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	details.add_child(mode_name_label)
 	mode_text_label = Label.new()
 	mode_text_label.name = "ModeText"
-	mode_text_label.add_theme_font_size_override("font_size", 21)
+	mode_text_label.add_theme_font_size_override("font_size", 22)
+	mode_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mode_text_label.clip_text = true
 	mode_text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	details.add_child(mode_text_label)
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.name = "Actions"
-	actions.add_theme_constant_override("separation", 12)
+	actions.add_theme_constant_override("separation", 14)
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	details.add_child(actions)
 	primary_button = _action_button(actions, "PrimaryButton", "", "blue")
 	secondary_button = _action_button(actions, "SecondaryButton", "JOIN", "green")
 	return details
+
+
+## The section under the actions: one button each for Characters, Weapons, History and Settings.
+func _build_sections() -> Control:
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Sections"
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for section: Dictionary in SECTIONS:
+		var id: StringName = section["id"]
+		var button: Button = MenuDialog.make_button("", "grey", 20, Vector2(0.0, 118.0))
+		button.name = "%sButton" % String(id).capitalize()
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.alignment = BoxContainer.ALIGNMENT_CENTER
+		stack.add_theme_constant_override("separation", 4)
+		stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(stack)
+		var icon: NavIcon = NavIcon.new(id)
+		icon.color = CREAM
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		stack.add_child(icon)
+		var label: Label = Label.new()
+		label.text = String(section["label"])
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 19)
+		label.add_theme_color_override("font_color", CREAM)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(label)
+		button.pressed.connect(open_page.bind(id))
+		row.add_child(button)
+		section_buttons[id] = button
+	return row
+
+
+## The pages open here, over the home page, under a Back button.
+func _build_page_layer() -> VBoxContainer:
+	var layer: VBoxContainer = VBoxContainer.new()
+	layer.name = "PageLayer"
+	layer.visible = false
+	layer.add_theme_constant_override("separation", 12)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back_button = MenuDialog.make_button("< BACK", "grey", 26, Vector2(0.0, 76.0))
+	back_button.name = "BackButton"
+	back_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	back_button.custom_minimum_size = Vector2(190.0, 76.0)
+	back_button.pressed.connect(close_page)
+	layer.add_child(back_button)
+	_page_holder = Control.new()
+	_page_holder.name = "Pages"
+	_page_holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_page_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(_page_holder)
+	characters_page = CharactersPage.new()
+	weapons_page = WeaponsPage.new()
+	history_page = HistoryPage.new()
+	settings_page = SettingsPage.new()
+	pages = {&"characters": characters_page, &"weapons": weapons_page, &"history": history_page, &"settings": settings_page}
+	for id: StringName in pages:
+		var page: Control = pages[id]
+		page.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		page.visible = false
+		_page_holder.add_child(page)
+	settings_page.profile_pressed.connect(open_name_editor)
+	settings_page.quit_pressed.connect(open_quit_confirm)
+	return layer
+
+
+## Opens one of the pages (characters, weapons, history, settings) over the home page.
+func open_page(id: StringName) -> void:
+	if not pages.has(id):
+		return
+	current_page = id
+	for other: StringName in pages:
+		pages[other].visible = other == id
+	if id == &"history":
+		history_page.refresh()
+	elif id == &"characters":
+		characters_page.refresh()
+	_home.visible = false
+	_page_layer.visible = true
+
+
+## Back to the home page.
+func close_page() -> void:
+	current_page = &""
+	_page_layer.visible = false
+	_home.visible = true
 
 
 func _action_button(parent: Control, button_name: String, text: String, color: String) -> Button:
@@ -265,16 +315,7 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_left", int(SIDE_MARGIN + inset.x))
 	_margin.add_theme_constant_override("margin_top", int(TOP_MARGIN + inset.y))
 	_margin.add_theme_constant_override("margin_right", int(SIDE_MARGIN + inset.z))
-	_margin.add_theme_constant_override("margin_bottom", int(BottomNav.HEIGHT + inset.w + BOTTOM_MARGIN))
-	if nav != null:
-		nav.set_side_margins(SIDE_MARGIN + inset.x, SIDE_MARGIN + inset.z)
-		nav.set_bottom_inset(inset.w)
-		nav.offset_top = -(BottomNav.HEIGHT + inset.w)
-		nav.offset_bottom = 0.0
-	if carousel != null:
-		# the cards start past the screen's left edge: a fifth of each is out of sight
-		carousel.left_offset = -(SIDE_MARGIN + inset.x) - ChoiceCard.CARD_SIZE.x * MenuCarousel.HIDDEN_LEFT
-		carousel.setup_layout()
+	_margin.add_theme_constant_override("margin_bottom", int(BOTTOM_MARGIN + inset.w))
 
 
 ## The unsafe screen edges (left, top, right, bottom) in UI pixels: the notch, the status bar,
@@ -298,6 +339,8 @@ func safe_insets() -> Vector4:
 ## The buttons pop up in turn when the screen opens.
 func _pop_in() -> void:
 	var buttons: Array[Control] = [primary_button, secondary_button]
+	for id: StringName in section_buttons:
+		buttons.append(section_buttons[id])
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
@@ -443,6 +486,14 @@ func _quit_game() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and (dialog == null or not is_instance_valid(dialog) or not dialog.is_open):
 		get_viewport().set_input_as_handled()
+		_go_back()
+
+
+## Back closes the open page; on the home page it asks to quit.
+func _go_back() -> void:
+	if current_page != &"":
+		close_page()
+	else:
 		open_quit_confirm()
 
 
@@ -452,4 +503,4 @@ func _notification(what: int) -> void:
 		if dialog != null and is_instance_valid(dialog) and dialog.is_open:
 			dialog.close()
 		else:
-			open_quit_confirm()
+			_go_back()

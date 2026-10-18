@@ -1,31 +1,26 @@
 class_name MenuCarousel
 extends Control
-## A vertical carousel of 2:1 cards sitting at the left edge of the screen. The chosen card is in the middle at full size; the previous
-## and next ones peek out above and below it, smaller, see-through and behind it. Drag or swipe up
-## and down (or use the mouse wheel) to scroll, tap a card to bring it to the middle.
+## A horizontal carousel of 3:4 cards. The chosen card is in the middle at full size; the previous
+## and next ones peek out to its left and right, smaller, see-through and behind it. Drag or swipe
+## sideways (or use the mouse wheel) to scroll, tap a card to bring it to the middle.
 
 signal selected(index: int)
 
 const CARD: Vector2 = ChoiceCard.CARD_SIZE
-## Distance between the middles of two neighbouring cards: less than a card's height, so they overlap.
-const STEP: float = 104.0
-const SIDE_SCALE: float = 0.84
+## Distance between the middles of two neighbouring cards: less than a card's width, so they overlap.
+const STEP: float = 200.0
+const SIDE_SCALE: float = 0.82
 const SIDE_ALPHA: float = 0.45
 const DRAG_START: float = 12.0
-## The share of each card's width that is outside the screen on the left; its text starts after it.
-const HIDDEN_LEFT: float = 0.2
 const SNAP_TIME: float = 0.18
 
 var index: int = 0
 var cards: Array[Button] = []
-## Where the cards' left edge sits, in this control's pixels. Negative: the cards stick out past the
-## screen's left edge (the main screen hides a fifth of them there to leave room for the details).
-var left_offset: float = 0.0
 
 var _position: float = 0.0
 var _pressed: bool = false
 var _dragging: bool = false
-var _press_y: float = 0.0
+var _press_x: float = 0.0
 var _press_position: float = 0.0
 var _tween: Tween
 
@@ -37,7 +32,7 @@ func setup(heading: String, options: Array[Dictionary], current: int) -> void:
 		card.queue_free()
 	cards.clear()
 	for option: Dictionary in options:
-		var card: Button = ChoiceCard.make_card(heading, String(option["title"]), String(option["color"]), CARD, String(option["id"]), HIDDEN_LEFT * CARD.x)
+		var card: Button = ChoiceCard.make_card(heading, String(option["title"]), String(option["color"]), CARD, String(option["id"]))
 		card.size = CARD
 		card.pivot_offset = CARD / 2.0
 		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -75,11 +70,6 @@ func select(at: int, animate: bool = true) -> void:
 		selected.emit(index)
 
 
-## Lays the cards out again (the left edge moved).
-func setup_layout() -> void:
-	_layout()
-
-
 func _move_to(value: float) -> void:
 	_position = value
 	_layout()
@@ -94,7 +84,7 @@ func _layout() -> void:
 		var card: Button = cards[i]
 		var scale_now: float = lerpf(1.0, SIDE_SCALE, near)
 		card.scale = Vector2.ONE * scale_now
-		card.position = Vector2(left_offset, size.y / 2.0 + offset * STEP - CARD.y / 2.0)
+		card.position = Vector2(size.x / 2.0 + offset * STEP - CARD.x / 2.0, (size.y - CARD.y) / 2.0)
 		card.modulate.a = lerpf(1.0, SIDE_ALPHA, near) if absf(offset) < 2.0 else 0.0
 		card.z_index = 10 - int(roundf(absf(offset) * 5.0))
 
@@ -110,7 +100,7 @@ func _gui_input(event: InputEvent) -> void:
 			if button.pressed:
 				_pressed = true
 				_dragging = false
-				_press_y = button.position.y
+				_press_x = button.position.x
 				_press_position = _position
 				if _tween != null:
 					_tween.kill()
@@ -122,7 +112,7 @@ func _gui_input(event: InputEvent) -> void:
 					select(_card_at(button.position))
 	elif event is InputEventMouseMotion and _pressed:
 		var motion: InputEventMouseMotion = event as InputEventMouseMotion
-		var travelled: float = motion.position.y - _press_y
+		var travelled: float = motion.position.x - _press_x
 		if absf(travelled) > DRAG_START:
 			_dragging = true
 		if _dragging:

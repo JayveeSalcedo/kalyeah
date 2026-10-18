@@ -1,10 +1,10 @@
 class_name NavIcon
 extends Control
-## A bottom-bar tab icon drawn in code (the owner's own picture at assets/ui/nav/<tab>.png replaces
+## A section button icon drawn in code (the owner's own picture at assets/ui/sections/<id>.png replaces
 ## it when that file exists). Flat, one colour, readable at 44 px.
 
 const SIZE: float = 46.0
-const PICTURE_DIR: String = "res://assets/ui/nav/"
+const PICTURE_DIR: String = "res://assets/ui/sections/"
 
 var kind: StringName = &"battle"
 var color: Color = Color.WHITE:

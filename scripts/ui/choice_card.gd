@@ -1,15 +1,16 @@
 class_name ChoiceCard
 extends RefCounted
-## A 2:1 card: a small heading at the top left, the choice's name big at the bottom left, no
-## subtitle. If the owner's card art exists (assets/ui/cards/<id>.png, 2:1) it fills the card.
+## A 3:4 card: a small heading at the top left (when there is one), the choice's name big at the
+## bottom left, no subtitle. If the owner's card art exists (assets/ui/cards/<id>.png, 3:4) it
+## fills the card.
 
-const CARD_SIZE: Vector2 = Vector2(300.0, 150.0)
+const CARD_SIZE: Vector2 = Vector2(240.0, 320.0)
 const PAD: float = 14.0
 const ART_DIR: String = "res://assets/ui/cards/"
 
 
-## A 2:1 card: `heading` small at the top left, `choice` big at the bottom left, no subtitle.
-static func make_card(heading: String, choice: String, color: String, size: Vector2 = CARD_SIZE, art_id: String = "", left_pad: float = 0.0) -> Button:
+## A card: `heading` small at the top left, `choice` big at the bottom left, no subtitle.
+static func make_card(heading: String, choice: String, color: String, size: Vector2 = CARD_SIZE, art_id: String = "") -> Button:
 	var card: Button = MenuDialog.make_button("", color, 26, size)
 	var art_path: String = "%s%s.png" % [ART_DIR, art_id]
 	if not art_id.is_empty() and ResourceLoader.exists(art_path):
@@ -28,7 +29,7 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	top.add_theme_color_override("font_color", KalyeahTheme.semantic_text_color(color))
 	top.modulate.a = 0.75
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	top.offset_left = PAD + left_pad
+	top.offset_left = PAD
 	top.offset_top = PAD - 2.0
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.visible = not heading.is_empty()
@@ -36,14 +37,14 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	var name_label: Label = Label.new()
 	name_label.name = "Choice"
 	name_label.theme_type_variation = &"DisplayLabel"
-	name_label.add_theme_font_size_override("font_size", 26)
+	name_label.add_theme_font_size_override("font_size", 32)
 	name_label.add_theme_color_override("font_color", KalyeahTheme.semantic_text_color(color))
 	name_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	name_label.add_theme_constant_override("outline_size", 0)
 	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	name_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	name_label.offset_left = PAD + left_pad
+	name_label.offset_left = PAD
 	name_label.offset_right = -PAD
 	name_label.offset_bottom = -PAD + 2.0
 	name_label.text = choice

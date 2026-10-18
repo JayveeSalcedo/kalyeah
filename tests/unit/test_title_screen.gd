@@ -62,7 +62,6 @@ func _phone_screen() -> TitleScreen:
 func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
 	assert_null(screen.find_child("TopBar", true, false), "no top row: no K! and no settings icon")
-	assert_null(screen.find_child("SettingsButton", true, false))
 	assert_null(screen.find_child("Logo", true, false))
 	assert_not_null(screen.carousel, "the mode carousel")
 	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
@@ -72,28 +71,63 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
-func test_the_battle_page_starts_at_the_top_with_the_carousel_left_and_details_right() -> void:
+func test_the_home_page_stacks_carousel_then_actions_then_the_page_buttons() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var strip: Rect2 = screen.carousel.get_global_rect()
-	var buttons: Rect2 = screen.primary_button.get_global_rect()
+	var create: Rect2 = screen.primary_button.get_global_rect()
 	var join: Rect2 = screen.secondary_button.get_global_rect()
-	assert_gt(strip.position.y, 60.0, "below the safe top, with no top row")
-	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
-	assert_lte(join.end.x, 720.0)
-	assert_gt(join.end.x - buttons.position.x, 400.0, "the details and buttons get the room the hidden card edge frees")
-	assert_lt(join.end.y, screen.nav.get_global_rect().position.y, "and end above the bar")
-	assert_almost_eq(buttons.position.y, join.position.y, 1.0, "create and join are in one row")
-	assert_almost_eq(screen.mode_name_label.get_global_rect().position.y, screen.carousel.cards[0].get_global_rect().position.y, 20.0, "the details start level with the chosen card")
+	assert_gt(strip.size.x, 600.0, "the carousel runs across the screen")
+	assert_gte(strip.position.x, 0.0)
+	assert_lte(strip.end.x, 720.0)
+	assert_lt(strip.end.y, create.position.y, "the action buttons are below the cards")
+	assert_almost_eq(create.position.y, join.position.y, 1.0, "create and join are in one row")
+	var previous: float = create.end.y
+	for section: Dictionary in TitleScreen.SECTIONS:
+		var button: Rect2 = screen.section_buttons[section["id"]].get_global_rect()
+		assert_gt(button.position.y, previous - 1.0, "the section is under the actions")
+		assert_lt(button.end.y, 1280.0)
+		assert_gte(button.size.y, 88.0, "%s is tall enough for a thumb" % section["label"])
+	assert_null(screen.find_child("BottomNav", true, false), "no bottom nav bar")
 
 
-func test_a_fifth_of_each_card_is_past_the_screens_left_edge() -> void:
+func test_the_section_has_a_button_each_for_characters_weapons_history_and_settings() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var middle: Button = screen.carousel.cards[0]
-	var shown: Rect2 = middle.get_global_rect()
-	assert_almost_eq(shown.position.x, -0.2 * ChoiceCard.CARD_SIZE.x, 1.0, "20% of the card is outside the screen")
-	assert_almost_eq(shown.end.x, 0.8 * ChoiceCard.CARD_SIZE.x, 1.0)
+	var ids: Array[StringName] = []
+	var last_x: float = -1.0
+	for section: Dictionary in TitleScreen.SECTIONS:
+		ids.append(section["id"])
+		var button: Rect2 = screen.section_buttons[section["id"]].get_global_rect()
+		assert_gt(button.position.x, last_x, "left to right in order")
+		last_x = button.position.x
+	assert_eq(ids, [&"characters", &"weapons", &"history", &"settings"])
+
+
+func test_a_section_button_opens_its_page_and_back_returns_home() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(2)
+	for section: Dictionary in TitleScreen.SECTIONS:
+		var id: StringName = section["id"]
+		screen.section_buttons[id].pressed.emit()
+		assert_eq(screen.current_page, id)
+		assert_true(screen.pages[id].visible, "%s page is open" % id)
+		assert_false(screen.carousel.is_visible_in_tree(), "over the home page")
+		for other: StringName in screen.pages:
+			assert_eq(screen.pages[other].visible, other == id)
+		screen.back_button.pressed.emit()
+		assert_eq(screen.current_page, &"")
+		assert_true(screen.carousel.is_visible_in_tree(), "back on the home page")
+
+
+func test_android_back_closes_a_page_before_asking_to_quit() -> void:
+	var screen: TitleScreen = _screen()
+	screen.open_page(&"weapons")
+	screen._go_back()
+	assert_eq(screen.current_page, &"")
+	assert_null(screen.dialog, "no quit question yet")
+	screen._go_back()
+	assert_not_null(screen.dialog, "from the home page it asks to quit")
 
 
 func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front() -> void:
@@ -106,15 +140,17 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_eq(ChoiceCard.choice_of(strip.cards[2]), "PRACTICE")
 	var middle: Button = strip.cards[0]
 	var next: Button = strip.cards[1]
-	assert_almost_eq(middle.size.x / middle.size.y, 2.0, 0.01, "2:1 cards")
+	assert_almost_eq(middle.size.x / middle.size.y, 0.75, 0.01, "3:4 cards")
+	assert_almost_eq(middle.get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is in the middle")
 	assert_eq(middle.modulate.a, 1.0)
 	assert_lt(next.modulate.a, 1.0, "the next card is see-through")
 	assert_lt(next.scale.x, middle.scale.x, "and smaller")
 	assert_lt(next.z_index, middle.z_index, "and behind")
-	assert_gt(next.position.y + next.size.y / 2.0, middle.position.y + middle.size.y / 2.0, "and below it")
+	assert_gt(next.get_global_rect().get_center().x, middle.get_global_rect().get_center().x, "and to its right")
 	strip.select(1, false)
 	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
 	assert_lt(strip.cards[0].modulate.a, 1.0)
+	assert_lt(strip.cards[0].get_global_rect().get_center().x, strip.cards[1].get_global_rect().get_center().x, "the previous card is on the left")
 	assert_eq(screen.mode_name_label.text, "ONLINE", "the details follow the chosen card")
 	assert_eq(screen.primary_button.text, "CREATE")
 	strip.select(2, false)
@@ -123,7 +159,7 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_false(screen.secondary_button.visible, "and has nothing to join")
 
 
-func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
+func test_swiping_and_tapping_the_carousel_changes_the_card() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var strip: MenuCarousel = screen.carousel
@@ -135,25 +171,25 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	await wait_seconds(0.4)
 	var press: InputEventMouseButton = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
-	press.position = Vector2(100.0, strip.size.y / 2.0 + 300.0)
+	press.position = Vector2(strip.size.x / 2.0 + 200.0, 100.0)
 	press.pressed = true
 	strip._gui_input(press)
 	var drag: InputEventMouseMotion = InputEventMouseMotion.new()
-	drag.position = Vector2(100.0, strip.size.y / 2.0 + 300.0 - MenuCarousel.STEP * 1.1)
+	drag.position = Vector2(strip.size.x / 2.0 + 200.0 - MenuCarousel.STEP * 1.1, 100.0)
 	strip._gui_input(drag)
 	press.pressed = false
 	press.position = drag.position
 	strip._gui_input(press)
-	assert_eq(strip.index, 2, "dragging up scrolls on to the third card")
+	assert_eq(strip.index, 2, "swiping left scrolls on to the third card")
 	await wait_seconds(0.4)
 	var tap: InputEventMouseButton = InputEventMouseButton.new()
 	tap.button_index = MOUSE_BUTTON_LEFT
-	tap.position = Vector2(100.0, strip.size.y / 2.0 - MenuCarousel.STEP)
+	tap.position = Vector2(strip.size.x / 2.0 - MenuCarousel.STEP, strip.size.y / 2.0)
 	tap.pressed = true
 	strip._gui_input(tap)
 	tap.pressed = false
 	strip._gui_input(tap)
-	assert_eq(strip.index, 1, "tapping the card above brings it to the middle")
+	assert_eq(strip.index, 1, "tapping the card on the left brings it to the middle")
 
 
 func test_create_and_join_share_one_row_and_the_texts_are_one_line() -> void:
@@ -248,7 +284,7 @@ func test_cancelling_the_rename_keeps_the_old_name() -> void:
 
 
 func _settings_open(screen: TitleScreen) -> SettingsPage:
-	screen.nav.select(&"settings")
+	screen.open_page(&"settings")
 	return screen.settings_page
 
 
