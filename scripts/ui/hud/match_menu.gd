@@ -33,9 +33,9 @@ func _ready() -> void:
 	add_child(backdrop)
 	var card: PanelContainer = PanelContainer.new()
 	_centered(card, Rect2(-CARD_SIZE / 2.0, CARD_SIZE))
-	var card_style: StyleBoxTexture = KalyeahTheme.painted_panel()
+	var card_style: StyleBoxFlat = KalyeahTheme.painted_panel()
 	card_style.content_margin_top = 64.0
-	card_style.modulate_color = Color(1.0, 1.0, 1.0, CARD_ALPHA)
+	card_style.bg_color = Color(card_style.bg_color, CARD_ALPHA)
 	card.add_theme_stylebox_override("panel", card_style)
 	add_child(card)
 	var column: VBoxContainer = VBoxContainer.new()

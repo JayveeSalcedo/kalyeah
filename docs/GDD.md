@@ -130,7 +130,7 @@ Before the first round (6 s, `intro_time`; the server runs it too, nobody moves 
 
 ## Lobby rules
 - The host picks **Best of 3 / 5 / 7** in the room (default 3); only the host can change it, only before the start.
-- Modes: 1v1, 2v2, 3v3. Passcode: 6 chars, A–Z/2–9, no ambiguous chars.
+- Modes: 1v1, 2v2, 3v3. Passcode: 8 characters, A–Z/2–9, no ambiguous characters.
 - Start allowed when: every present player is Ready AND one team has N players AND the other has ≥ N−1 (N=1 requires both).
 - Host leaves in lobby → next player becomes host. Player disconnect in match → slot stays, 60 s to reconnect.
 - Implementation defaults (M4):
