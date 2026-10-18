@@ -85,7 +85,10 @@ func test_a_tip_floats_just_above_the_base_and_fits_the_screen() -> void:
 	assert_gte(tip.position.x, 0.0)
 	assert_lte(tip.end.x, 720.0)
 	assert_eq(boot._tip.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
-	assert_eq(boot._tip.get_theme_font("font"), BootScreen.PERCENT_FONT, "the tip uses Lost Tumbler too")
+	assert_eq(boot._tip.get_theme_font("font"), KalyeahTheme.BODY_FONT, "the tip is sentence case in the body font (Lost Tumbler only has capitals)")
+	for line: String in BootScreen.TIPS:
+		assert_ne(line, line.to_upper(), "sentence case, not all capitals")
+		assert_eq(line[0], line[0].to_upper(), "starts with a capital")
 	for line: String in BootScreen.TIPS:
 		assert_lt(line.length(), 80, "short enough for two lines")
 	boot.queue_free()
