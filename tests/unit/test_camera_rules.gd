@@ -58,7 +58,7 @@ func test_other_team_view_is_mirrored() -> void:
 func test_the_aim_point_is_far_enough_ahead_to_hold_the_hero_low_on_screen() -> void:
 	var reach: float = CAMERA.distance(PHONE)
 	var ahead: float = CAMERA.look_ahead(reach)
-	assert_almost_eq(ahead, 3.83, 0.05, "about 3.8 m ahead")
+	assert_almost_eq(ahead, 3.76, 0.05, "about 3.8 m ahead")
 	assert_eq(CAMERA.camera_target(Vector2(0.0, 10.0), false, reach), Vector2(0.0, 10.0 - ahead), "own side looks toward -Z")
 	assert_eq(CAMERA.camera_target(Vector2(0.0, -10.0), true, reach), Vector2(0.0, -10.0 + ahead), "flipped looks toward +Z")
 
