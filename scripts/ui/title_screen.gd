@@ -1,8 +1,9 @@
 class_name TitleScreen
 extends Control
-## The main screen. The home page: a top row with the book (left), the KALYEAH! logo (middle) and
-## the history and settings buttons (right); a horizontal carousel of large 3:4 mode cards (Hotspot,
-## Online, Practice) with every card always visible, stacked behind the chosen one; and the chosen
+## The main screen. The home page: a top row with the KALYEAH! logo (left) and the settings button
+## (right); under it the book and history buttons in a column at the left of a horizontal carousel
+## of large 3:4 mode cards (Hotspot, Online, Practice) that never draws over them, every card always
+## visible, stacked behind the chosen one; and the chosen
 ## mode's name and one phrase centred between the cards and the action buttons, which sit low on
 ## the screen. A page opens over the home page with a Back button (so does Android Back). Settings holds the player's name and the infrequent quit
 ## action, while Android Back on the home page asks to quit.
@@ -23,14 +24,15 @@ const MODES: Array[Dictionary] = [
 ]
 ## The KALYEAH! logo (the owner's cardboard sign) at the centre top of the home page.
 const LOGO: Texture2D = preload("res://assets/ui/kalyeah_logo.png")
-const LOGO_WIDTH: float = 300.0
+const LOGO_WIDTH: float = 270.0
 ## How far the logo and the corner buttons sit down from the top.
 const TOP_ROW_DROP: float = 26.0
 const CORNER_BUTTON: float = 84.0
-## The corner buttons: the book on the left, history and settings on the right.
+## The corner buttons: the book and history in a column at the left of the cards, settings at the
+## top right.
 const CORNERS: Array[Dictionary] = [
 	{"id": &"codex", "icon": &"book", "side": &"left"},
-	{"id": &"history", "icon": &"history", "side": &"right"},
+	{"id": &"history", "icon": &"history", "side": &"left"},
 	{"id": &"settings", "icon": &"settings", "side": &"right"},
 ]
 ## Room left under the action buttons so they sit low on the screen, but not at its very bottom.
@@ -148,19 +150,13 @@ func _build_home() -> VBoxContainer:
 	home.add_theme_constant_override("separation", 6)
 	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.add_child(_build_top_row())
-	# a little room above the cards, then the cards at their own height
+	# a little room above the cards, then the stage at its own height
 	var above: Control = Control.new()
 	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	above.size_flags_stretch_ratio = 0.5
 	above.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.add_child(above)
-	carousel = MenuCarousel.new()
-	carousel.name = "ModeCarousel"
-	carousel.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y)
-	carousel.size_flags_horizontal = Control.SIZE_FILL
-	carousel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-	home.add_child(carousel)
-	carousel.setup("", MODES, Session.menu_mode)
+	home.add_child(_build_stage())
 	home.add_child(_build_titles())
 	home.add_child(_build_actions())
 	# a little room under the buttons: low on the screen, but not at the very bottom
@@ -171,60 +167,80 @@ func _build_home() -> VBoxContainer:
 	return home
 
 
-## The top row: the book at the left, the KALYEAH! logo in the middle, history and settings at the
-## right, all on one line (the logo level with the buttons).
+## The top row: the KALYEAH! logo at the left and the settings button at the right, level with
+## each other and a little down from the top of the screen.
 func _build_top_row() -> Control:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.name = "TopRow"
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var left: HBoxContainer = HBoxContainer.new()
-	left.name = "Left"
-	left.custom_minimum_size = Vector2(CORNER_BUTTON * 2.0 + 12.0, 0.0)
-	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var right: HBoxContainer = HBoxContainer.new()
-	right.name = "Right"
-	right.custom_minimum_size = Vector2(CORNER_BUTTON * 2.0 + 12.0, 0.0)
-	right.alignment = BoxContainer.ALIGNMENT_END
-	right.add_theme_constant_override("separation", 12)
-	right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(left)
-	logo = TextureRect.new()
-	logo.name = "Logo"
-	logo.texture = LOGO
-	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# it takes the width left between the corner buttons (never wider than LOGO_WIDTH) and keeps its shape
-	logo.custom_minimum_size = Vector2(0.0, LOGO_WIDTH * float(LOGO.get_height()) / float(LOGO.get_width()))
-	logo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(logo)
-	row.add_child(right)
-	for corner: Dictionary in CORNERS:
-		var id: StringName = corner["id"]
-		var button: Button = MenuDialog.make_button("", "blue", 20, Vector2(CORNER_BUTTON, CORNER_BUTTON))
-		button.name = "%sButton" % String(id).capitalize()
-		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var centre: CenterContainer = CenterContainer.new()
-		centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var icon: NavIcon = NavIcon.new(corner["icon"] as StringName)
-		icon.color = CREAM
-		centre.add_child(icon)
-		button.add_child(centre)
-		button.pressed.connect(open_page.bind(id))
-		(left if corner["side"] == &"left" else right).add_child(button)
-		corner_buttons[id] = button
-	# the row sits a little down from the top of the screen
 	var holder: VBoxContainer = VBoxContainer.new()
+	holder.name = "TopRow"
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var drop: Control = Control.new()
 	drop.custom_minimum_size = Vector2(0.0, TOP_ROW_DROP)
 	drop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(drop)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(row)
+	logo = TextureRect.new()
+	logo.name = "Logo"
+	logo.texture = LOGO
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(LOGO_WIDTH, LOGO_WIDTH * float(LOGO.get_height()) / float(LOGO.get_width()))
+	logo.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(logo)
+	var spacer: Control = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(spacer)
+	for corner: Dictionary in CORNERS:
+		if corner["side"] == &"right":
+			row.add_child(_corner_button(corner))
 	return holder
+
+
+## The stage: the book and history buttons in a column at the left, the card carousel to the right
+## of them. The carousel clips its cards, so scrolling never draws them over the buttons.
+func _build_stage() -> Control:
+	var stage: HBoxContainer = HBoxContainer.new()
+	stage.name = "Stage"
+	stage.add_theme_constant_override("separation", 14)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var column: VBoxContainer = VBoxContainer.new()
+	column.name = "Left"
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 16)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(column)
+	for corner: Dictionary in CORNERS:
+		if corner["side"] == &"left":
+			column.add_child(_corner_button(corner))
+	carousel = MenuCarousel.new()
+	carousel.name = "ModeCarousel"
+	carousel.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y + 24.0)
+	carousel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stage.add_child(carousel)
+	carousel.setup("", MODES, Session.menu_mode)
+	return stage
+
+
+## One of the painted round-cornered icon buttons (book, history, settings).
+func _corner_button(corner: Dictionary) -> Button:
+	var id: StringName = corner["id"]
+	var button: Button = MenuDialog.make_button("", "blue", 20, Vector2(CORNER_BUTTON, CORNER_BUTTON))
+	button.name = "%sButton" % String(id).capitalize()
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var centre: CenterContainer = CenterContainer.new()
+	centre.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon: NavIcon = NavIcon.new(corner["icon"] as StringName)
+	icon.color = CREAM
+	centre.add_child(icon)
+	button.add_child(centre)
+	button.pressed.connect(open_page.bind(id))
+	corner_buttons[id] = button
+	return button
 
 
 ## The mode's name and its one short phrase, centred in the space between the cards and the

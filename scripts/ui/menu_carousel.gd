@@ -1,7 +1,7 @@
 class_name MenuCarousel
 extends Control
 ## A horizontal carousel of 3:4 cards. The chosen card is in the middle at full size; every other
-## card is stacked behind it, pushed only a little to its left or right, smaller and see-through but
+## card is stacked behind it, pushed only a little to its left or right (and kept inside this control), smaller and see-through but
 ## always visible. Drag or swipe sideways (or use the mouse wheel) to scroll, tap a card to bring it to
 ## the middle.
 
@@ -9,7 +9,7 @@ signal selected(index: int)
 
 const CARD: Vector2 = ChoiceCard.CARD_SIZE
 ## Distance between the middles of two neighbouring cards: less than a card's width, so they overlap.
-const STEP: float = 112.0
+const STEP: float = 76.0
 ## Each step away from the middle shrinks a card by this much (and a card is never smaller than the
 ## one two steps away).
 const SCALE_LOSS: float = 0.14
@@ -47,7 +47,8 @@ func setup(heading: String, options: Array[Dictionary], current: int) -> void:
 
 
 func _ready() -> void:
-	clip_contents = false
+	# cards never leave this rectangle: scrolling can't draw them over the buttons beside it
+	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_layout()
 
