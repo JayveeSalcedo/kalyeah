@@ -15,12 +15,13 @@ const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
 ## The game modes, first is the default (owner: hotspot first, not online).
 const MODES: Array[Dictionary] = [
 	{"id": "hotspot", "title": "HOTSPOT", "color": "blue",
-		"text": "Same hotspot or Wi-Fi."},
+		"text": "Play with your friends offline."},
 	{"id": "online", "title": "ONLINE", "color": "orange",
-		"text": "Rooms on the game server."},
+		"text": "Play with players online."},
 	{"id": "practice", "title": "PRACTICE", "color": "green",
-		"text": "Alone against dummies."},
+		"text": "Train alone against dummies."},
 ]
+const CAROUSEL_HEIGHT: float = 340.0
 const LOGO: String = "res://assets/ui/k_logo.png"
 
 const SIDE_MARGIN: float = 34.0
@@ -123,7 +124,14 @@ func _build_layout() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
-	column.add_child(_build_middle())
+	# the middle row is centred in the space under the top row
+	var centre: VBoxContainer = VBoxContainer.new()
+	centre.name = "MiddleCentre"
+	centre.alignment = BoxContainer.ALIGNMENT_CENTER
+	centre.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	centre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(centre)
+	centre.add_child(_build_middle())
 
 
 ## The mode carousel on the left, the details and the action buttons on the right, centred in the
@@ -131,15 +139,15 @@ func _build_layout() -> void:
 func _build_middle() -> Control:
 	var middle: HBoxContainer = HBoxContainer.new()
 	middle.name = "Middle"
-	middle.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	middle.size_flags_horizontal = Control.SIZE_FILL
 	middle.alignment = BoxContainer.ALIGNMENT_CENTER
 	middle.add_theme_constant_override("separation", 24)
 	middle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	carousel = MenuCarousel.new()
 	carousel.name = "ModeCarousel"
 	# the visible part of a card: 80% of it, counted from the screen's edge (the margin is part of it)
-	carousel.custom_minimum_size = Vector2(ChoiceCard.CARD_SIZE.x * (1.0 - MenuCarousel.HIDDEN_LEFT) - SIDE_MARGIN, 560.0)
-	carousel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	carousel.custom_minimum_size = Vector2(ChoiceCard.CARD_SIZE.x * (1.0 - MenuCarousel.HIDDEN_LEFT) - SIDE_MARGIN, CAROUSEL_HEIGHT)
+	carousel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	middle.add_child(carousel)
 	carousel.setup("", MODES, Session.menu_mode)
 	middle.add_child(_build_details())
@@ -150,9 +158,15 @@ func _build_details() -> Control:
 	var details: VBoxContainer = VBoxContainer.new()
 	details.name = "Details"
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	details.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	details.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	details.add_theme_constant_override("separation", 12)
 	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the details start level with the top of the chosen card (the carousel has room for the
+	# neighbouring cards above it)
+	var level: Control = Control.new()
+	level.custom_minimum_size = Vector2(0.0, (CAROUSEL_HEIGHT - ChoiceCard.CARD_SIZE.y) / 2.0 - 12.0)
+	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	details.add_child(level)
 	mode_name_label = Label.new()
 	mode_name_label.name = "ModeName"
 	mode_name_label.theme_type_variation = &"DisplayLabel"

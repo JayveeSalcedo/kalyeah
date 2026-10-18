@@ -92,6 +92,7 @@ func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void
 	assert_almost_eq(logo.get_center().y, gear.get_center().y, 8.0, "one top row")
 	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
 	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
+	assert_almost_eq(screen.mode_name_label.get_global_rect().position.y, screen.carousel.cards[0].get_global_rect().position.y, 20.0, "the details start level with the chosen card")
 	var join: Rect2 = screen.secondary_button.get_global_rect()
 	assert_lte(join.end.x, 720.0)
 	assert_gt(join.end.x - buttons.position.x, 400.0, "the details and buttons get the room the hidden card edge frees")

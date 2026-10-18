@@ -36,11 +36,11 @@ static func make_card(heading: String, choice: String, color: String, size: Vect
 	var name_label: Label = Label.new()
 	name_label.name = "Choice"
 	name_label.theme_type_variation = &"DisplayLabel"
-	name_label.add_theme_font_size_override("font_size", 28)
+	name_label.add_theme_font_size_override("font_size", 26)
 	name_label.add_theme_color_override("font_color", KalyeahTheme.semantic_text_color(color))
 	name_label.add_theme_color_override("font_outline_color", Color.TRANSPARENT)
 	name_label.add_theme_constant_override("outline_size", 0)
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	name_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	name_label.offset_left = PAD + left_pad
