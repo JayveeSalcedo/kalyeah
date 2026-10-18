@@ -7,7 +7,6 @@ var _saved_name: String
 var _saved_avatar: String
 var _saved_volume: float
 var _saved_url: String
-var _saved_hotspot: String
 var _saved_vibration: bool
 
 
@@ -16,7 +15,6 @@ func before_each() -> void:
 	_saved_avatar = Session.avatar_id
 	_saved_volume = Settings.volume
 	_saved_url = Settings.server_url
-	_saved_hotspot = Settings.hotspot_url
 	_saved_vibration = Settings.vibration
 
 
@@ -26,8 +24,7 @@ func after_each() -> void:
 	Session.save()
 	Settings.set_volume(_saved_volume)
 	Settings.set_vibration(_saved_vibration)
-	Settings.save_server_url(_saved_url)
-	Settings.save_hotspot_url(_saved_hotspot)
+	Settings.server_url = _saved_url
 	Session.lobby_hotspot = false
 	Session.menu_mode = 0
 
@@ -64,8 +61,7 @@ func _phone_screen() -> TitleScreen:
 
 func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
-	assert_not_null(screen.logo, "the K! logo")
-	assert_not_null(screen.settings_button, "settings")
+	assert_null(screen.find_child("TopBar", true, false), "no top row: no K! and no settings icon")
 	assert_not_null(screen.carousel, "the mode carousel")
 	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
 	assert_null(screen.find_child("MapButton", true, false), "no map button")
@@ -74,39 +70,69 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
-func test_the_logo_is_the_loading_screens_k() -> void:
-	var screen: TitleScreen = _screen()
-	assert_true(screen.logo is TextureRect, "the owner's picture, not a stand-in")
-	assert_eq((screen.logo as TextureRect).texture.get_size(), (load("res://assets/ui/boot/boot_icon.png") as Texture2D).get_size(), "the K! of the loading screen")
-
-
-func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void:
+func test_the_home_page_stacks_carousel_then_actions_then_the_page_buttons() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var logo: Rect2 = screen.logo.get_global_rect()
-	var gear: Rect2 = screen.settings_button.get_global_rect()
 	var strip: Rect2 = screen.carousel.get_global_rect()
-	var buttons: Rect2 = screen.primary_button.get_global_rect()
-	assert_lt(logo.position.x, 120.0, "the logo is on the left")
-	assert_gt(gear.end.x, 720.0 - 120.0, "settings is on the right")
-	assert_almost_eq(logo.get_center().y, gear.get_center().y, 8.0, "one top row")
-	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
-	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
-	assert_almost_eq(screen.mode_name_label.get_global_rect().position.y, screen.carousel.cards[0].get_global_rect().position.y, 20.0, "the details start level with the chosen card")
+	var create: Rect2 = screen.primary_button.get_global_rect()
 	var join: Rect2 = screen.secondary_button.get_global_rect()
-	assert_lte(join.end.x, 720.0)
-	assert_gt(join.end.x - buttons.position.x, 400.0, "the details and buttons get the room the hidden card edge frees")
-	assert_lt(screen.secondary_button.get_global_rect().end.y, 1280.0)
-	assert_almost_eq(buttons.position.y, join.position.y, 1.0, "create and join are in one row")
+	assert_gt(strip.size.x, 600.0, "the carousel runs across the screen")
+	assert_gte(strip.position.x, 0.0)
+	assert_lte(strip.end.x, 720.0)
+	assert_lt(strip.end.y, create.position.y, "the action buttons are below the cards")
+	assert_almost_eq(create.position.y, join.position.y, 1.0, "create and join are in one row")
+	var previous: float = create.end.y
+	for section: Dictionary in TitleScreen.SECTIONS:
+		var button: Rect2 = screen.section_buttons[section["id"]].get_global_rect()
+		assert_gt(button.position.y, previous - 1.0, "the section is under the actions")
+		assert_lt(button.end.y, 1280.0)
+		assert_gte(button.size.y, 88.0, "%s is tall enough for a thumb" % section["label"])
+	assert_null(screen.find_child("BottomNav", true, false), "no bottom nav bar")
+	var mark: Rect2 = screen.logo.get_global_rect()
+	assert_almost_eq(mark.get_center().x, 360.0, 2.0, "the logo is at the centre")
+	assert_lt(mark.position.y, 140.0, "at the top")
+	assert_lt(mark.end.y, strip.position.y, "above the cards")
+	assert_eq(screen.logo.texture, load("res://assets/ui/kalyeah_logo.png"), "the owner's KALYEAH! logo, not the K!")
+	assert_almost_eq(mark.size.x / mark.size.y, 1000.0 / 357.0, 0.02, "in its own proportions")
 
 
-func test_a_fifth_of_each_card_is_past_the_screens_left_edge() -> void:
+func test_the_section_has_a_button_each_for_characters_weapons_history_and_settings() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var middle: Button = screen.carousel.cards[0]
-	var shown: Rect2 = middle.get_global_rect()
-	assert_almost_eq(shown.position.x, -0.2 * ChoiceCard.CARD_SIZE.x, 1.0, "20% of the card is outside the screen")
-	assert_almost_eq(shown.end.x, 0.8 * ChoiceCard.CARD_SIZE.x, 1.0)
+	var ids: Array[StringName] = []
+	var last_x: float = -1.0
+	for section: Dictionary in TitleScreen.SECTIONS:
+		ids.append(section["id"])
+		var button: Rect2 = screen.section_buttons[section["id"]].get_global_rect()
+		assert_gt(button.position.x, last_x, "left to right in order")
+		last_x = button.position.x
+	assert_eq(ids, [&"characters", &"weapons", &"history", &"settings"])
+
+
+func test_a_section_button_opens_its_page_and_back_returns_home() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(2)
+	for section: Dictionary in TitleScreen.SECTIONS:
+		var id: StringName = section["id"]
+		screen.section_buttons[id].pressed.emit()
+		assert_eq(screen.current_page, id)
+		assert_true(screen.pages[id].visible, "%s page is open" % id)
+		assert_false(screen.carousel.is_visible_in_tree(), "over the home page")
+		for other: StringName in screen.pages:
+			assert_eq(screen.pages[other].visible, other == id)
+		screen.back_button.pressed.emit()
+		assert_eq(screen.current_page, &"")
+		assert_true(screen.carousel.is_visible_in_tree(), "back on the home page")
+
+
+func test_android_back_closes_a_page_before_asking_to_quit() -> void:
+	var screen: TitleScreen = _screen()
+	screen.open_page(&"weapons")
+	screen._go_back()
+	assert_eq(screen.current_page, &"")
+	assert_null(screen.dialog, "no quit question yet")
+	screen._go_back()
+	assert_not_null(screen.dialog, "from the home page it asks to quit")
 
 
 func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front() -> void:
@@ -119,15 +145,17 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_eq(ChoiceCard.choice_of(strip.cards[2]), "PRACTICE")
 	var middle: Button = strip.cards[0]
 	var next: Button = strip.cards[1]
-	assert_almost_eq(middle.size.x / middle.size.y, 2.0, 0.01, "2:1 cards")
+	assert_almost_eq(middle.size.x / middle.size.y, 0.75, 0.01, "3:4 cards")
+	assert_almost_eq(middle.get_global_rect().get_center().x, 360.0, 2.0, "the chosen card is in the middle")
 	assert_eq(middle.modulate.a, 1.0)
 	assert_lt(next.modulate.a, 1.0, "the next card is see-through")
 	assert_lt(next.scale.x, middle.scale.x, "and smaller")
 	assert_lt(next.z_index, middle.z_index, "and behind")
-	assert_gt(next.position.y + next.size.y / 2.0, middle.position.y + middle.size.y / 2.0, "and below it")
+	assert_gt(next.get_global_rect().get_center().x, middle.get_global_rect().get_center().x, "and to its right")
 	strip.select(1, false)
 	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
 	assert_lt(strip.cards[0].modulate.a, 1.0)
+	assert_lt(strip.cards[0].get_global_rect().get_center().x, strip.cards[1].get_global_rect().get_center().x, "the previous card is on the left")
 	assert_eq(screen.mode_name_label.text, "ONLINE", "the details follow the chosen card")
 	assert_eq(screen.primary_button.text, "CREATE")
 	strip.select(2, false)
@@ -136,7 +164,7 @@ func test_the_carousel_is_hotspot_online_practice_with_the_chosen_card_in_front(
 	assert_false(screen.secondary_button.visible, "and has nothing to join")
 
 
-func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
+func test_swiping_and_tapping_the_carousel_changes_the_card() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var strip: MenuCarousel = screen.carousel
@@ -148,25 +176,25 @@ func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
 	await wait_seconds(0.4)
 	var press: InputEventMouseButton = InputEventMouseButton.new()
 	press.button_index = MOUSE_BUTTON_LEFT
-	press.position = Vector2(100.0, strip.size.y / 2.0 + 300.0)
+	press.position = Vector2(strip.size.x / 2.0 + 200.0, 100.0)
 	press.pressed = true
 	strip._gui_input(press)
 	var drag: InputEventMouseMotion = InputEventMouseMotion.new()
-	drag.position = Vector2(100.0, strip.size.y / 2.0 + 300.0 - MenuCarousel.STEP * 1.1)
+	drag.position = Vector2(strip.size.x / 2.0 + 200.0 - MenuCarousel.STEP * 1.1, 100.0)
 	strip._gui_input(drag)
 	press.pressed = false
 	press.position = drag.position
 	strip._gui_input(press)
-	assert_eq(strip.index, 2, "dragging up scrolls on to the third card")
+	assert_eq(strip.index, 2, "swiping left scrolls on to the third card")
 	await wait_seconds(0.4)
 	var tap: InputEventMouseButton = InputEventMouseButton.new()
 	tap.button_index = MOUSE_BUTTON_LEFT
-	tap.position = Vector2(100.0, strip.size.y / 2.0 - MenuCarousel.STEP)
+	tap.position = Vector2(strip.size.x / 2.0 - MenuCarousel.STEP, strip.size.y / 2.0)
 	tap.pressed = true
 	strip._gui_input(tap)
 	tap.pressed = false
 	strip._gui_input(tap)
-	assert_eq(strip.index, 1, "tapping the card above brings it to the middle")
+	assert_eq(strip.index, 1, "tapping the card on the left brings it to the middle")
 
 
 func test_create_and_join_share_one_row_and_the_texts_are_one_line() -> void:
@@ -215,9 +243,8 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.primary_button, screen.secondary_button, screen.settings_button]:
+	for button: Button in [screen.primary_button, screen.secondary_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
-	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
 
 func test_a_new_player_gets_a_name_and_a_face() -> void:
@@ -232,13 +259,7 @@ func test_a_new_player_gets_a_name_and_a_face() -> void:
 	assert_eq(Session.player_name, name_now, "an existing profile is kept")
 
 
-func test_the_profile_shows_your_name_and_your_character_face() -> void:
-	Session.player_name = "Juan"
-	Session.avatar_id = "toni"
-	var screen: TitleScreen = _screen()
-	screen.open_settings()
-	var name_label: Label = screen.profile_button.find_children("*", "Label", true, false)[0] as Label
-	assert_eq(name_label.text, "Juan")
+func test_every_character_has_a_face_for_the_avatar() -> void:
 	for kid: String in Session.AVATARS:
 		assert_not_null(KidModel.minimap_face(StringName(kid)), "%s has a face for the avatar" % kid)
 
@@ -267,25 +288,28 @@ func test_cancelling_the_rename_keeps_the_old_name() -> void:
 	assert_eq(Session.player_name, "Pedro")
 
 
-func test_settings_change_the_volume_and_remember_the_server() -> void:
+func _settings_open(screen: TitleScreen) -> SettingsPage:
+	screen.open_page(&"settings")
+	return screen.settings_page
+
+
+func test_settings_change_the_volume() -> void:
 	var screen: TitleScreen = _screen()
-	var card: MenuDialog = screen.open_settings()
-	var slider: HSlider = _find(card, "VolumeSlider") as HSlider
+	var page: SettingsPage = _settings_open(screen)
+	var slider: HSlider = _find(page, "VolumeSlider") as HSlider
 	slider.value = 0.4
 	assert_almost_eq(Settings.volume, 0.4, 0.001)
 	assert_almost_eq(AudioServer.get_bus_volume_db(0), linear_to_db(0.4), 0.01, "the master volume follows")
-	(_find(card, "ServerField") as LineEdit).text = "wss://example.org"
-	assert_eq((_find(card, "QuitButton") as Button).text, "QUIT GAME")
-	card.close(false)
-	assert_eq(Settings.server_url, "wss://example.org")
+	assert_null(_find(page, "ServerField"), "no server address to type")
+	assert_eq((_find(page, "QuitButton") as Button).text, "QUIT GAME")
 	slider.value = 0.0
 	assert_true(AudioServer.is_bus_mute(0), "zero is silent")
 
 
 func test_vibration_is_only_offered_on_phones() -> void:
 	var screen: TitleScreen = _screen()
-	var card: MenuDialog = screen.open_settings()
-	assert_eq(_find(card, "VibrationToggle") != null, Settings.can_vibrate())
+	var page: SettingsPage = _settings_open(screen)
+	assert_eq(_find(page, "VibrationToggle") != null, Settings.can_vibrate())
 	assert_false(Settings.can_vibrate(), "tests do not run on a phone")
 
 
@@ -310,7 +334,7 @@ func test_quit_asks_first_and_only_quits_on_yes() -> void:
 
 func test_only_one_dialog_is_open_at_a_time() -> void:
 	var screen: TitleScreen = _screen()
-	var first: MenuDialog = screen.open_settings()
+	var first: MenuDialog = screen.open_name_editor()
 	var second: MenuDialog = screen.open_quit_confirm()
 	assert_false(first.is_open)
 	assert_true(second.is_open)
@@ -334,7 +358,6 @@ func test_hotspot_creates_and_joins_without_an_address_or_code() -> void:
 	screen.secondary_button.pressed.emit()
 	assert_eq(Session.lobby_intent, LobbyScreen.Intent.JOIN)
 	assert_eq(opened.size(), 2)
-	assert_eq(Settings.lobby_url(false), Settings.server_url, "the online server is left alone")
 
 
 func test_online_opens_the_lobby_on_the_game_server() -> void:

@@ -158,12 +158,23 @@ func test_the_match_screen_reconnects_by_itself_after_a_drop() -> void:
 	Session.reconnect_url = ""
 
 
-func test_a_hotspot_join_needs_only_a_code_and_refuses_a_foreign_one() -> void:
+func test_a_hotspot_lobby_asks_for_no_address_and_no_code() -> void:
 	Session.lobby_hotspot = true
-	var lobby: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
-	assert_false(lobby._url_edit.visible, "no address to type on a hotspot")
-	lobby.set_fields("", "Ben", "ABCDEFGH")
-	lobby.submit()
-	assert_eq(lobby.status_text(), "That isn't a hotspot room code.")
-	assert_false(clients[0].is_online(), "nothing was dialled")
+	var joining: LobbyScreen = _lobby(LobbyScreen.Intent.JOIN)
+	assert_null(joining.find_child("ServerField", true, false), "no address to type on a hotspot")
+	assert_null(joining._code_edit, "no room code to type either")
+	var creating: LobbyScreen = _lobby(LobbyScreen.Intent.CREATE)
+	assert_false(creating._code_label.visible, "and no code to show")
 	Session.lobby_hotspot = false
+
+
+func test_the_online_lobby_has_no_server_field_and_says_so_when_none_is_built_in() -> void:
+	Session.lobby_hotspot = false
+	var saved: String = Settings.server_url
+	Settings.server_url = ""
+	var lobby: LobbyScreen = _lobby(LobbyScreen.Intent.CREATE)
+	lobby.set_fields("", "Ana")
+	lobby.submit()
+	assert_eq(lobby.status_text(), "Online isn't available yet.")
+	assert_eq(lobby.find_children("*", "LineEdit", true, false).size(), 1, "only the name box")
+	Settings.server_url = saved
