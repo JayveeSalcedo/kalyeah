@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://q81gcecam3bi"
-path="res://.godot/imported/k_logo.png-3beac546f3fc289f397fed9ca3059a58.ctex"
+uid="uid://4i5xewfqep7b"
+path="res://.godot/imported/kalyeah_logo.png-b511c9a645a262c631605ca61a3f8315.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/k_logo.png"
-dest_files=["res://.godot/imported/k_logo.png-3beac546f3fc289f397fed9ca3059a58.ctex"]
+source_file="res://assets/ui/kalyeah_logo.png"
+dest_files=["res://.godot/imported/kalyeah_logo.png-b511c9a645a262c631605ca61a3f8315.ctex"]
 
 [params]
 

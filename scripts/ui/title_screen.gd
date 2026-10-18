@@ -21,9 +21,9 @@ const MODES: Array[Dictionary] = [
 		"text": "Train alone against dummies."},
 ]
 const CAROUSEL_HEIGHT: float = 350.0
-## The Kalyeah logomark (the K! of the loading screen) at the centre top of the home page.
-const LOGO: Texture2D = preload("res://assets/ui/k_logo.png")
-const LOGO_SIZE: float = 132.0
+## The KALYEAH! logo (the owner's cardboard sign) at the centre top of the home page.
+const LOGO: Texture2D = preload("res://assets/ui/kalyeah_logo.png")
+const LOGO_WIDTH: float = 400.0
 ## The section of page buttons under the mode actions.
 const SECTIONS: Array[Dictionary] = [
 	{"id": &"characters", "label": "Characters"},
@@ -142,13 +142,13 @@ func _build_home() -> VBoxContainer:
 	home.name = "Home"
 	home.add_theme_constant_override("separation", 8)
 	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the Kalyeah logomark (the K! of the loading screen) at the centre top
+	# the KALYEAH! logo at the centre top, kept in its own proportions
 	logo = TextureRect.new()
 	logo.name = "Logo"
 	logo.texture = LOGO
 	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	logo.custom_minimum_size = Vector2(LOGO_SIZE, LOGO_SIZE)
+	logo.custom_minimum_size = Vector2(LOGO_WIDTH, LOGO_WIDTH * float(LOGO.get_height()) / float(LOGO.get_width()))
 	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.add_child(logo)

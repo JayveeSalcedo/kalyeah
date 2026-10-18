@@ -89,10 +89,11 @@ func test_the_home_page_stacks_carousel_then_actions_then_the_page_buttons() -> 
 		assert_gte(button.size.y, 88.0, "%s is tall enough for a thumb" % section["label"])
 	assert_null(screen.find_child("BottomNav", true, false), "no bottom nav bar")
 	var mark: Rect2 = screen.logo.get_global_rect()
-	assert_almost_eq(mark.get_center().x, 360.0, 2.0, "the logomark is at the centre")
+	assert_almost_eq(mark.get_center().x, 360.0, 2.0, "the logo is at the centre")
 	assert_lt(mark.position.y, 140.0, "at the top")
 	assert_lt(mark.end.y, strip.position.y, "above the cards")
-	assert_eq(screen.logo.texture.get_size(), (load("res://assets/ui/boot/boot_icon.png") as Texture2D).get_size(), "the K! of the loading screen")
+	assert_eq(screen.logo.texture, load("res://assets/ui/kalyeah_logo.png"), "the owner's KALYEAH! logo, not the K!")
+	assert_almost_eq(mark.size.x / mark.size.y, 1000.0 / 357.0, 0.02, "in its own proportions")
 
 
 func test_the_section_has_a_button_each_for_characters_weapons_history_and_settings() -> void:
