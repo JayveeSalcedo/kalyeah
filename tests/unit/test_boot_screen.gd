@@ -20,17 +20,18 @@ func test_the_fill_runs_from_the_left_end_to_the_right_end() -> void:
 	assert_gt(BootScreen.fill_width(0.6, 1000.0), BootScreen.fill_width(0.3, 1000.0))
 
 
-func test_black_is_the_bottom_layer_with_a_cement_base_and_no_white_bar() -> void:
+func test_a_matte_black_layer_is_underneath_with_a_matte_black_base_and_no_white_bar() -> void:
 	var boot: BootScreen = _boot()
 	boot._layout()
 	var black: ColorRect = boot.find_child("Black", false, false) as ColorRect
-	assert_eq(black.color, Color.BLACK, "black underneath everything")
+	assert_eq(black.color, BootScreen.BASE_COLOR, "matte black underneath everything")
+	assert_ne(black.color, Color.BLACK, "not pure black")
+	assert_lt(black.color.v, 0.15, "still very dark")
 	assert_lt(black.get_index(), boot._art.get_index(), "under the art")
 	assert_lt(black.get_index(), boot._base.get_index(), "and under the base")
 	var band_top: float = 1280.0 - boot.band_height()
 	assert_almost_eq(boot._art.position.y + boot._art.size.y, band_top, 0.5, "the art stops where the base starts")
-	assert_eq(boot._base.color, BootScreen.BASE_COLOR, "the base is the ground's cement colour")
-	assert_between(BootScreen.BASE_COLOR.r, 0.5, 0.8, "light brown-gray like the ground")
+	assert_eq(boot._base.color, BootScreen.BASE_COLOR, "the base is matte black")
 	assert_almost_eq(boot._base.get_global_rect().size.x, 720.0, 0.5, "edge to edge")
 	assert_null(boot.get("_track_rect"), "no white bar")
 	for texture: Node in boot.find_children("*", "TextureRect", true, false):
@@ -38,25 +39,31 @@ func test_black_is_the_bottom_layer_with_a_cement_base_and_no_white_bar() -> voi
 	boot.queue_free()
 
 
-func test_the_cardboard_is_as_big_as_the_base_and_grows_with_the_progress() -> void:
+func test_the_cardboard_keeps_its_proportions_at_the_bases_scale_and_the_base_crops_it() -> void:
 	var boot: BootScreen = _boot()
 	boot.progress = 1.0
 	boot._layout()
-	assert_eq(boot._fill_rect.size, boot._base.size, "the cardboard covers the whole base")
+	var scale_now: float = boot._fill_rect.size.y / BootScreen.FILL_REGION.size.y
+	assert_almost_eq(boot._fill_rect.size.x / BootScreen.FILL_REGION.size.x, scale_now, 0.001, "no stretching: the same scale both ways")
+	assert_almost_eq(boot._fill_rect.size.y, boot._base.size.y, 0.5, "as tall as the base")
+	assert_gte(boot._fill_rect.size.x, boot._base.size.x, "wider than the base, so the base crops it")
 	assert_eq(boot._fill_clip.size, boot._base.size, "full at 100%")
 	boot.progress = 0.25
 	boot._apply_progress()
 	assert_almost_eq(boot._fill_clip.size.x, 180.0, 0.5)
 	assert_eq(boot._fill_clip.size.y, boot._base.size.y)
+	var picture: Texture2D = load("res://assets/ui/boot/boot_bar_fill.png") as Texture2D
+	assert_gt(BootScreen.FILL_REGION.position.x, 25.0, "the rounded left end is cropped away")
+	assert_lt(BootScreen.FILL_REGION.end.x, float(picture.get_width()) - 25.0, "and the right end")
 	boot.queue_free()
 
 
-func test_the_percentage_is_dagsen_text_in_the_middle_of_the_bar_instead_of_the_k() -> void:
+func test_the_percentage_is_lost_tumbler_text_in_the_middle_of_the_base_instead_of_the_k() -> void:
 	var boot: BootScreen = _boot()
 	boot.progress = 0.5
 	boot._layout()
 	assert_eq(boot._percent.text, "50%")
-	assert_eq(boot._percent.get_theme_font("font"), KalyeahTheme.ACTION_FONT, "the Dagsen font")
+	assert_eq(boot._percent.get_theme_font("font"), BootScreen.PERCENT_FONT, "the Lost Tumbler font")
 	assert_almost_eq(boot._percent.get_global_rect().get_center().x, 360.0, 1.0, "centred on the base")
 	assert_almost_eq(boot._percent.get_global_rect().get_center().y, boot._base.get_global_rect().position.y + BootScreen.BAND_HEIGHT / 2.0, 1.0)
 	boot.progress = 1.0

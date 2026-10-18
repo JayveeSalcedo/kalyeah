@@ -1,9 +1,9 @@
 class_name BootScreen
 extends Control
 ## Boot screen, laid out like the Clash Royale loading screen: the key art fills the screen above a
-## cement-coloured loading base at the bottom (black is the base layer under everything). The
-## cardboard fills the base from left to right as the game loads, with the loaded percentage in the
-## middle (Dagsen), and a tip floats just above it over the art. It loads the scenes the player is about to open, then hands over to the
+## matte black loading base at the bottom (a matte black layer is under everything). The cardboard
+## fills the base from left to right as the game loads, with the loaded percentage in the middle
+## (Lost Tumbler), and a tip floats just above it over the art. It loads the scenes the player is about to open, then hands over to the
 ## title screen. A dedicated server skips it.
 
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
@@ -14,11 +14,13 @@ const WARM_SCENES: Array[String] = [
 ]
 const BACKGROUND: Texture2D = preload("res://assets/ui/boot/boot_bg.webp")
 const FILL: Texture2D = preload("res://assets/ui/boot/boot_bar_fill.png")
-## The cardboard picture has rounded ends and a margin: only this part of it is used, stretched
-## to cover the whole loading base.
-const FILL_REGION: Rect2 = Rect2(25.0, 22.0, 828.0, 68.0)
-## The ground of the key art (its average colour along the bottom edge): the loading base.
-const BASE_COLOR: Color = Color(0.66, 0.533, 0.455)
+## The cardboard picture has rounded ends and rough edges: only this straight middle part of it is
+## used, so no curve shows.
+const FILL_REGION: Rect2 = Rect2(70.0, 30.0, 740.0, 54.0)
+## The loaded percentage's font (owner).
+const PERCENT_FONT: Font = preload("res://assets/fonts/lost_tumbler/Lost_Tumbler.otf")
+## Matte black (not pure black) for the loading base and the layer under everything.
+const BASE_COLOR: Color = Color(0.085, 0.085, 0.09)
 
 ## The loading base along the bottom edge (the phone's home-bar inset is added to it).
 const BAND_HEIGHT: float = 104.0
@@ -71,7 +73,7 @@ func _build() -> void:
 	# black is the base layer under everything
 	var black: ColorRect = ColorRect.new()
 	black.name = "Black"
-	black.color = Color.BLACK
+	black.color = BASE_COLOR
 	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(black)
 	black.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -95,8 +97,9 @@ func _build() -> void:
 	cardboard.atlas = FILL
 	cardboard.region = FILL_REGION
 	_fill_rect = _bar_layer(cardboard, _fill_clip)
+	_fill_rect.stretch_mode = TextureRect.STRETCH_SCALE
 	_percent = Label.new()
-	_percent.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
+	_percent.add_theme_font_override("font", PERCENT_FONT)
 	_percent.add_theme_color_override("font_color", Color.WHITE)
 	_percent.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02))
 	_percent.add_theme_constant_override("outline_size", 8)
@@ -151,8 +154,11 @@ func _layout() -> void:
 	_base.position = origin
 	_base.size = base_size
 	_fill_clip.position = origin
+	# the cardboard keeps its own proportions at the base's scale (it covers the base's height) and
+	# is cropped by the base, so the same picture is revealed as the progress grows
+	var scale_to_base: float = maxf(base_size.y / FILL_REGION.size.y, base_size.x / FILL_REGION.size.x)
 	_fill_rect.position = Vector2.ZERO
-	_fill_rect.size = base_size
+	_fill_rect.size = FILL_REGION.size * scale_to_base
 	# the percentage is centred in the part above the phone's home-bar inset
 	_percent.position = origin
 	_percent.size = Vector2(size.x, BAND_HEIGHT)
