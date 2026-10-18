@@ -78,10 +78,19 @@ func test_match_audio_follows_sim_events() -> void:
 func test_the_ui_theme_is_applied_everywhere() -> void:
 	var button: Button = autofree(Button.new()) as Button
 	add_child(button)
-	var box: StyleBoxTexture = button.get_theme_stylebox("normal") as StyleBoxTexture
-	assert_not_null(box, "every button gets the painted, bevelled style")
-	assert_not_null(box.texture)
-	assert_eq(box.texture.resource_path, "res://assets/ui/button_orange.png")
+	var box: StyleBoxFlat = button.get_theme_stylebox("normal") as StyleBoxFlat
+	assert_not_null(box, "every button gets the raised Kalyeah action style")
+	assert_eq(box.bg_color, KalyeahTheme.AMBER)
+	assert_eq(button.get_theme_font("font"), KalyeahTheme.ACTION_FONT, "actions use Dagsen Black")
+	assert_eq(KalyeahTheme.build().default_font, KalyeahTheme.BODY_FONT, "body copy uses the platform text stack")
+	var field: LineEdit = autofree(LineEdit.new()) as LineEdit
+	add_child(field)
+	var normal: StyleBoxFlat = field.get_theme_stylebox("normal") as StyleBoxFlat
+	var focused: StyleBoxFlat = field.get_theme_stylebox("focus") as StyleBoxFlat
+	assert_not_null(normal)
+	assert_not_null(focused)
+	assert_ne(normal.border_color, focused.border_color, "fields have a visible focus state")
+	assert_eq(field.get_theme_font("font"), KalyeahTheme.BODY_FONT, "fields use the readable body face")
 
 
 func _animation_after(kid: KidModel, state: PlayerState, speed: float = 0.0) -> String:

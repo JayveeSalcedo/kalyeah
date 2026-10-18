@@ -4,7 +4,7 @@
 
 ## 1. Abstract
 
-Kalyeah is a stylised 3D multiplayer MOBA built in Godot 4 for Android, with optional browser play, themed around classic Filipino street games. Instead of heroes and levels, every player shares the same fixed health and equips two weapons from an arsenal of street-game items: bato-bato-pik, tumbang preso tsinelas and lata, jackstones, and trumpo, each reimagined as an attack, crowd-control or block skill. Each player is randomly cast as one of six Filipino kids in everyday Pinoy outfits. Matches of 1v1, 2v2 or 3v3 are played in private passcode rooms on a Filipino barangay street. As in agawan-base, a player brought to 0 HP is tagged and waits in a taped box until a teammate rescues them; a team scores by holding the enemy's electric-post base together, or by tagging the whole other team, and the first to 3 points wins. With no accounts, ranks or leveling, every match is quick to join and decided by skill.
+Kalyeah is a stylised 3D multiplayer action game built in Godot 4 for Android, with optional browser play, themed around classic Filipino street games. Instead of heroes and levels, every player shares the same fixed health and equips two weapons from an arsenal of street-game items: bato-bato-pik, tumbang preso tsinelas and lata, jackstones, and trumpo, each reimagined as an attack, crowd-control or block skill. Each player chooses one of six Filipino kids in everyday Pinoy outfits. The core match is **Agawan Base**, played 1v1, 2v2 or 3v3 on a Filipino barangay street. A player brought to 0 HP is tagged and waits in a taped box until a teammate rescues them; a team scores by holding the enemy's electric-post base together or by tagging the whole other team. With no accounts, ranks or leveling, every match is quick to join and decided by skill.
 
 ## 2. Hardware and Software Requirements (for playing)
 
@@ -41,7 +41,8 @@ Players without the app can join the same rooms from a browser.
 
 ### 3.1 Rooms and lobby
 - **Create or join** a room. No accounts, no ranked or random matchmaking.
-- Host picks **1v1, 2v2 or 3v3**; the server generates a short **passcode**.
+- Multiplayer has two connection paths: **Hotspot** for players on the same local network, and **Online** through the game server.
+- For Online play, the host picks **1v1, 2v2 or 3v3** and creates a private room. The server generates an **8-character alphanumeric room code**.
 - Others join with the passcode, pick a team slot and toggle **Ready**.
 - Host can start when all present players are ready and **at least one team is full** while the other is at most one short (2v2 and 3v3). 1v1 needs both players.
 - **Loading screen** before the match.

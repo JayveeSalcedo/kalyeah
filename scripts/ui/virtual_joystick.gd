@@ -58,7 +58,10 @@ func _input(event: InputEvent) -> void:
 			if _pointer == NO_POINTER and _in_zone(touch.position):
 				_begin(touch.index, touch.position)
 		elif touch.index == _pointer:
-			_end()
+			if touch.canceled:
+				release()
+			else:
+				_end()
 	elif event is InputEventScreenDrag:
 		var drag: InputEventScreenDrag = event as InputEventScreenDrag
 		if drag.index == _pointer:

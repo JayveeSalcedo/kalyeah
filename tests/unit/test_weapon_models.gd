@@ -65,6 +65,8 @@ func test_the_match_draws_the_models_for_the_casts() -> void:
 	var fx: WeaponFxView = practice.get_node("%WeaponFx") as WeaponFxView
 	practice.aim_started(0)
 	practice.aim_released(Vector2.ZERO, false, 0)
+	practice.advance(DT)
+	practice.advance(DT)
 	practice.aim_started(1)
 	practice.aim_released(Vector2.ZERO, false, 1)
 	practice.advance(DT)

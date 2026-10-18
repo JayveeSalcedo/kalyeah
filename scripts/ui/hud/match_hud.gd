@@ -58,7 +58,7 @@ var weapon_buttons: Array[AimButton] = []
 var aim_buttons: Array[AimButton] = []
 var cancel_zone: Control
 var tagged_panel: TaggedPanel
-## The opening show's banner along the bottom ("TAG THE ENEMY BASE!").
+## The opening show's banner along the bottom ("TAG THEIR BASE!").
 var intro_bar: Control
 var intro_title: Label
 var intro_sub: Label
@@ -90,10 +90,17 @@ func set_top_inset(pixels: float) -> void:
 
 func set_controls_active(active: bool) -> void:
 	if not active:
-		joystick.release()
+		cancel_controls()
 	joystick.set_process_input(active)
 	for control: Control in aim_buttons:
 		control.set_process_input(active)
+
+
+## Clears every live gesture while leaving input processing in its current state.
+func cancel_controls() -> void:
+	joystick.release()
+	for button: AimButton in aim_buttons:
+		button.cancel_aim()
 
 
 func controls_active() -> bool:
@@ -179,6 +186,7 @@ func _sync_capture(sim: MatchSim, local_team: int) -> void:
 func feed(kind: Feed, our_team: bool, who: String) -> void:
 	var pill: Label = Label.new()
 	pill.text = "%s  %s" % ["TAGGED!" if kind == Feed.TAGGED else "RESCUED!", who]
+	pill.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
 	pill.custom_minimum_size = FEED_SIZE
 	pill.add_theme_font_size_override("font_size", 20)
 	pill.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.1))
@@ -238,6 +246,7 @@ func _build() -> void:
 	banner = Label.new()
 	_place(banner, Vector4(0, 0.3, 1, 0.3), Vector4(0, -60, 0, 60))
 	banner.visible = false
+	banner.theme_type_variation = &"DisplayLabel"
 	banner.add_theme_color_override("font_color", Color(1, 0.86, 0.3))
 	banner.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
 	banner.add_theme_constant_override("outline_size", 12)
@@ -247,10 +256,11 @@ func _build() -> void:
 	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(banner)
 	capture_label = _pill_label("", 34, Vector4(0, 0.4, 1, 0.4), Vector4(120, -56, -120, 56))
-	capture_label.theme_type_variation = &""
+	capture_label.theme_type_variation = &"DisplayLabel"
 	capture_label.add_theme_color_override("font_outline_color", Color(0.08, 0.05, 0.1))
 	capture_label.add_theme_constant_override("outline_size", 10)
-	again_button = _button("Play again", 32, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-160, -30, 160, 60))
+	again_button = _button("PLAY AGAIN", 32, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-160, -30, 160, 60))
+	KalyeahTheme.style_button(again_button, "orange")
 	again_button.pressed.connect(again_pressed.emit)
 	again_button.visible = false
 	tagged_panel = TaggedPanel.new()
@@ -330,9 +340,10 @@ func _build_intro_bar() -> void:
 	intro_bar.visible = false
 	add_child(intro_bar)
 	intro_title = Label.new()
+	intro_title.theme_type_variation = &"DisplayLabel"
 	_place(intro_title, Vector4(0, 0, 1, 0), Vector4(0, 18, 0, 78))
 	intro_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	intro_title.add_theme_font_size_override("font_size", 46)
+	intro_title.add_theme_font_size_override("font_size", 40)
 	intro_title.add_theme_color_override("font_color", Color(1.0, 0.82, 0.25))
 	intro_title.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.1))
 	intro_title.add_theme_constant_override("outline_size", 10)
@@ -374,7 +385,8 @@ func _build_cancel_zone() -> Control:
 	zone.add_child(back)
 	var label: Label = Label.new()
 	_place(label, Vector4(0, 0, 1, 1), Vector4.ZERO)
-	label.text = "Cancel"
+	label.text = "CANCEL"
+	label.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
 	label.add_theme_font_size_override("font_size", 24)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

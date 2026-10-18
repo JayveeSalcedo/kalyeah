@@ -95,6 +95,15 @@ func loaded(player_id: int) -> void:
 	_loaded[player_id] = true
 
 
+## First sequence number a reconnected client can safely send. Inputs received
+## just before its socket dropped may still be queued, so include those too.
+func next_input_sequence(player_id: int) -> int:
+	var last: int = _acks.get(player_id, -1) as int
+	for queued: PlayerInput in _queues.get(player_id, []) as Array:
+		last = maxi(last, queued.tick)
+	return last + 1
+
+
 ## Picks are taken during loading too (a fast client may pick before a slow one loads).
 ## `character` is the kid the player chose (empty keeps the random one). A kid a teammate has
 ## already confirmed is not taken from them (the other team may have the same kid).

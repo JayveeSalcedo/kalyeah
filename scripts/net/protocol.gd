@@ -3,6 +3,10 @@ extends RefCounted
 ## Message format between clients and the server. Every message is a Dictionary
 ## with "t" = Msg type, sent as var_to_bytes (no objects, so decoding is safe).
 
+## Additive protocol revision advertised by WELCOME. Older clients ignore it and
+## newer clients keep defaults for fields omitted by older servers.
+const VERSION: int = 1
+
 enum Msg {
 	# client -> server
 	HELLO, CREATE_ROOM, JOIN_ROOM, PICK_TEAM, SET_READY, START, LEAVE, LOADED,

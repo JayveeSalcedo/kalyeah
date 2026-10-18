@@ -4,7 +4,7 @@
 
 [resource]
 script = ExtResource("1_net")
-passcode_length = 6
+passcode_length = 8
 passcode_alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 reconnect_window = 60.0
 snapshot_rate = 20

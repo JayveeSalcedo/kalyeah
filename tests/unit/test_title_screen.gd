@@ -1,5 +1,5 @@
 extends GutTest
-## The main screen: profile, map model, Practice / Hotspot / Online / Quit (2x2), Settings and the dialogs.
+## The main screen: profile, titled map model, one primary action, two alternate modes and dialogs.
 
 const TITLE_SCENE: PackedScene = preload("res://scenes/ui/title_screen.tscn")
 
@@ -56,13 +56,14 @@ func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	assert_not_null(screen.profile_button, "username")
 	assert_not_null(screen.settings_button, "settings")
 	assert_not_null(screen.diorama, "the map model")
+	assert_eq((_find(screen, "MapTitle") as Label).text, "AGAWAN BASE")
 	assert_eq(screen.practice_button.text, "PRACTICE")
 	assert_eq(screen.hotspot_button.text, "HOTSPOT")
 	assert_eq(screen.online_button.text, "ONLINE")
-	assert_eq(screen.quit_button.text, "QUIT")
+	assert_null(screen.quit_button, "quit stays out of the main action area")
 
 
-func test_the_four_buttons_are_a_2x2_grid_at_the_bottom() -> void:
+func test_online_is_the_dominant_action_above_two_alternate_modes() -> void:
 	var phone: Control = autofree(Control.new()) as Control
 	phone.custom_minimum_size = Vector2(720.0, 1280.0)
 	phone.size = Vector2(720.0, 1280.0)
@@ -73,18 +74,16 @@ func test_the_four_buttons_are_a_2x2_grid_at_the_bottom() -> void:
 	var p: Rect2 = screen.practice_button.get_global_rect()
 	var h: Rect2 = screen.hotspot_button.get_global_rect()
 	var o: Rect2 = screen.online_button.get_global_rect()
-	var q: Rect2 = screen.quit_button.get_global_rect()
-	assert_almost_eq(p.position.y, h.position.y, 1.0, "practice and hotspot share the top row")
-	assert_almost_eq(o.position.y, q.position.y, 1.0, "online and quit share the bottom row")
-	assert_almost_eq(p.position.x, o.position.x, 1.0, "practice sits over online")
-	assert_almost_eq(h.position.x, q.position.x, 1.0, "hotspot sits over quit")
-	assert_lt(p.position.x, h.position.x)
-	assert_lt(p.end.y, o.position.y)
-	assert_gt(p.size.x, 200.0)
-	assert_lt(q.end.y, 1280.0)
-	assert_gt(o.position.y, 1280.0 * 0.6, "in the bottom part")
+	assert_almost_eq(p.position.y, h.position.y, 1.0, "alternate modes share one row")
+	assert_lt(h.position.x, p.position.x)
+	assert_lt(o.position.y, h.position.y)
+	assert_lt(o.end.y, h.position.y)
+	assert_gt(o.size.x, p.size.x * 1.9, "online spans the action area")
+	assert_gt(o.size.y, p.size.y, "online is visually dominant")
+	assert_lt(p.end.y, 1280.0)
+	assert_gt(o.position.y, 1280.0 * 0.6, "actions stay in the bottom part")
 	assert_gt(screen.diorama.get_global_rect().end.y, 0.0)
-	assert_lte(screen.diorama.get_global_rect().end.y, p.position.y + 1.0, "the map model is above the buttons")
+	assert_lte(screen.diorama.get_global_rect().end.y, o.position.y + 1.0, "the map model is above the buttons")
 
 
 func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
@@ -95,6 +94,7 @@ func test_the_screen_shows_no_version_online_caption_or_server_line() -> void:
 	assert_false(text.contains("No server"), "no server hint")
 	assert_eq(text.count("v0."), 0, "no version")
 	assert_null(screen.find_child("VersionLabel", true, false))
+	assert_null(screen.find_child("Wordmark", true, false), "the game name was removed")
 
 
 func _all_text(root: Node) -> String:
@@ -115,7 +115,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.practice_button, screen.hotspot_button, screen.online_button, screen.quit_button, screen.settings_button, screen.profile_button]:
+	for button: Button in [screen.practice_button, screen.hotspot_button, screen.online_button, screen.settings_button, screen.profile_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
@@ -174,6 +174,7 @@ func test_settings_change_the_volume_and_remember_the_server() -> void:
 	assert_almost_eq(Settings.volume, 0.4, 0.001)
 	assert_almost_eq(AudioServer.get_bus_volume_db(0), linear_to_db(0.4), 0.01, "the master volume follows")
 	(_find(card, "ServerField") as LineEdit).text = "wss://example.org"
+	assert_eq((_find(card, "QuitButton") as Button).text, "QUIT GAME")
 	card.close(false)
 	assert_eq(Settings.server_url, "wss://example.org")
 	slider.value = 0.0
@@ -196,10 +197,10 @@ func test_quit_asks_first_and_only_quits_on_yes() -> void:
 	var buttons: Array[Node] = card.find_children("*", "Button", true, false)
 	var stay: Button = buttons[0] as Button
 	var leave: Button = buttons[1] as Button
-	assert_eq(stay.text, "STAY")
+	assert_eq(stay.text, "CANCEL")
 	assert_eq(leave.text, "QUIT")
 	stay.pressed.emit()
-	assert_eq(quit_calls[0], 0, "STAY keeps playing")
+	assert_eq(quit_calls[0], 0, "CANCEL keeps playing")
 	assert_false(card.is_open)
 	var again: MenuDialog = screen.open_quit_confirm()
 	(again.find_children("*", "Button", true, false)[1] as Button).pressed.emit()
@@ -225,7 +226,7 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	model.size = Vector2(690.0, 480.0)
+	(model.get_parent() as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var layout: MapLayout = model.map.layout
 	assert_true(model.map.diorama)
@@ -247,7 +248,7 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 func test_the_map_model_stands_still() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	model.size = Vector2(690.0, 480.0)
+	(model.get_parent() as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var before: Transform3D = model.camera.global_transform
 	await wait_frames(30)
