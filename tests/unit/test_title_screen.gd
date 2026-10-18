@@ -62,7 +62,6 @@ func _phone_screen() -> TitleScreen:
 func test_the_screen_has_everything_the_owner_asked_for() -> void:
 	var screen: TitleScreen = _screen()
 	assert_null(screen.find_child("TopBar", true, false), "no top row: no K! and no settings icon")
-	assert_null(screen.find_child("Logo", true, false))
 	assert_not_null(screen.carousel, "the mode carousel")
 	assert_eq(screen.mode_name_label.text, "HOTSPOT", "hotspot is the default mode")
 	assert_null(screen.find_child("MapButton", true, false), "no map button")
@@ -89,6 +88,11 @@ func test_the_home_page_stacks_carousel_then_actions_then_the_page_buttons() -> 
 		assert_lt(button.end.y, 1280.0)
 		assert_gte(button.size.y, 88.0, "%s is tall enough for a thumb" % section["label"])
 	assert_null(screen.find_child("BottomNav", true, false), "no bottom nav bar")
+	var mark: Rect2 = screen.logo.get_global_rect()
+	assert_almost_eq(mark.get_center().x, 360.0, 2.0, "the logomark is at the centre")
+	assert_lt(mark.position.y, 140.0, "at the top")
+	assert_lt(mark.end.y, strip.position.y, "above the cards")
+	assert_eq(screen.logo.texture.get_size(), (load("res://assets/ui/boot/boot_icon.png") as Texture2D).get_size(), "the K! of the loading screen")
 
 
 func test_the_section_has_a_button_each_for_characters_weapons_history_and_settings() -> void:

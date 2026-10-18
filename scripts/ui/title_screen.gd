@@ -21,6 +21,9 @@ const MODES: Array[Dictionary] = [
 		"text": "Train alone against dummies."},
 ]
 const CAROUSEL_HEIGHT: float = 350.0
+## The Kalyeah logomark (the K! of the loading screen) at the centre top of the home page.
+const LOGO: Texture2D = preload("res://assets/ui/k_logo.png")
+const LOGO_SIZE: float = 132.0
 ## The section of page buttons under the mode actions.
 const SECTIONS: Array[Dictionary] = [
 	{"id": &"characters", "label": "Characters"},
@@ -39,6 +42,7 @@ var quit_action: Callable = _quit_game
 ## The screen leaves for the lobby (replaced in tests).
 var open_lobby_action: Callable = _change_to_lobby
 
+var logo: TextureRect
 var carousel: MenuCarousel
 var mode_name_label: Label
 var mode_text_label: Label
@@ -136,17 +140,33 @@ func _build_layout() -> void:
 func _build_home() -> VBoxContainer:
 	var home: VBoxContainer = VBoxContainer.new()
 	home.name = "Home"
-	home.alignment = BoxContainer.ALIGNMENT_CENTER
-	home.add_theme_constant_override("separation", 14)
+	home.add_theme_constant_override("separation", 8)
 	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the Kalyeah logomark (the K! of the loading screen) at the centre top
+	logo = TextureRect.new()
+	logo.name = "Logo"
+	logo.texture = LOGO
+	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	logo.custom_minimum_size = Vector2(LOGO_SIZE, LOGO_SIZE)
+	logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(logo)
+	var body: VBoxContainer = VBoxContainer.new()
+	body.name = "Body"
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.alignment = BoxContainer.ALIGNMENT_CENTER
+	body.add_theme_constant_override("separation", 14)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(body)
 	carousel = MenuCarousel.new()
 	carousel.name = "ModeCarousel"
 	carousel.custom_minimum_size = Vector2(0.0, CAROUSEL_HEIGHT)
 	carousel.size_flags_horizontal = Control.SIZE_FILL
-	home.add_child(carousel)
+	body.add_child(carousel)
 	carousel.setup("", MODES, Session.menu_mode)
-	home.add_child(_build_details())
-	home.add_child(_build_sections())
+	body.add_child(_build_details())
+	body.add_child(_build_sections())
 	return home
 
 
