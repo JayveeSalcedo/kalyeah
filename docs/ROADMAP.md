@@ -18,6 +18,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | Character select (owner) | A fighting-game style select at the start of every match: six 3:4 profile cards, then a tab per street game over weapon cards (art, name, description below); the kid you pick is the kid you play (also your main-screen face); a team never has the same kid twice (the other team may have it once); online, the server settles swaps and greys out kids a teammate locked in |
 | Map 1:1 (owner) | The playing area is 24 × 24 m (square, was 24 × 32 m); the minimap is 140 × 140 px at exactly that shape; the cover wall keeps its distance from the base |
 | Home UI refinement (owner) | Dagsen typography, a compact profile bar, the titled Agawan Base model, one primary Online action, concise dialogs and a responsive phone layout |
+| Lobby and match UI refinement | Narrow-phone lobby and loadout layouts, concise room states, unified Dagsen match announcements, and a score card with clock and best-of context |
 
 ## Next: the Kalyeah visual overhaul
 

@@ -174,8 +174,8 @@ func _play_intro_shot() -> void:
 	owner._camera.frame_shot(eye, look)
 	var best_of: int = owner.sim.score.best_of
 	owner.hud.show_intro(
-		"TAG THE ENEMY BASE!",
-		"BEST OF %d  -  FIRST TO %d POINTS WINS" % [best_of, owner.sim.score.points_to_win()]
+		"TAG THEIR BASE!",
+		"BO%d  •  FIRST TO %d" % [best_of, owner.sim.score.points_to_win()]
 	)
 
 

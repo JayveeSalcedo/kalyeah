@@ -591,7 +591,7 @@ func test_the_match_opens_with_both_teams_then_go() -> void:
 	assert_eq(practice.sim.phase, MatchSim.Phase.INTRO)
 	practice.advance(DT)
 	assert_true(practice.hud.intro_bar.visible)
-	assert_eq(practice.hud.intro_title.text, "TAG THE ENEMY BASE!")
+	assert_eq(practice.hud.intro_title.text, "TAG THEIR BASE!")
 	assert_false(practice.hud.weapon_buttons[0].visible, "no buttons during the show")
 	var enemy_post: Vector2 = LAYOUT.base_center(-practice.own_side())
 	var seen: Vector2 = Vector2(camera.position.x, camera.position.z)

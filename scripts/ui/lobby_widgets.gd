@@ -21,17 +21,16 @@ static func add_backdrop(parent: Control, texture: Texture2D) -> void:
 
 static func header(title_text: String, back_action: Callable) -> HBoxContainer:
 	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	var back: Button = button("‹ BACK", back_action, "grey")
-	back.custom_minimum_size = Vector2(142.0, 70.0)
+	row.add_theme_constant_override("separation", 12)
+	var back: Button = button("BACK", back_action, "grey", 24)
+	back.custom_minimum_size = Vector2(108.0, 66.0)
 	row.add_child(back)
-	var title: Label = label(title_text, 44)
+	var title: Label = label(title_text, 38)
 	title.theme_type_variation = &"DisplayLabel"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	row.add_child(title)
-	var balance: Control = Control.new()
-	balance.custom_minimum_size = Vector2(142.0, 0.0)
-	row.add_child(balance)
 	return row
 
 
