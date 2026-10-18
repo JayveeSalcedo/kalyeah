@@ -15,8 +15,13 @@ const HOME_TINT: Color = Color(0.2, 0.5, 1.0, 0.14)
 const SLIPPER_HAND: float = 0.9
 const SLIPPER_ARC: float = 1.4
 const SLIPPER_SPIN: float = 14.0
-const CAN_LIE_HEIGHT: float = 0.18
-const CAN_CARRY_HEIGHT: float = 1.15
+## The can is drawn smaller than the Lata weapon's model, so a kid can carry it in both hands.
+const CAN_SCALE: float = 0.65
+const CAN_LIE_HEIGHT: float = 0.12
+## A carried can sits this far below the point between the taya's hands (its base on the origin).
+const CAN_IN_HANDS: float = 0.22
+## A picked-up slipper stays in the kid's hand for the end of the pick-up (seconds).
+const SLIPPER_IN_HAND: float = 0.3
 const TAG_HEIGHT: float = 1.9
 const AIM_WIDTH: float = 0.12
 ## The ring under your own slipper lying on the street, so you can find it.
@@ -40,6 +45,8 @@ var _taya_tag: Label3D
 var _aim_line: MeshInstance3D
 var _marker: MeshInstance3D
 var _snap_camera: bool = true
+## id -> seconds a just-picked-up slipper still shows in that kid's hand.
+var _in_hand: Dictionary[int, float] = {}
 ## The soft focus beyond the ends of the street (null when off).
 var _far_blur: ShaderMaterial
 
@@ -144,13 +151,18 @@ func _connect_sim() -> void:
 		_views[id].play_cast()
 		_audio.play(&"cast_tsinelas_light", 0.06))
 	sim.slipper_picked_up.connect(func(id: int) -> void:
+		_views[id].play_pickup()
+		_in_hand[id] = SLIPPER_IN_HAND
 		if id == LOCAL_ID:
 			_audio.play(&"click"))
+	sim.can_picked_up.connect(func(id: int) -> void: _views[id].play_pickup())
 	sim.can_knocked.connect(func(id: int) -> void:
 		_audio.play(&"bonk")
 		_camera.shake(0.15)
 		hud.show_banner("NICE SHOT!" if id == LOCAL_ID else "%s KNOCKED THE CAN!" % names[id]))
-	sim.can_set.connect(func(_id: int) -> void: _audio.play(&"thud"))
+	sim.can_set.connect(func(id: int) -> void:
+		_views[id].play_pickup()
+		_audio.play(&"thud"))
 	sim.player_tagged.connect(_on_player_tagged)
 	sim.taya_changed.connect(func(id: int) -> void:
 		hud.joystick.release()
@@ -217,6 +229,7 @@ func _build_field() -> void:
 	Chalk.add_line(self, Vector2(street.position.x, preso.throw_line_z), Vector2(street.end.x, preso.throw_line_z), chalk)
 	Chalk.add_ring(self, preso.can_spot, preso.can_circle_radius, chalk)
 	_can_view = WeaponModel.make(&"lata", false)
+	_can_view.scale = Vector3.ONE * CAN_SCALE
 	add_child(_can_view)
 	_taya_tag = Label3D.new()
 	_taya_tag.text = "TAYA"
@@ -241,6 +254,7 @@ func _sync(delta: float) -> void:
 		var view: KidModel = _views[id]
 		view.position = Vector3(state.position.x, 0.0, state.position.y)
 		view.face(state.facing)
+		view.set_carrying(id == sim.taya_id and sim.can_state == PresoSim.CanState.CARRIED)
 		view.animate(delta, minf(view.ground_speed(state.position, delta), 20.0), state)
 		_sync_slipper(id, delta)
 	_sync_can()
@@ -258,10 +272,15 @@ func _sync(delta: float) -> void:
 func _sync_slipper(id: int, delta: float) -> void:
 	var view: Node3D = _slipper_views[id]
 	var slipper: PresoSim.Slipper = sim.slippers.get(id) as PresoSim.Slipper
-	view.visible = slipper != null
+	var in_hand: float = _in_hand.get(id, 0.0) as float
+	view.visible = slipper != null or in_hand > 0.0
 	if slipper == null:
 		if id == LOCAL_ID:
 			_marker.visible = false
+		if in_hand > 0.0:
+			# just picked up: it rides up in the kid's hand for a moment
+			_in_hand[id] = in_hand - delta
+			view.position = _views[id].hands_position()
 		return
 	var height: float = 0.05
 	if slipper.flying:
@@ -284,7 +303,7 @@ func _sync_can() -> void:
 			_can_view.position = at + Vector3.UP * CAN_LIE_HEIGHT
 			_can_view.rotation = Vector3(0.0, 0.6, PI / 2.0)
 		PresoSim.CanState.CARRIED:
-			_can_view.position = at + Vector3.UP * CAN_CARRY_HEIGHT
+			_can_view.position = _views[sim.taya_id].hands_position() + Vector3.DOWN * CAN_IN_HANDS
 			_can_view.rotation = Vector3.ZERO
 
 

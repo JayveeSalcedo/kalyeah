@@ -48,6 +48,10 @@ const SPELL_FROM: float = 0.6
 ## Blend out of a knockout (getting back up) is slower than other changes.
 const GET_UP_BLEND: float = 0.3
 const STAR_COUNT: int = 5
+## A pick-up (a slipper, the can): bend down and come back up, in seconds.
+const PICKUP_TIME: float = 0.45
+## How fast the carry pose blends in and out (full weight per second).
+const CARRY_BLEND: float = 6.0
 
 static var _scenes: Dictionary[String, PackedScene] = {}
 static var _layers: Dictionary[String, AnimationLibrary] = {}
@@ -94,6 +98,10 @@ var _playing: String = ""
 var _tracked_position: Vector2 = Vector2.INF
 var _since_move: float = 0.0
 var _ground_speed: float = 0.0
+## Code-made pick-up and carry poses over the animation (KidPose).
+var _pose: KidPose
+var _pickup_left: float = 0.0
+var _carrying: bool = false
 ## Last pose name, for tests and debugging ("idle", "run", "cast", "ko", ...).
 var pose: String = "idle"
 
@@ -134,6 +142,32 @@ static func is_spell(weapon: WeaponDef) -> bool:
 
 
 ## Flinch (took damage).
+## Bends down to pick something up (a slipper, the can) and comes back up.
+func play_pickup() -> void:
+	_pickup_left = PICKUP_TIME
+
+
+## Holds both arms out in front, hands together (the taya carrying the can); blends in and out.
+func set_carrying(on: bool) -> void:
+	_carrying = on
+
+
+## "pickup" while bending down, "carry" while carrying, else "" (for tests and debugging).
+func action_pose() -> String:
+	if _pose == null:
+		return ""
+	if _pose.pickup > 0.0:
+		return "pickup"
+	return "carry" if _pose.carry >= 0.5 else ""
+
+
+## The point between the kid's hands (world space): where a carried thing sits.
+func hands_position() -> Vector3:
+	if _pose == null:
+		return global_position + Vector3.UP * KID_HEIGHT * 0.55
+	return _pose.hands_position()
+
+
 func play_hit() -> void:
 	_hit_left = HIT_TIME
 
@@ -175,6 +209,7 @@ func ground_speed(world_position: Vector2, delta: float) -> float:
 func animate(delta: float, speed: float, state: PlayerState) -> void:
 	_clock += delta
 	_cast_left = maxf(0.0, _cast_left - delta)
+	_step_pose(delta)
 	_hit_left = maxf(0.0, _hit_left - delta)
 	var polymorphed: bool = state.effects.has(StatusEffects.Type.POLYMORPH)
 	_model.visible = not polymorphed
@@ -313,6 +348,14 @@ func _clip_length(clip: String) -> float:
 	return _player.get_animation(clip).length
 
 
+func _step_pose(delta: float) -> void:
+	_pickup_left = maxf(0.0, _pickup_left - delta)
+	if _pose == null:
+		return
+	_pose.pickup = sin((1.0 - _pickup_left / PICKUP_TIME) * PI) if _pickup_left > 0.0 else 0.0
+	_pose.carry = move_toward(_pose.carry, 1.0 if _carrying else 0.0, delta * CARRY_BLEND)
+
+
 ## The whole body tips over backwards in a knockout (and gets back up), and flinches back
 ## a little when hit.
 func _pose_body(delta: float, knocked_out: bool) -> void:
@@ -397,6 +440,11 @@ func _build() -> void:
 		add_child(_upper)  # after Body: it plays after the model's own player each frame
 		_upper.root_node = _upper.get_path_to(_player.get_node(_player.root_node))
 		_upper.add_animation_library("", _layer_library(String(_set), library))
+	var skeletons: Array[Node] = _model.find_children("*", "Skeleton3D", true, false)
+	if not skeletons.is_empty():
+		_pose = KidPose.new()
+		_pose.name = "KidPose"
+		skeletons[0].add_child(_pose)
 	_stars = _build_stars()
 	add_child(_stars)
 	_can = MeshInstance3D.new()

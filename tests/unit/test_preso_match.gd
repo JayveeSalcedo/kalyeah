@@ -109,3 +109,47 @@ func test_the_street_keeps_its_props_but_no_base_markings() -> void:
 	assert_false(map.tag_zones)
 	assert_eq(map._posts.size(), 2, "the street keeps its posts")
 	assert_true(map._base_materials.is_empty(), "but no base circles or rescue areas")
+
+
+func test_picking_up_your_slipper_bends_you_down_and_shows_it_in_your_hand() -> void:
+	var screen: PresoMatch = _match()
+	var sim: PresoSim = screen.sim
+	var me: PresoPlayer = _me(screen)
+	sim.throw(me, Vector2(-0.6, -1.0))
+	for i: int in 30:
+		sim.step(DT)
+	me.position = sim.slippers[PresoMatch.LOCAL_ID].position
+	screen.advance(DT)
+	screen.advance(DT * 3.0)
+	var kid: KidModel = screen._views[PresoMatch.LOCAL_ID]
+	assert_true(me.has_slipper)
+	assert_eq(kid.action_pose(), "pickup", "bends down to grab it")
+	assert_true(screen._slipper_views[PresoMatch.LOCAL_ID].visible, "the slipper rides up in the hand")
+	for i: int in 30:
+		screen.advance(DT)
+	assert_eq(kid.action_pose(), "", "and stands back up")
+	assert_false(screen._slipper_views[PresoMatch.LOCAL_ID].visible)
+
+
+func test_the_taya_carries_the_can_in_both_hands() -> void:
+	var screen: PresoMatch = _match()
+	var sim: PresoSim = screen.sim
+	var taya: PresoPlayer = sim.players[sim.taya_id]
+	var thrower: PresoPlayer = _me(screen)
+	sim.throw(thrower, thrower.position.direction_to(PRESO.can_spot))
+	for i: int in 30:
+		sim.step(DT)
+	assert_eq(sim.can_state, PresoSim.CanState.DOWN)
+	taya.position = sim.can_position
+	screen.advance(DT)
+	assert_eq(sim.can_state, PresoSim.CanState.CARRIED)
+	# grabbing the can is a pick-up first (0.45 s), then the carry, before the taya reaches the circle
+	for i: int in 15:
+		screen.advance(DT)
+	assert_eq(sim.can_state, PresoSim.CanState.CARRIED, "still carrying")
+	var kid: KidModel = screen._views[sim.taya_id]
+	assert_eq(kid.action_pose(), "carry")
+	var can: Node3D = screen._can_view
+	assert_lt(can.global_position.distance_to(kid.hands_position()), 0.5, "the can is in the hands")
+	assert_gt(can.global_position.y, 0.4, "held up, not on the ground")
+
