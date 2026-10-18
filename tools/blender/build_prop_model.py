@@ -1,6 +1,9 @@
 """Makes one of the owner's Meshy prop models light enough for the street (Blender bpy).
 
-usage: python build_prop_model.py -- in.glb out.glb target_triangles texture_px
+usage: python build_prop_model.py -- in.glb out.glb target_triangles texture_px [keep_uv]
+ * keep_uv: the owner's own UV layout and base colour image are kept (the image only scaled to
+   texture_px) instead of unwrapping and baking again, which is far sharper for detailed models;
+   only the mesh is decimated.
  * the model is moved so its base centre sits on the origin (x, y centred, bottom at z = 0),
    everything else (size, proportions) is left as modelled: the game scales it to fit;
  * the mesh is decimated to ~target_triangles with new UVs, and the base colour is baked from the
@@ -46,9 +49,20 @@ def bounds(obj):
     return Vector((min(p[i] for p in pts) for i in range(3))), Vector((max(p[i] for p in pts) for i in range(3)))
 
 
+def base_color_image(obj):
+    """The image wired into the model's Base Color (the owner's own texture)."""
+    for node in obj.data.materials[0].node_tree.nodes:
+        if node.type == "BSDF_PRINCIPLED":
+            link = node.inputs["Base Color"].links
+            if link and link[0].from_node.type == "TEX_IMAGE":
+                return link[0].from_node.image
+    raise SystemExit("no base colour image on the model")
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:]
     src, out, target, px = argv[0], argv[1], int(argv[2]), int(argv[3])
+    keep_uv = len(argv) > 4 and argv[4] == "keep_uv"
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=src, merge_vertices=True)
     high = [o for o in bpy.data.objects if o.type == "MESH"][0]
@@ -59,6 +73,7 @@ def main():
     high.data.transform(__import__("mathutils").Matrix.Translation(Vector((-(lo.x + hi.x) / 2, -(lo.y + hi.y) / 2, -lo.z))))
     high.data.update()
     high.name = "high"
+    source_image = base_color_image(high) if keep_uv else None
     weld(high)
     holes_before = open_edges(high)
     tris = sum(len(p.vertices) - 2 for p in high.data.polygons)
@@ -75,13 +90,14 @@ def main():
     mod.use_collapse_triangulate = True
     bpy.ops.object.modifier_apply(modifier=mod.name)
     weld(low)
-    for uv in list(low.data.uv_layers):
-        low.data.uv_layers.remove(uv)
-    low.data.uv_layers.new(name="UVMap")
-    bpy.ops.object.mode_set(mode="EDIT")
-    bpy.ops.mesh.select_all(action="SELECT")
-    bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.012)
-    bpy.ops.object.mode_set(mode="OBJECT")
+    if not keep_uv:
+        for uv in list(low.data.uv_layers):
+            low.data.uv_layers.remove(uv)
+        low.data.uv_layers.new(name="UVMap")
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="SELECT")
+        bpy.ops.uv.smart_project(angle_limit=1.15, island_margin=0.012)
+        bpy.ops.object.mode_set(mode="OBJECT")
     if low.data.has_custom_normals:
         bpy.ops.mesh.customdata_custom_splitnormals_clear()
     for poly in low.data.polygons:
@@ -89,7 +105,15 @@ def main():
 
     mat = bpy.data.materials.new("PropMat")
     mat.use_nodes = True
-    image = bpy.data.images.new("prop_base_color", px, px)
+    if keep_uv:
+        image = source_image
+        image.name = "prop_base_color"
+        if image.size[0] != px:
+            image.scale(px, px)
+        else:
+            image.pixels[:] = image.pixels[:]  # a touched image is re-encoded as a JPEG, not copied as the big source PNG
+    else:
+        image = bpy.data.images.new("prop_base_color", px, px)
     tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
     tex.image = image
     bsdf = mat.node_tree.nodes["Principled BSDF"]
@@ -101,6 +125,16 @@ def main():
     low.data.materials.append(mat)
 
     scene = bpy.context.scene
+    if keep_uv:
+        print("TRIS", sum(len(p.vertices) - 2 for p in low.data.polygons), "of", tris)
+        print("OPEN EDGES source", holes_before, "-> game model", open_edges(low))
+        bpy.data.objects.remove(high)
+        bpy.ops.object.select_all(action="DESELECT")
+        low.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=out, export_format="GLB", use_selection=True, export_image_format="JPEG",
+                                  export_jpeg_quality=78)
+        print("EXPORTED", out, os.path.getsize(out))
+        return
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = 16
