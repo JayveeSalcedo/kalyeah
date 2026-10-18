@@ -114,6 +114,20 @@ func test_the_centre_card_stays_centred_on_the_screen_and_the_buttons_are_drawn_
 	assert_gt(card.size.x, 290.0, "the centre card is as large as before")
 
 
+func test_the_cards_show_the_owners_pictures_and_no_text() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	for card: Button in screen.carousel.cards:
+		var art: TextureRect = card.find_child("Art", true, false) as TextureRect
+		assert_not_null(art, "%s has its picture" % ChoiceCard.choice_of(card))
+		assert_almost_eq(art.texture.get_size().x / art.texture.get_size().y, 0.75, 0.01, "3:4 art")
+		assert_false((card.get_node("Choice") as Label).visible, "no name on the card")
+		assert_false((card.get_node("Heading") as Label).visible, "no heading on the card")
+		assert_true(art.material is ShaderMaterial, "the picture follows the card's rounded corners")
+	for id: String in ["hotspot", "online", "practice"]:
+		assert_true(ResourceLoader.exists("res://assets/ui/cards/%s.webp" % id), id)
+
+
 func test_the_cards_are_large_and_every_one_is_always_visible_stacked_behind_the_chosen_one() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
