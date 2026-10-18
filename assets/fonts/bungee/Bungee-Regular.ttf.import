@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://cf0yojffbfkik"
-path="res://.godot/imported/LondrinaSolid-Regular.ttf-3d3f57c34057dffa7a2a9f0dff4819c3.fontdata"
+uid="uid://dsf5fk2f100vy"
+path="res://.godot/imported/Bungee-Regular.ttf-153ae8d237587c6d2bca17ccefa68b5d.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/londrina_solid/LondrinaSolid-Regular.ttf"
-dest_files=["res://.godot/imported/LondrinaSolid-Regular.ttf-3d3f57c34057dffa7a2a9f0dff4819c3.fontdata"]
+source_file="res://assets/fonts/bungee/Bungee-Regular.ttf"
+dest_files=["res://.godot/imported/Bungee-Regular.ttf-153ae8d237587c6d2bca17ccefa68b5d.fontdata"]
 
 [params]
 

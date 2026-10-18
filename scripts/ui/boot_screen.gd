@@ -3,7 +3,7 @@ extends Control
 ## Boot screen, laid out like the Clash Royale loading screen: the key art fills the screen above a
 ## matte black loading base at the bottom (a matte black layer is under everything). The cardboard
 ## fills the base from left to right as the game loads. The loaded percentage sits on the base's top
-## edge (in the owner's Londrina Solid font) and a tip floats just above it over the art. It
+## edge (in the owner's Bungee font) and a tip floats just above it over the art. It
 ## loads the scenes the player is about to open, then hands over to the title screen. A dedicated
 ## server skips it.
 

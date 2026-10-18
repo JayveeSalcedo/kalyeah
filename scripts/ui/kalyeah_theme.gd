@@ -1,10 +1,10 @@
 class_name KalyeahTheme
 extends RefCounted
-## Kalyeah's portrait UI system: the Londrina Solid display face, compact spacing and raised,
+## Kalyeah's portrait UI system: the Bungee display face, compact spacing and raised,
 ## toy-like controls inspired by the visual weight of polished mobile strategy games.
 
-## The owner's Londrina Solid font for headings, plates, buttons and numbers.
-const DISPLAY_FONT: Font = preload("res://assets/fonts/londrina_solid/LondrinaSolid-Regular.ttf")
+## The owner's Bungee font (capital letters) for headings, plates, buttons and numbers.
+const DISPLAY_FONT: Font = preload("res://assets/fonts/bungee/Bungee-Regular.ttf")
 const ACTION_FONT: Font = DISPLAY_FONT
 ## The owner's Source Sans 3 (a variable font) for all regular text.
 const SOURCE_SANS: Font = preload("res://assets/fonts/source_sans_3/SourceSans3-Variable.ttf")

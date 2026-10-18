@@ -19,7 +19,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | Character select (owner) | A fighting-game style select at the start of every match: six 3:4 profile cards, then a tab per street game over weapon cards (art, name, description below); the kid you pick is the kid you play (also your main-screen face); a team never has the same kid twice (the other team may have it once); online, the server settles swaps and greys out kids a teammate locked in |
 | Hotspot rooms (owner) | Create starts the room server inside the Android app; Join finds it on the hotspot by itself, no server, address or room code |
 | Map 1:2 (owner) | The playing area is 24 × 48 m (1:2, was 3:4 24 × 32 m); the minimap is 100 × 200 px at exactly that shape; the cover wall keeps its distance from the base |
-| Home UI refinement (owner) | Londrina Solid typography, a compact profile bar, the titled Agawan Base model, one primary Online action, concise dialogs and a responsive phone layout |
+| Home UI refinement (owner) | Bungee typography, a compact profile bar, the titled Agawan Base model, one primary Online action, concise dialogs and a responsive phone layout |
 | Lobby and match UI refinement | Narrow-phone lobby and loadout layouts, concise room states, unified match announcements, and a score card with clock and best-of context |
 
 ## Next: the Kalyeah visual overhaul
