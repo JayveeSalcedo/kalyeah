@@ -1,6 +1,8 @@
 class_name BottomNav
 extends PanelContainer
-## The main screen's bottom bar: Characters, Weapons, Battle, History, Menu. The open tab is lit.
+## The main screen's bottom bar: a flat, slightly dark gray strip across the whole bottom edge (no
+## margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
+## open tab is lit and shows its name.
 
 signal tab_selected(tab: StringName)
 
@@ -11,34 +13,62 @@ const TABS: Array[Dictionary] = [
 	{"id": &"history", "label": "History"},
 	{"id": &"menu", "label": "Menu"},
 ]
+## The strip's height without the phone's home-bar inset.
 const HEIGHT: float = 104.0
+const BAR_COLOR: Color = Color("2a2c31")
+const IDLE: Color = Color("9a9fa8")
 
 var current: StringName = &"battle"
 var buttons: Dictionary[StringName, Button] = {}
+
+var _icons: Dictionary[StringName, NavIcon] = {}
+var _labels: Dictionary[StringName, Label] = {}
 
 
 func _init() -> void:
 	name = "BottomNav"
 	custom_minimum_size = Vector2(0.0, HEIGHT)
-	var style: StyleBoxFlat = KalyeahTheme.painted_panel(6.0)
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = BAR_COLOR
+	style.border_width_top = 2
+	style.border_color = Color(1, 1, 1, 0.07)
 	add_theme_stylebox_override("panel", style)
 	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	row.name = "Tabs"
+	row.add_theme_constant_override("separation", 0)
 	add_child(row)
 	for tab: Dictionary in TABS:
+		var id: StringName = tab["id"]
 		var button: Button = Button.new()
-		button.name = String(tab["id"]).capitalize()
-		button.text = String(tab["label"])
-		button.toggle_mode = false
+		button.name = String(id).capitalize()
 		button.focus_mode = Control.FOCUS_NONE
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_override("font", KalyeahTheme.BODY_FONT)
-		button.add_theme_font_size_override("font_size", 19)
-		button.pressed.connect(select.bind(tab["id"] as StringName))
-		MenuDialog.feel_press(button)
+		button.custom_minimum_size = Vector2(0.0, HEIGHT - 2.0)
+		button.pressed.connect(select.bind(id))
+		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
+		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+			button.add_theme_stylebox_override(state, empty)
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.alignment = BoxContainer.ALIGNMENT_CENTER
+		stack.add_theme_constant_override("separation", 2)
+		stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		button.add_child(stack)
+		var icon: NavIcon = NavIcon.new(id)
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		stack.add_child(icon)
+		var label: Label = Label.new()
+		label.text = String(tab["label"])
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 17)
+		label.add_theme_color_override("font_color", KalyeahTheme.AMBER)
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.add_child(label)
 		row.add_child(button)
-		buttons[tab["id"] as StringName] = button
+		buttons[id] = button
+		_icons[id] = icon
+		_labels[id] = label
 	_restyle()
 
 
@@ -51,18 +81,16 @@ func select(tab: StringName) -> void:
 	tab_selected.emit(tab)
 
 
+## Makes the strip reach the phone's bottom edge: the tabs stay above the home bar.
+func set_bottom_inset(inset: float) -> void:
+	add_theme_constant_override("margin_bottom", int(inset))
+	var style: StyleBoxFlat = get_theme_stylebox("panel") as StyleBoxFlat
+	style.content_margin_bottom = inset
+
+
 func _restyle() -> void:
 	for id: StringName in buttons:
-		var button: Button = buttons[id]
 		var lit: bool = id == current
-		var empty: StyleBoxEmpty = StyleBoxEmpty.new()
-		var lit_style: StyleBoxFlat = StyleBoxFlat.new()
-		lit_style.bg_color = Color(KalyeahTheme.AMBER, 0.22)
-		lit_style.set_corner_radius_all(18)
-		lit_style.set_border_width_all(2)
-		lit_style.border_color = KalyeahTheme.AMBER
-		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
-			button.add_theme_stylebox_override(state, lit_style if lit else empty)
-		var colour: Color = KalyeahTheme.AMBER if lit else KalyeahTheme.TEXT_MUTED
-		for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-			button.add_theme_color_override(state, colour)
+		_icons[id].color = KalyeahTheme.AMBER if lit else IDLE
+		# only the open tab shows its name; the others keep the space so nothing jumps
+		_labels[id].modulate.a = 1.0 if lit else 0.0

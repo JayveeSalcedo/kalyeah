@@ -44,18 +44,40 @@ func test_the_bar_has_the_five_tabs_in_order_with_battle_open() -> void:
 		assert_false(screen.pages[id].visible, "%s is closed" % id)
 
 
-func test_the_bar_sits_at_the_bottom_across_the_screen_and_thumb_high() -> void:
+func test_the_bar_is_a_flat_gray_strip_edge_to_edge_with_no_margin() -> void:
 	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
 	var bar: Rect2 = screen.nav.get_global_rect()
-	assert_gt(bar.position.y, 1280.0 * 0.8, "at the bottom")
-	assert_lte(bar.end.y, 1280.0)
-	assert_gt(bar.size.x, 560.0, "across the screen")
+	assert_almost_eq(bar.position.x, 0.0, 0.5, "no margin on the left")
+	assert_almost_eq(bar.end.x, 720.0, 0.5, "or the right")
+	assert_almost_eq(bar.end.y, 1280.0, 0.5, "or the bottom")
+	var style: StyleBoxFlat = screen.nav.get_theme_stylebox("panel") as StyleBoxFlat
+	assert_eq(style.corner_radius_top_left, 0, "not a rounded card")
+	assert_eq(style.shadow_size, 0, "no card shadow")
+	var shade: Color = style.bg_color
+	assert_almost_eq(shade.r, shade.g, 0.05, "gray, not tinted")
+	assert_between(shade.v, 0.1, 0.3, "slightly dark")
 	for tab: Dictionary in BottomNav.TABS:
 		var button: Button = screen.nav.buttons[tab["id"]]
 		assert_gte(button.get_global_rect().size.y, 88.0, "%s is tall enough for a thumb" % tab["label"])
-		assert_almost_eq(button.get_global_rect().position.y, bar.position.y, 40.0)
+		assert_almost_eq(button.get_global_rect().size.x, 144.0, 2.0, "five equal tabs")
 	assert_lt(screen.carousel.get_global_rect().end.y, bar.position.y, "the battle page ends above the bar")
+
+
+func test_tabs_are_icons_and_only_the_open_one_shows_its_name() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	for tab: Dictionary in BottomNav.TABS:
+		var id: StringName = tab["id"]
+		var button: Button = screen.nav.buttons[id]
+		assert_eq(button.text, "", "no text on the button itself: an icon and a caption")
+		assert_not_null(button.find_child("*", true, false))
+		var label: Label = screen.nav._labels[id]
+		assert_eq(label.modulate.a, 1.0 if id == &"battle" else 0.0, "%s caption" % id)
+		assert_eq(screen.nav._icons[id].color, KalyeahTheme.AMBER if id == &"battle" else BottomNav.IDLE)
+	screen.nav.select(&"history")
+	assert_eq(screen.nav._labels[&"history"].modulate.a, 1.0)
+	assert_eq(screen.nav._labels[&"battle"].modulate.a, 0.0, "the old tab loses its name")
 
 
 func test_tapping_a_tab_shows_only_its_page() -> void:

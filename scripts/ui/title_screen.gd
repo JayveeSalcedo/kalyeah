@@ -132,9 +132,11 @@ func _build_layout() -> void:
 	_margin.add_child(column)
 	column.add_child(_build_top_bar())
 	column.add_child(_build_pages())
+	# the bar is not part of the padded column: it runs edge to edge along the bottom
 	nav = BottomNav.new()
 	nav.tab_selected.connect(_on_tab)
-	column.add_child(nav)
+	nav.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	add_child(nav)
 
 
 ## One page per tab, stacked: only the open one shows. Battle (the carousel and its details,
@@ -279,7 +281,11 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_left", int(SIDE_MARGIN + inset.x))
 	_margin.add_theme_constant_override("margin_top", int(TOP_MARGIN + inset.y))
 	_margin.add_theme_constant_override("margin_right", int(SIDE_MARGIN + inset.z))
-	_margin.add_theme_constant_override("margin_bottom", int(BOTTOM_MARGIN + inset.w))
+	_margin.add_theme_constant_override("margin_bottom", int(BottomNav.HEIGHT + inset.w + BOTTOM_MARGIN))
+	if nav != null:
+		nav.set_bottom_inset(inset.w)
+		nav.offset_top = -(BottomNav.HEIGHT + inset.w)
+		nav.offset_bottom = 0.0
 	if carousel != null:
 		# the cards start past the screen's left edge: a fifth of each is out of sight
 		carousel.left_offset = -(SIDE_MARGIN + inset.x) - ChoiceCard.CARD_SIZE.x * MenuCarousel.HIDDEN_LEFT
