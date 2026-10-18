@@ -49,6 +49,20 @@ func test_server_scene_and_lobby_scene_exist() -> void:
 	assert_true(ResourceLoader.exists(TitleScreen.SERVER_SCENE))
 	assert_true(ResourceLoader.exists(TitleScreen.LOBBY_SCENE))
 	assert_true(ResourceLoader.exists(TitleScreen.PRACTICE_SCENE))
+	assert_true(ResourceLoader.exists(TitleScreen.PRESO_SCENE))
+
+
+func test_practice_asks_which_street_game_to_play() -> void:
+	var screen: TitleScreen = _screen()
+	screen.practice_button.pressed.emit()
+	assert_not_null(screen.dialog)
+	assert_eq(screen.dialog.title_label.text, "PRACTICE")
+	var base: Button = _find(screen.dialog, "AgawanBaseButton") as Button
+	var preso: Button = _find(screen.dialog, "TumbangPresoButton") as Button
+	assert_not_null(base)
+	assert_not_null(preso)
+	assert_eq(preso.text, "TUMBANG PRESO")
+	assert_gte(preso.custom_minimum_size.y, 88.0, "big enough for a thumb")
 
 
 func test_the_screen_has_everything_the_owner_asked_for() -> void:

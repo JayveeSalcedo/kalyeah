@@ -112,6 +112,9 @@ const BARRIER_SETBACK: float = 0.15
 @export var diorama: bool = false
 ## Off when a match scene supplies its own (follow) camera.
 @export var show_overview_camera: bool = true
+## Off for games that are not tag-the-base (Tumbang Preso): no cover, posts, bases or boxes,
+## just the street and what stands round it.
+@export var tag_zones: bool = true
 ## What stands in each end's barrier row (index 0 = the far end), for tests and the minimap.
 var barrier_rows: Array[Array] = []
 ## side -> [base tape, base fill, rescue tape, rescue fill] materials (recoloured per viewer).
@@ -232,6 +235,15 @@ func _build_map() -> void:
 		_add_corner_props()
 		return
 	_add_ground_textures()
+	if tag_zones:
+		_add_tag_zones()
+	_add_barricades()
+	_add_houses()
+	_add_details()
+
+
+## The cover, and each side's post, base circle, tagged box and rescue area.
+func _add_tag_zones() -> void:
 	for index: int in layout.obstacle_rects().size():
 		_add_obstacle(index)
 	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
@@ -245,9 +257,6 @@ func _build_map() -> void:
 		_base_materials[side] = [base[0], base[1], rescue[0], rescue[1]]
 		_side_tint[side] = color
 	_turn_posts(MapLayout.SIDE_OWN)
-	_add_barricades()
-	_add_houses()
-	_add_details()
 
 
 ## The main-screen model's props: each base's electric post and each tagged box's cardboard walls.

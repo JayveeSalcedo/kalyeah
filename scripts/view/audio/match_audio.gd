@@ -24,14 +24,7 @@ func watch(sim: MatchSim, local_team: int, local_id: int = -1) -> void:
 	_sim = sim
 	_local_team = local_team
 	_local_id = local_id
-	for i: int in VOICES:
-		var voice: AudioStreamPlayer = AudioStreamPlayer.new()
-		voice.volume_db = SFX_DB
-		add_child(voice)
-		_voices.append(voice)
-	_music = AudioStreamPlayer.new()
-	_music.volume_db = MUSIC_DB
-	add_child(_music)
+	prepare()
 	sim.weapon_cast.connect(func(_id: int, weapon: StringName) -> void: play(SoundBank.cast_id(weapon), 0.06))
 	sim.player_healed.connect(func(_id: int, _amount: int) -> void: play(&"heal"))
 	sim.effect_applied.connect(_on_effect)
@@ -41,6 +34,21 @@ func watch(sim: MatchSim, local_team: int, local_id: int = -1) -> void:
 	sim.player_damaged.connect(func(_id: int, _amount: int) -> void: play(&"hit", 0.08))
 	sim.weapons.cone_struck.connect(func(_owner: int, _def: WeaponDef, _origin: Vector2, _dir: Vector2) -> void: play(&"snip"))
 	sim.point_scored.connect(func(team: int, _how: int) -> void: play(&"point" if team == _local_team else &"lose_point"))
+
+
+## The voices and the music player, for a game that plays its own sounds (Tumbang Preso).
+## `watch()` calls it too.
+func prepare() -> void:
+	if _music != null:
+		return
+	for i: int in VOICES:
+		var voice: AudioStreamPlayer = AudioStreamPlayer.new()
+		voice.volume_db = SFX_DB
+		add_child(voice)
+		_voices.append(voice)
+	_music = AudioStreamPlayer.new()
+	_music.volume_db = MUSIC_DB
+	add_child(_music)
 
 
 ## Starts building (then playing) the music loop.

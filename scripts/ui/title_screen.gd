@@ -2,13 +2,14 @@ class_name TitleScreen
 extends Control
 ## The main screen. A blue diamond background; your profile (face and name, tap to rename) and the
 ## settings button on top; the KALYEAH wordmark; the map model (the play area alone, standing
-## still); then four buttons in a 2x2 grid at the bottom: PRACTICE (offline), HOTSPOT (a game on
-## a phone hotspot), ONLINE (Create / Join room on the game server) and QUIT. Settings, rename,
-## hotspot, online and quit open as dialogs. A dedicated server build goes straight to the server.
+## still); then four buttons in a 2x2 grid at the bottom: PRACTICE (offline: Agawan Base or
+## Tumbang Preso), HOTSPOT (a game on a phone hotspot), ONLINE (Create / Join room on the game
+## server) and QUIT. Settings, rename, practice, hotspot, online and quit open as dialogs. A dedicated server build goes straight to the server.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
 const PRACTICE_SCENE: String = "res://scenes/match/practice.tscn"
+const PRESO_SCENE: String = "res://scenes/match/preso.tscn"
 const BACKGROUND: Texture2D = preload("res://assets/ui/main_bg.webp")
 const GEAR: Texture2D = preload("res://assets/icons/gear.png")
 const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
@@ -39,6 +40,8 @@ var dialog: MenuDialog
 var _name_label: Label
 var _avatar_texture: TextureRect
 var _loading: bool = false
+## The match scene loading in the background.
+var _loading_scene: String = ""
 var _loading_dots: Label
 
 
@@ -58,7 +61,7 @@ func _ready() -> void:
 	_refresh_profile()
 	profile_button.pressed.connect(open_name_editor)
 	settings_button.pressed.connect(open_settings)
-	practice_button.pressed.connect(_on_practice_pressed)
+	practice_button.pressed.connect(open_practice)
 	hotspot_button.pressed.connect(open_hotspot)
 	online_button.pressed.connect(open_online)
 	quit_button.pressed.connect(open_quit_confirm)
@@ -319,30 +322,56 @@ func _pop_in() -> void:
 
 # ---- actions ----------------------------------------------------------------------------
 
-func _on_practice_pressed() -> void:
+## PRACTICE: which street game to practise offline (no server needed).
+func open_practice() -> MenuDialog:
+	var card: MenuDialog = MenuDialog.create("PRACTICE")
+	card.add_hint("Play offline against the computer.")
+	var base: Button = MenuDialog.make_button("AGAWAN BASE", "orange", 32)
+	var preso: Button = MenuDialog.make_button("TUMBANG PRESO", "green", 32)
+	base.name = "AgawanBaseButton"
+	preso.name = "TumbangPresoButton"
+	card.add_buttons([base])
+	card.add_hint("Tag the enemy base with your team.")
+	card.add_buttons([preso])
+	card.add_hint("Knock the can down, fetch your slipper, don't get tagged.")
+	var cancel: Button = MenuDialog.make_button("CANCEL", "grey", 28)
+	card.add_buttons([cancel])
+	cancel.pressed.connect(card.close)
+	base.pressed.connect(func() -> void:
+		card.close(false)
+		_load_match(PRACTICE_SCENE))
+	preso.pressed.connect(func() -> void:
+		card.close(false)
+		_load_match(PRESO_SCENE))
+	_show_dialog(card)
+	return card
+
+
+func _load_match(scene: String) -> void:
 	if _loading:
 		return
 	_loading = true
+	_loading_scene = scene
 	_show_loading("GETTING THE STREET READY")
-	ResourceLoader.load_threaded_request(PRACTICE_SCENE)
+	ResourceLoader.load_threaded_request(scene)
 	set_process(true)
 
 
-## The practice match is a big 3D scene: it loads in the background while the screen shows progress.
+## A match is a big 3D scene: it loads in the background while the screen shows progress.
 func _process(_delta: float) -> void:
 	if not _loading:
 		set_process(false)
 		return
 	var progress: Array = []
-	var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(PRACTICE_SCENE, progress)
+	var status: ResourceLoader.ThreadLoadStatus = ResourceLoader.load_threaded_get_status(_loading_scene, progress)
 	if _loading_dots != null:
 		_loading_dots.text = ".".repeat(1 + int(Time.get_ticks_msec() / 300) % 3)
 	if status == ResourceLoader.THREAD_LOAD_LOADED:
 		_loading = false
-		get_tree().change_scene_to_packed(ResourceLoader.load_threaded_get(PRACTICE_SCENE) as PackedScene)
+		get_tree().change_scene_to_packed(ResourceLoader.load_threaded_get(_loading_scene) as PackedScene)
 	elif status == ResourceLoader.THREAD_LOAD_FAILED:
 		_loading = false
-		get_tree().change_scene_to_file(PRACTICE_SCENE)
+		get_tree().change_scene_to_file(_loading_scene)
 
 
 func _show_loading(message: String) -> void:

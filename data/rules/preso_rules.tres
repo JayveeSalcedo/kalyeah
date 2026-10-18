@@ -1,0 +1,35 @@
+[gd_resource type="Resource" script_class="PresoRules" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/sim/preso_rules.gd" id="1_preso"]
+
+[resource]
+script = ExtResource("1_preso")
+throw_line_z = 4.0
+can_spot = Vector2(0, -5)
+can_circle_radius = 1.0
+can_hit_radius = 0.45
+knock_distance = 3.5
+can_line_margin = 1.0
+edge_margin = 0.4
+can_pickup_distance = 0.8
+guard_offset = 2.0
+home_row_offset = 1.5
+home_spacing = 3.0
+slipper_speed = 16.0
+slipper_range = 12.0
+max_throw_angle = 75.0
+auto_aim_spread = 8.0
+slipper_pickup_distance = 0.7
+tag_distance = 0.9
+shot_clock = 6.0
+home_grace = 6.0
+match_length = 180.0
+tag_freeze_time = 2.0
+intro_time = 3.0
+bot_reaction_min = 0.6
+bot_reaction_max = 1.8
+bot_aim_error = 6.0
+bot_safe_distance = 5.0
+bot_danger_distance = 3.5
+bot_desperate_time = 1.5
+bot_guard_radius = 7.0

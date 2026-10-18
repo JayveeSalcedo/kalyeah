@@ -17,6 +17,7 @@ What is built, what is next, and the rules for building it. Rules and numbers li
 | Map 1:2 (owner) | The playing area is 24 × 48 m (1:2, was 30 × 40 m 3:4); the minimap is 90 × 180 px and draws the street at exactly 1:2; posts, boxes, cover and dummies re-placed |
 | Character select (owner) | A fighting-game style select at the start of every match: six 3:4 profile cards, then a tab per street game over weapon cards (art, name, description below); the kid you pick is the kid you play (also your main-screen face); a team never has the same kid twice (the other team may have it once); online, the server settles swaps and greys out kids a teammate locked in |
 | Map 1:1 (owner) | The playing area is 24 × 24 m (square, was 24 × 32 m); the minimap is 140 × 140 px at exactly that shape; the cover wall keeps its distance from the base |
+| Tumbang Preso practice (owner) | A second street game from PRACTICE > TUMBANG PRESO: you and three bots, one taya guarding a can, slippers thrown from behind a home line and fetched, touch tags while the can stands, fewest times tagged wins a 3:00 match (`PresoSim`, `data/rules/preso_rules.tres`). Online play for it is the next step |
 
 ## Next: the Kalyeah visual overhaul
 
