@@ -282,6 +282,7 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_right", int(SIDE_MARGIN + inset.z))
 	_margin.add_theme_constant_override("margin_bottom", int(BottomNav.HEIGHT + inset.w + BOTTOM_MARGIN))
 	if nav != null:
+		nav.set_side_margins(SIDE_MARGIN + inset.x, SIDE_MARGIN + inset.z)
 		nav.set_bottom_inset(inset.w)
 		nav.offset_top = -(BottomNav.HEIGHT + inset.w)
 		nav.offset_bottom = 0.0

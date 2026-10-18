@@ -29,6 +29,9 @@ const MOVE_TIME: float = 0.16
 var current: StringName = &"battle"
 var buttons: Dictionary[StringName, Button] = {}
 
+var _inner: MarginContainer
+var _left: float = 0.0
+var _right: float = 0.0
 var _icons: Dictionary[StringName, NavIcon] = {}
 var _labels: Dictionary[StringName, Label] = {}
 
@@ -47,12 +50,20 @@ func _init() -> void:
 	var material: ShaderMaterial = ShaderMaterial.new()
 	material.shader = STONE_SHADER
 	stone.material = material
-	stone.resized.connect(func() -> void: material.set_shader_parameter("rect_size", stone.size))
+	stone.resized.connect(func() -> void:
+		material.set_shader_parameter("rect_size", stone.size)
+		_update_inner())
 	add_child(stone)
+	# the tabs sit between the screen's side margins; a partition line closes each end of the strip
+	_inner = MarginContainer.new()
+	_inner.name = "Inner"
+	_inner.add_theme_constant_override("margin_left", 0)
+	_inner.add_theme_constant_override("margin_right", 0)
+	add_child(_inner)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "Tabs"
 	row.add_theme_constant_override("separation", 0)
-	add_child(row)
+	_inner.add_child(row)
 	for tab: Dictionary in TABS:
 		var id: StringName = tab["id"]
 		var button: Button = Button.new()
@@ -96,6 +107,22 @@ func select(tab: StringName) -> void:
 	current = tab
 	_restyle(true)
 	tab_selected.emit(tab)
+
+
+## Keeps the tabs inside the screen's side margins (`left` and `right` in pixels). The bar itself
+## still runs edge to edge; partition lines mark where the tab strip begins and ends.
+func set_side_margins(left: float, right: float) -> void:
+	_left = left
+	_right = right
+	_inner.add_theme_constant_override("margin_left", int(left))
+	_inner.add_theme_constant_override("margin_right", int(right))
+	_update_inner()
+
+
+func _update_inner() -> void:
+	var stone: ColorRect = find_child("Stone", true, false) as ColorRect
+	var material: ShaderMaterial = stone.material as ShaderMaterial
+	material.set_shader_parameter("inner", Vector2(_left, stone.size.x - _right))
 
 
 ## Makes the bar reach the phone's bottom edge: the tabs stay above the home bar.

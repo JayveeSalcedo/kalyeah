@@ -61,7 +61,21 @@ func test_the_bar_is_flat_dark_blue_cement_edge_to_edge_with_no_margin_and_no_to
 	for tab: Dictionary in BottomNav.TABS:
 		var button: Button = screen.nav.buttons[tab["id"]]
 		assert_gte(button.get_global_rect().size.y, 88.0, "%s is tall enough for a thumb" % tab["label"])
-		assert_almost_eq(button.get_global_rect().size.x, 144.0, 2.0, "five equal tabs")
+		assert_almost_eq(button.get_global_rect().size.x, (720.0 - 2.0 * TitleScreen.SIDE_MARGIN) / 5.0, 2.0, "five equal tabs inside the side margins")
+
+
+func test_the_tabs_respect_the_side_margins_with_a_partition_closing_each_end() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	var first: Rect2 = screen.nav.buttons[&"characters"].get_global_rect()
+	var last: Rect2 = screen.nav.buttons[&"settings"].get_global_rect()
+	assert_almost_eq(first.position.x, TitleScreen.SIDE_MARGIN, 1.0, "the strip starts at the left margin")
+	assert_almost_eq(last.end.x, 720.0 - TitleScreen.SIDE_MARGIN, 1.0, "and ends at the right margin")
+	var stone: ColorRect = screen.nav.find_child("Stone", true, false) as ColorRect
+	var inner: Vector2 = (stone.material as ShaderMaterial).get_shader_parameter("inner") as Vector2
+	assert_almost_eq(inner.x, TitleScreen.SIDE_MARGIN, 1.0, "the partition lines are drawn there")
+	assert_almost_eq(inner.y, 720.0 - TitleScreen.SIDE_MARGIN, 1.0)
+	assert_almost_eq(screen.nav.get_global_rect().size.x, 720.0, 0.5, "the bar itself still runs edge to edge")
 
 
 func test_tabs_are_icons_and_only_the_open_one_is_big_named_and_past_the_bar() -> void:
