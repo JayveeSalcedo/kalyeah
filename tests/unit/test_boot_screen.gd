@@ -85,6 +85,7 @@ func test_a_tip_floats_just_above_the_base_and_fits_the_screen() -> void:
 	assert_gte(tip.position.x, 0.0)
 	assert_lte(tip.end.x, 720.0)
 	assert_eq(boot._tip.horizontal_alignment, HORIZONTAL_ALIGNMENT_CENTER)
+	assert_eq(boot._tip.get_theme_font("font"), BootScreen.PERCENT_FONT, "the tip uses Lost Tumbler too")
 	for line: String in BootScreen.TIPS:
 		assert_lt(line.length(), 80, "short enough for two lines")
 	boot.queue_free()
