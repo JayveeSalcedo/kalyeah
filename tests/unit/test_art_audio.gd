@@ -83,7 +83,7 @@ func test_the_ui_theme_is_applied_everywhere() -> void:
 	var box: StyleBoxFlat = button.get_theme_stylebox("normal") as StyleBoxFlat
 	assert_not_null(box, "every button gets the raised Kalyeah action style")
 	assert_eq(box.bg_color, KalyeahTheme.AMBER)
-	assert_eq(button.get_theme_font("font"), KalyeahTheme.ACTION_FONT, "actions use Dagsen Black")
+	assert_eq(button.get_theme_font("font"), KalyeahTheme.ACTION_FONT, "actions use Lost Tumbler")
 	assert_eq(KalyeahTheme.build().default_font, KalyeahTheme.BODY_FONT, "body copy uses the platform text stack")
 	var field: LineEdit = autofree(LineEdit.new()) as LineEdit
 	add_child(field)

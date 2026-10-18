@@ -20,7 +20,7 @@ const FILL: Texture2D = preload("res://assets/ui/boot/boot_bar_fill.png")
 const FILL_REGION: Rect2 = Rect2(70.0, 30.0, 740.0, 54.0)
 ## The font of the loaded percentage (owner). It only has capital letters, so the tip, which is
 ## sentence case, uses the body font.
-const PERCENT_FONT: Font = preload("res://assets/fonts/lost_tumbler/Lost_Tumbler.otf")
+const PERCENT_FONT: Font = KalyeahTheme.DISPLAY_FONT
 ## Matte black (not pure black) for the loading base and the layer under everything.
 const BASE_COLOR: Color = Color(0.085, 0.085, 0.09)
 

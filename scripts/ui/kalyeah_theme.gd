@@ -1,10 +1,11 @@
 class_name KalyeahTheme
 extends RefCounted
-## Kalyeah's portrait UI system: Dagsen display faces, compact spacing and raised,
+## Kalyeah's portrait UI system: the Lost Tumbler display face, compact spacing and raised,
 ## toy-like controls inspired by the visual weight of polished mobile strategy games.
 
-const DISPLAY_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Inked.otf")
-const ACTION_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Black.otf")
+## The owner's Lost Tumbler font (capital letters only) for headings, plates, buttons and numbers.
+const DISPLAY_FONT: Font = preload("res://assets/fonts/lost_tumbler/Lost_Tumbler.otf")
+const ACTION_FONT: Font = DISPLAY_FONT
 const FALLBACK_FONT: Font = preload("res://assets/fonts/nunito_sans/NunitoSans-Variable.ttf")
 const POPPINS_FONT: Font = preload("res://assets/fonts/poppins/Poppins-Bold.ttf")
 static var BODY_FONT: Font = _body_font()
