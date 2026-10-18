@@ -109,6 +109,42 @@ func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, color: Color, inside: 
 	tri(a, c, d, color, inside)
 
 
+## A flat slab with rounded corners (radius in the XZ plane), smooth round sides and flat caps.
+## `center` is the middle of the slab, `size` its width, height and depth.
+func rounded_slab(center: Vector3, size: Vector3, radius: float, color: Color, top: Color = Color(0, 0, 0, 0), steps: int = 8) -> void:
+	var cap: Color = color if top.a == 0.0 else top
+	var r: float = minf(radius, minf(size.x, size.z) / 2.0)
+	var hx: float = size.x / 2.0 - r
+	var hz: float = size.z / 2.0 - r
+	var half_h: float = size.y / 2.0
+	# the outline, corner by corner (each corner has steps + 1 points)
+	var corners: Array[Vector2] = [Vector2(hx, hz), Vector2(-hx, hz), Vector2(-hx, -hz), Vector2(hx, -hz)]
+	var points: Array[Vector2] = []
+	var normals: Array[Vector2] = []
+	for corner: int in 4:
+		for i: int in steps + 1:
+			var angle: float = (float(corner) + float(i) / float(steps)) * PI / 2.0
+			var out: Vector2 = Vector2(cos(angle), sin(angle))
+			points.append(corners[corner] + out * r)
+			normals.append(out)
+	var inside: Vector3 = center
+	var count: int = points.size()
+	for i: int in count:
+		var j: int = (i + 1) % count
+		var a: Vector2 = points[i]
+		var b: Vector2 = points[j]
+		var top_a: Vector3 = center + Vector3(a.x, half_h, a.y)
+		var top_b: Vector3 = center + Vector3(b.x, half_h, b.y)
+		var low_a: Vector3 = center + Vector3(a.x, -half_h, a.y)
+		var low_b: Vector3 = center + Vector3(b.x, -half_h, b.y)
+		var na: Vector3 = Vector3(normals[i].x, 0.0, normals[i].y)
+		var nb: Vector3 = Vector3(normals[j].x, 0.0, normals[j].y)
+		tri_smooth(top_a, low_a, low_b, na, na, nb, color)
+		tri_smooth(top_a, low_b, top_b, na, nb, nb, color)
+		tri(center + Vector3(0.0, half_h, 0.0), top_a, top_b, cap, inside)
+		tri(center + Vector3(0.0, -half_h, 0.0), low_a, low_b, color, inside)
+
+
 ## Axis-aligned box with bevelled edges (skipped on tiny boxes). `top` colours the
 ## top face (defaults to `color`); top edges catch a soft highlight.
 func box(center: Vector3, size: Vector3, color: Color, top: Color = Color(0, 0, 0, 0)) -> void:

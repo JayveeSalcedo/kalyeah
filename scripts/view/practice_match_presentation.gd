@@ -20,6 +20,7 @@ func _init(owner: PracticeMatch) -> void:
 
 func setup_hud() -> void:
 	owner.input.camera_yaw = owner._camera.rules.yaw_offset_degrees
+	Cinematic.add_lens(owner, owner._camera.rules.lens_k())
 	Cinematic.add_film_finish(owner)
 	owner.hud.overhead.setup(owner.sim, owner._camera, owner.local_id, owner.local_team)
 	owner.hud.minimap.setup(owner.sim, owner.local_id, owner.local_team)

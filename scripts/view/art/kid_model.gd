@@ -386,7 +386,10 @@ func _build() -> void:
 	_own_fall = library.has_animation(CLIP_FOR["ko"])
 	for clip: String in ["idle", "run", "cast", "spell", "stun", "airborne", "land", "ko"]:
 		if library.has_animation(clip):
-			library.get_animation(clip).loop_mode = Animation.LOOP_LINEAR if clip in LOOPING else Animation.LOOP_NONE
+			var animation: Animation = library.get_animation(clip)
+			animation.loop_mode = Animation.LOOP_LINEAR if clip in LOOPING else Animation.LOOP_NONE
+			if clip in LOOPING:
+				_close_loop(animation)
 	if library.has_animation(LAYER_FOR["cast"]) and library.has_animation(LAYER_FOR["spell"]):
 		_upper = AnimationPlayer.new()
 		_upper.name = "UpperPlayer"
@@ -402,6 +405,21 @@ func _build() -> void:
 	_can.visible = false
 	add_child(_can)
 	LowPoly.add_outline(_can, 0.02)
+
+
+## The imported loops end on their last pose instead of coming back to the first (Junjun's run
+## ends 22 degrees off at the knee, so every cycle snapped back: the legs seemed to vibrate). The
+## loop is made one key interval longer so the last pose blends into the first. The clips are
+## shared between every instance of a kid, so it is done once per clip.
+static func _close_loop(animation: Animation) -> void:
+	if animation.has_meta("loop_closed"):
+		return
+	animation.set_meta("loop_closed", true)
+	var keys: int = 0
+	for track: int in animation.get_track_count():
+		keys = maxi(keys, animation.track_get_key_count(track))
+	if keys > 1:
+		animation.length += animation.length / float(keys - 1)
 
 
 ## The upper-body clips for one kid, with every leg, hip and root track taken out (and the

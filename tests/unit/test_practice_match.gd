@@ -655,7 +655,7 @@ func test_the_hero_sits_near_the_lower_centre_of_a_portrait_screen() -> void:
 	player.position = Vector2(0.0, 0.0)
 	var camera: FollowCamera = practice.get_node("%FollowCamera") as FollowCamera
 	camera.follow(player.position, practice.own_side() == MapLayout.SIDE_ENEMY, 0.0)
-	var on_screen: Vector2 = camera.unproject_position(Vector3(player.position.x, 0.0, player.position.y))
+	var on_screen: Vector2 = camera.screen_position(Vector3(player.position.x, 0.0, player.position.y))
 	var size: Vector2 = camera.get_viewport().get_visible_rect().size
 	assert_almost_eq(on_screen.x / size.x, 0.5, 0.01, "centred left to right")
 	assert_almost_eq(on_screen.y / size.y, CAMERA.player_screen_y, 0.02, "in the lower part, the field ahead above")

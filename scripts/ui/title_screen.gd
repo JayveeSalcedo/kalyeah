@@ -1,8 +1,9 @@
 class_name TitleScreen
 extends Control
-## The main screen. A compact profile bar sits above the Agawan Base map model. ONLINE is the
-## dominant action; HOTSPOT and PRACTICE are secondary. Settings contains the infrequent quit
-## action, while Android Back also opens its confirmation.
+## The main screen. A compact profile bar sits above the map model. Below it, a row of two 2:1
+## cards (MODE, MAP) and START at the right-most side. Tapping a card opens a carousel of choices
+## over a tint. Settings contains the infrequent quit action, while Android Back also opens its
+## confirmation.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
 const LOBBY_SCENE: String = "res://scenes/ui/lobby.tscn"
@@ -10,6 +11,19 @@ const PRACTICE_SCENE: String = "res://scenes/match/practice.tscn"
 const BACKGROUND: Texture2D = preload("res://assets/ui/main_bg.webp")
 const GEAR: Texture2D = preload("res://assets/icons/gear.png")
 const CROP_SHADER: Shader = preload("res://shaders/minimap_crop.gdshader")
+
+## The game modes, first is the default (owner: hotspot first, not online).
+const MODES: Array[Dictionary] = [
+	{"id": "hotspot", "title": "HOTSPOT", "note": "Same Wi-Fi", "color": "blue"},
+	{"id": "online", "title": "ONLINE", "note": "Rooms on the server", "color": "orange"},
+	{"id": "practice", "title": "PRACTICE", "note": "Alone with dummies", "color": "green"},
+]
+## The maps, first is the default. Only Agawan Base can be played yet.
+const MAPS: Array[Dictionary] = [
+	{"id": "agawan_base", "title": "AGAWAN BASE", "note": "Capture the post", "color": "gold", "playable": true},
+	{"id": "tumbang_preso", "title": "TUMBANG PRESO", "note": "Coming soon", "color": "gold", "playable": false},
+	{"id": "patintero", "title": "PATINTERO", "note": "Coming soon", "color": "gold", "playable": false},
+]
 
 const SIDE_MARGIN: float = 34.0
 const TOP_MARGIN: float = 26.0
@@ -26,13 +40,15 @@ var open_lobby_action: Callable = _change_to_lobby
 
 var profile_button: Button
 var settings_button: Button
-var practice_button: Button
-var hotspot_button: Button
-var online_button: Button
+var mode_card: Button
+var map_card: Button
+var start_button: Button
+var carousel: ChoiceCarousel
 var quit_button: Button
 var diorama: MenuDiorama
 var dialog: MenuDialog
 
+var map_title: Label
 var _name_label: Label
 var _avatar_texture: TextureRect
 var _loading: bool = false
@@ -55,9 +71,9 @@ func _ready() -> void:
 	_refresh_profile()
 	profile_button.pressed.connect(open_name_editor)
 	settings_button.pressed.connect(open_settings)
-	practice_button.pressed.connect(_on_practice_pressed)
-	hotspot_button.pressed.connect(open_hotspot)
-	online_button.pressed.connect(open_online)
+	mode_card.pressed.connect(open_mode_choices)
+	map_card.pressed.connect(open_map_choices)
+	start_button.pressed.connect(start)
 	get_viewport().size_changed.connect(_apply_safe_area)
 	set_process(false)
 	_pop_in.call_deferred()
@@ -122,17 +138,22 @@ func _build_map_model() -> Control:
 	diorama = MenuDiorama.new()
 	diorama.name = "MapModel"
 	diorama.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	stage.add_child(diorama)
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchor(SIDE_RIGHT, 1.0)
-	center.set_anchor(SIDE_TOP, 0.76)
-	center.set_anchor(SIDE_BOTTOM, 0.76)
-	center.offset_top = -29.0
-	center.offset_bottom = 29.0
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the model is a 1:1 square, centred between the profile and the cards; the plate sits on its front edge
+	var square: AspectRatioContainer = AspectRatioContainer.new()
+	square.name = "MapSquare"
+	square.ratio = 1.0
+	square.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	square.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(square)
+	var frame: Control = Control.new()
+	frame.name = "Square"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	square.add_child(frame)
+	frame.add_child(diorama)
 	var title: Label = Label.new()
 	title.name = "MapTitle"
-	title.text = "AGAWAN BASE"
+	map_title = title
+	title.text = String(MAPS[Session.menu_map]["title"])
 	title.theme_type_variation = &"DisplayLabel"
 	title.add_theme_font_size_override("font_size", 34)
 	title.add_theme_color_override("font_color", CREAM)
@@ -142,9 +163,18 @@ func _build_map_model() -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	center.add_child(title)
-	stage.add_child(center)
+	# the title is written on the front face of the blue platform
+	frame.add_child(title)
+	diorama.framed.connect(_place_map_title, CONNECT_DEFERRED)
+	title.resized.connect(_place_map_title, CONNECT_DEFERRED)
+	_place_map_title.call_deferred()
 	return stage
+
+
+func _place_map_title() -> void:
+	if map_title == null or diorama == null or diorama.camera == null:
+		return
+	map_title.position = diorama.platform_front_point() - map_title.size / 2.0
 
 
 ## Keeps everything clear of notches, rounded corners and the home bar.
@@ -259,30 +289,51 @@ func _build_avatar() -> Control:
 	return holder
 
 
-## One dominant play action and one compact row for alternate modes.
+## MODE and MAP cards (2:1 each) with START at the right-most side.
 func _build_buttons() -> Control:
-	var stack: VBoxContainer = VBoxContainer.new()
-	stack.name = "Buttons"
-	stack.add_theme_constant_override("separation", 16)
-	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	online_button = MenuDialog.make_button("ONLINE", "orange", 44, Vector2(0.0, 126.0))
-	online_button.name = "OnlineButton"
-	stack.add_child(online_button)
-	var alternates: HBoxContainer = HBoxContainer.new()
-	alternates.add_theme_constant_override("separation", 16)
-	alternates.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(alternates)
-	hotspot_button = _action_button(alternates, "HotspotButton", "HOTSPOT", "blue")
-	practice_button = _action_button(alternates, "PracticeButton", "PRACTICE", "grey")
-	return stack
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Buttons"
+	row.add_theme_constant_override("separation", 14)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mode_card = _make_card(row, "ModeCard")
+	map_card = _make_card(row, "MapCard")
+	start_button = MenuDialog.make_button("START", "orange", 38)
+	start_button.name = "StartButton"
+	start_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	start_button.size_flags_stretch_ratio = 0.6
+	row.add_child(start_button)
+	_refresh_choices()
+	return row
 
 
-func _action_button(parent: Control, button_name: String, text: String, color: String) -> Button:
-	var button: Button = MenuDialog.make_button(text, color, 32, Vector2(0.0, 98.0))
-	button.name = button_name
-	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(button)
-	return button
+## A button holding a label and its current choice, always twice as wide as it is tall.
+func _make_card(row: HBoxContainer, card_name: String) -> Button:
+	var ratio: AspectRatioContainer = AspectRatioContainer.new()
+	ratio.ratio = 2.0
+	ratio.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ratio.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var card: Button = MenuDialog.make_button("", "blue", 20, Vector2(0.0, 96.0))
+	card.name = card_name
+	card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	card.clip_text = true
+	ratio.add_child(card)
+	row.add_child(ratio)
+	return card
+
+
+func _refresh_choices() -> void:
+	var mode: Dictionary = MODES[Session.menu_mode]
+	var map: Dictionary = MAPS[Session.menu_map]
+	mode_card.text = "MODE\n%s" % mode["title"]
+	KalyeahTheme.style_button(mode_card, String(mode["color"]))
+	map_card.text = "MAP\n%s" % map["title"]
+	KalyeahTheme.style_button(map_card, String(map["color"]))
+	var playable: bool = bool(map["playable"])
+	start_button.disabled = not playable
+	start_button.text = "START" if playable else "SOON"
+	if map_title != null:
+		map_title.text = String(map["title"])
 
 
 # ---- what the screen shows ---------------------------------------------------------------
@@ -295,7 +346,7 @@ func _refresh_profile() -> void:
 
 ## The buttons pop up in turn when the screen opens.
 func _pop_in() -> void:
-	var buttons: Array[Control] = [online_button, hotspot_button, practice_button]
+	var buttons: Array[Control] = [mode_card.get_parent() as Control, map_card.get_parent() as Control, start_button]
 	for i: int in buttons.size():
 		var button: Control = buttons[i]
 		button.pivot_offset = button.size / 2.0
@@ -307,6 +358,41 @@ func _pop_in() -> void:
 
 
 # ---- actions ----------------------------------------------------------------------------
+
+## The card choices: MODE and MAP each open a carousel over a tint.
+func open_mode_choices() -> ChoiceCarousel:
+	return _open_carousel("CHOOSE MODE", MODES, Session.menu_mode, func(index: int) -> void:
+		Session.menu_mode = index
+		_refresh_choices())
+
+
+func open_map_choices() -> ChoiceCarousel:
+	return _open_carousel("CHOOSE MAP", MAPS, Session.menu_map, func(index: int) -> void:
+		Session.menu_map = index
+		_refresh_choices())
+
+
+func _open_carousel(heading: String, options: Array[Dictionary], current: int, on_pick: Callable) -> ChoiceCarousel:
+	if carousel != null and is_instance_valid(carousel):
+		carousel.queue_free()
+	carousel = ChoiceCarousel.create(heading, options, current)
+	carousel.picked.connect(on_pick)
+	add_child(carousel)
+	return carousel
+
+
+## START plays the chosen mode on the chosen map.
+func start() -> void:
+	if not bool(MAPS[Session.menu_map]["playable"]):
+		return
+	match String(MODES[Session.menu_mode]["id"]):
+		"hotspot":
+			open_hotspot()
+		"online":
+			open_online()
+		"practice":
+			_on_practice_pressed()
+
 
 func _on_practice_pressed() -> void:
 	if _loading:

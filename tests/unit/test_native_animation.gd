@@ -120,3 +120,43 @@ func test_each_button_plays_its_animation_on_your_kid_and_closes_the_menu() -> v
 		for i: int in int(PracticeMatch.STATUS_TEST_TIME * 30.0) + 60:
 			practice.advance(DT)
 		assert_false(player.effects.has(type as StatusEffects.Type), "it wears off")
+
+
+# ---- the run must not snap at the end of each cycle (it looked like vibrating) -----------
+
+func _worst_gap(animation: Animation, at_end: float) -> float:
+	var worst: float = 0.0
+	for track: int in animation.get_track_count():
+		if animation.track_get_type(track) != Animation.TYPE_ROTATION_3D:
+			continue
+		var start: Quaternion = animation.rotation_track_interpolate(track, 0.0)
+		var end: Quaternion = animation.rotation_track_interpolate(track, at_end)
+		worst = maxf(worst, start.angle_to(end))
+	return worst
+
+
+func test_every_looping_clip_comes_back_to_its_first_pose() -> void:
+	for id: StringName in [&"junjun", &"toni", &"ligaya"]:
+		var kid: KidModel = _kid(id)
+		var library: AnimationLibrary = kid._player.get_animation_library("")
+		for clip: String in KidModel.LOOPING:
+			if not library.has_animation(clip):
+				continue
+			var animation: Animation = library.get_animation(clip)
+			# one frame before the loop point the pose is within a frame of the first pose
+			var frame: float = animation.length / float(maxi(1, animation.track_get_key_count(0)))
+			assert_lt(_worst_gap(animation, animation.length - 0.002), 0.2, "%s %s loops without a snap" % [id, clip])
+			assert_gt(frame, 0.0)
+
+
+func test_junjuns_run_loop_is_one_key_longer_than_the_imported_clip() -> void:
+	var kid: KidModel = _kid(&"junjun")
+	var run: Animation = kid._player.get_animation("run")
+	assert_true(run.has_meta("loop_closed"))
+	var last_key: float = 0.0
+	for track: int in run.get_track_count():
+		last_key = maxf(last_key, run.track_get_key_time(track, run.track_get_key_count(track) - 1))
+	assert_gt(run.length, last_key + 0.01, "room to blend the last pose back into the first")
+	assert_lt(_worst_gap(run, last_key), 0.6, "sanity")
+	var again: KidModel = _kid(&"junjun")
+	assert_almost_eq(again._player.get_animation("run").length, run.length, 0.0001, "closed once, not once per kid")
