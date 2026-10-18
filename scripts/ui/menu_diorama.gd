@@ -6,7 +6,7 @@ extends SubViewportContainer
 ## in its own 3D world inside a transparent SubViewport, so it floats over the screen background.
 
 const CAMERA_FOV: float = 34.0
-const CAMERA_PITCH: float = 64.0
+const CAMERA_PITCH: float = 72.0
 ## How much of the frame the model may fill (1 = touching the edges).
 const FRAME_FILL: float = 0.98
 

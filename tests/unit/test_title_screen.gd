@@ -259,7 +259,7 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	(model.get_parent().get_parent() as Control).size = Vector2(690.0, 480.0)
+	(screen.find_child("MapStage", true, false) as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var layout: MapLayout = model.map.layout
 	assert_true(model.map.diorama)
@@ -281,7 +281,7 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 func test_the_map_model_stands_still() -> void:
 	var screen: TitleScreen = _screen()
 	var model: MenuDiorama = screen.diorama
-	(model.get_parent().get_parent() as Control).size = Vector2(690.0, 480.0)
+	(screen.find_child("MapStage", true, false) as Control).size = Vector2(690.0, 480.0)
 	await wait_frames(2)
 	var before: Transform3D = model.camera.global_transform
 	await wait_frames(30)

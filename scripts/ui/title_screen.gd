@@ -137,20 +137,23 @@ func _build_map_model() -> Control:
 	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	diorama = MenuDiorama.new()
 	diorama.name = "MapModel"
+	diorama.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# the model is a 1:1 square, centred between the profile and the cards; the plate sits on its front edge
 	var square: AspectRatioContainer = AspectRatioContainer.new()
 	square.name = "MapSquare"
 	square.ratio = 1.0
-	square.alignment_vertical = AspectRatioContainer.ALIGNMENT_END
 	square.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	square.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stage.add_child(square)
-	square.add_child(diorama)
-	diorama.size_flags_horizontal = Control.SIZE_FILL
-	diorama.size_flags_vertical = Control.SIZE_FILL
+	var frame: Control = Control.new()
+	frame.name = "Square"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	square.add_child(frame)
+	frame.add_child(diorama)
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchor(SIDE_RIGHT, 1.0)
-	center.set_anchor(SIDE_TOP, 0.76)
-	center.set_anchor(SIDE_BOTTOM, 0.76)
+	center.set_anchor(SIDE_TOP, 0.93)
+	center.set_anchor(SIDE_BOTTOM, 0.93)
 	center.offset_top = -29.0
 	center.offset_bottom = 29.0
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -168,7 +171,7 @@ func _build_map_model() -> Control:
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(title)
-	stage.add_child(center)
+	frame.add_child(center)
 	return stage
 
 
