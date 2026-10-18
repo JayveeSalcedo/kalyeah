@@ -44,9 +44,11 @@ var _best_of_buttons: Dictionary[int, Button] = {}
 var _team_size: int = 1
 ## The address the lobby connected to (kept so a dropped player can rejoin).
 var _connected_url: String = ""
+var _finder: HotspotFinder = HotspotFinder.new()
 
 
 func _ready() -> void:
+	set_process(false)
 	if client == null:
 		client = Net.client
 	if not _intent_set:
@@ -103,21 +105,18 @@ func status_text() -> String:
 
 ## Create / Join pressed: remember the name and server, connect if needed, then send.
 func submit() -> void:
-	var url: String = Settings.normalize_url(_url_edit.text)
-	if Session.lobby_hotspot:
-		# a hotspot room has no address to type: the host's phone is the server, the code leads to it
-		url = _hotspot_url()
-		if url.is_empty():
-			return
-	elif url.is_empty():
-		_status.text = "Enter a server address."
-		return
-	else:
-		Settings.save_server_url(url)
-	_connected_url = url
 	Session.player_name = _name_edit.text.strip_edges()
 	Session.save()
 	client.player_name = Session.player_name
+	if Session.lobby_hotspot:
+		_submit_hotspot()
+		return
+	var url: String = Settings.normalize_url(_url_edit.text)
+	if url.is_empty():
+		_status.text = "Enter a server address."
+		return
+	Settings.save_server_url(url)
+	_connected_url = url
 	if intent == Intent.CREATE:
 		_pending = client.create_room.bind(_team_size)
 	else:
@@ -126,6 +125,10 @@ func submit() -> void:
 			_status.text = "Room codes have %d characters." % NET_RULES.passcode_length
 			return
 		_pending = client.join_room.bind(code)
+	_connect_or_send(url)
+
+
+func _connect_or_send(url: String) -> void:
 	if client.is_online():
 		_send_pending()
 	else:
@@ -134,25 +137,42 @@ func submit() -> void:
 			_status.text = "Can't reach that address."
 
 
-## The address to connect to for a hotspot room, or "" (with the reason in the status line): when
-## creating, this phone starts the room server; when joining, the code holds the host's address.
-func _hotspot_url() -> String:
+## A hotspot room needs no server address and no code. Create starts the room on this phone; Join
+## looks for the room on the hotspot or Wi-Fi this phone is on (only the phone that made the
+## hotspot can be the host, and everyone else on it can join).
+func _submit_hotspot() -> void:
+	if not Net.can_host():
+		_status.text = "Hotspot rooms need the Android app."
+		return
+	var addresses: PackedStringArray = IP.get_local_addresses()
+	if HotspotNet.local_ip(addresses).is_empty():
+		_status.text = "Turn on your hotspot or connect to Wi-Fi first."
+		return
 	if intent == Intent.CREATE:
-		if not Net.can_host():
-			_status.text = "Hosting needs the Android app. Join a friend's room with their code."
-			return ""
-		var ip: String = HotspotCode.local_ip(IP.get_local_addresses())
-		if ip.is_empty():
-			_status.text = "Turn on your hotspot or connect to Wi-Fi first."
-			return ""
-		if Net.start_host(ip) != OK:
+		if Net.start_host() != OK:
 			_status.text = "Can't start the room on this phone."
-			return ""
-		return Net.host_url()
-	var url: String = HotspotCode.url_for(_code_edit.text, NET_RULES)
-	if url.is_empty():
-		_status.text = "That isn't a hotspot room code."
-	return url
+			return
+		_connected_url = Net.host_url()
+		_pending = client.create_room.bind(_team_size)
+		_connect_or_send(_connected_url)
+		return
+	_pending = client.join_room.bind("")
+	_status.text = "Looking for the room..."
+	_finder.start(HotspotNet.candidates(addresses, NET_RULES.default_port))
+	set_process(true)
+
+
+func _process(delta: float) -> void:
+	_finder.poll(delta)
+	if not _finder.url.is_empty():
+		_connected_url = _finder.url
+		_finder.url = ""
+		set_process(false)
+		_connect_or_send(_connected_url)
+	elif _finder.failed:
+		_finder.failed = false
+		set_process(false)
+		_status.text = "No room found. Join the host's hotspot first."
 
 
 ## Takes our slot in a running match back (after a reload or a long drop).
@@ -267,6 +287,7 @@ func _on_leave() -> void:
 func _on_back() -> void:
 	if not client.room.is_empty():
 		client.leave_room()
+	_finder.stop()
 	client.close()
 	Net.stop_host()
 	get_tree().change_scene_to_file(TITLE_SCENE)
@@ -342,7 +363,7 @@ func _build_setup(parent: Control) -> void:
 			sizes.add_child(button)
 			_size_buttons.append(button)
 		choose_size(1)
-	else:
+	elif not Session.lobby_hotspot:
 		_setup.add_child(LobbyWidgets.field_label("ROOM CODE"))
 		_code_edit = LobbyWidgets.edit("", "ABC234XY", FONT)
 		_code_edit.max_length = NET_RULES.passcode_length
@@ -371,6 +392,7 @@ func _build_room(parent: Control) -> void:
 	_room_box.add_child(code_hint)
 	_code_label = LobbyWidgets.label("", BIG_FONT, KalyeahTheme.AMBER)
 	_code_label.theme_type_variation = &"DisplayLabel"
+	_code_label.visible = not Session.lobby_hotspot
 	_room_box.add_child(_code_label)
 	for team: int in 2:
 		var team_card: PanelContainer = PanelContainer.new()

@@ -507,7 +507,7 @@ func open_online() -> MenuDialog:
 
 ## HOTSPOT: play with friends on the same phone hotspot or Wi-Fi; the host's phone runs the room.
 func open_hotspot() -> MenuDialog:
-	return _open_play_dialog("HOTSPOT", true, "Create makes a room code on this phone (Android). Friends on the same hotspot or Wi-Fi join with it.")
+	return _open_play_dialog("HOTSPOT", true, "Create opens a room on this phone (Android). Friends on the same hotspot or Wi-Fi tap Join: no code or address.")
 
 
 ## The Create / Join choice.

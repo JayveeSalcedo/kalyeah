@@ -53,10 +53,6 @@ var best_of_choices: Array[int] = [3]
 var default_best_of: int = 3
 
 var _rules: NetRules
-## When set, the next room gets this code (a hotspot room's code carries its host's address);
-## only the server's own owner can set it, never a client message.
-var next_code: String = ""
-
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _next_player_id: int = 1
 ## peer id -> room code, for connected members.
@@ -270,10 +266,6 @@ func _add_member(room: Room, peer_id: int, player_name: String) -> Member:
 
 
 func _new_code() -> String:
-	if not next_code.is_empty() and not rooms.has(next_code):
-		var chosen: String = next_code
-		next_code = ""
-		return chosen
 	while true:
 		var code: String = ""
 		for i: int in _rules.passcode_length:
