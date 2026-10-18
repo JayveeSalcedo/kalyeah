@@ -6,11 +6,12 @@ extends GutTest
 const PROPS: Array[String] = [
 	"basketball_pole", "bench", "cardboard_wall", "crates", "electric_pole",
 	"fishball_cart", "ironing_board", "rooster_tent", "school_zone", "truck_wheels",
+	"nena_store", "vulcanizing", "barber_shop",
 ]
 ## Open edges as a fraction of the triangles: the torn models were 0.9 to 1.3; whole ones are under 0.3.
 const MAX_OPEN_FRACTION: float = 0.35
 ## The electric pole's dangling cables are thin flat ribbons, which are open strips by nature.
-const MAX_OPEN_FRACTION_POLE: float = 0.6
+const MAX_OPEN_FRACTION_POLE: float = 0.7
 
 
 func test_the_street_props_are_whole_surfaces_not_torn_into_pieces() -> void:

@@ -58,6 +58,9 @@ const PLATFORM_MARGIN: float = 2.0
 ## Corner radius of the main-screen model's slab and stone base (the platform's is wider by the margin).
 const CORNER_RADIUS: float = 1.8
 const HOUSE_SPACING: float = 6.4
+## The owner's shopfront models, in the order they repeat, and how wide each is on the street.
+const BUILDINGS: Array[String] = ["vulcanizing", "barber_shop", "nena_store"]
+const BUILDING_WIDTH: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
 const PAVER_TILE: float = 2.4
@@ -575,7 +578,8 @@ func _add_barricades() -> void:
 			x += widths[k] + BARRIER_GAP + spare * shares[k + 1] / total
 
 
-## House fronts along both sides, a sari-sari store, and houses across both far ends.
+## The owner's three shopfronts (Nena store, vulcanizing, barber shop) along both sides and across
+## both far ends, one of them (the Nena store) where the sari-sari store stood.
 func _add_houses() -> void:
 	var half_w: float = layout.lane_width / 2.0
 	var half_l: float = layout.lane_length / 2.0 + END_REACH
@@ -585,24 +589,25 @@ func _add_houses() -> void:
 	for side: float in [-1.0, 1.0]:
 		var z: float = -half_l + HOUSE_SPACING / 2.0
 		while z < half_l:
-			var yaw: float = 0.0 if side < 0.0 else PI
+			var id: String = BUILDINGS[variant % BUILDINGS.size()]
 			if side < 0.0 and absf(z - store_z) < HOUSE_SPACING / 2.0:
-				_add(Props.sari_sari(), Vector3(side * (front + 1.8), 0.0, store_z))
-				_add_sign("sari_sign", SARI_SIGN_HEIGHT, Vector3(side * (front + 0.4), 3.3, store_z))
-			else:
-				var tall: bool = variant % 3 == 1
-				var depth: float = 4.4 if tall else 4.0
-				var mesh: ArrayMesh = Props.house_tall(variant) if tall else Props.house(variant)
-				_add(mesh, Vector3(side * (front + depth / 2.0 + 0.2), 0.0, z), yaw)
-				if variant % 4 == 2:
-					_add(Props.tarpaulin(variant), Vector3(side * (front + 0.1), 2.6, z + 1.4), yaw)
+				id = "nena_store"
+				z = store_z
+			var natural: Vector3 = PropModel.size_of(id)
+			var scale_to: float = BUILDING_WIDTH / natural.x
+			var depth: float = natural.z * scale_to
+			# the front faces the street: +X on the left side, -X on the right
+			var yaw: float = PI / 2.0 if side < 0.0 else -PI / 2.0
+			_add_prop(PropModel.make(id, Vector3.ONE * scale_to), Vector3(side * (front + depth / 2.0 + 0.2), 0.0, z), yaw)
 			variant += 1
 			z += HOUSE_SPACING
-	# the street ends in more houses, facing back up the street
+	# the street ends in more shopfronts, facing back up the street
 	for end: float in [-1.0, 1.0]:
 		var x: float = -half_w - 2.0
 		while x < half_w + 3.0:
-			_add(Props.house(variant), Vector3(x, 0.0, end * (half_l + 2.2)), end * PI / 2.0)
+			var id: String = BUILDINGS[variant % BUILDINGS.size()]
+			var scale_to: float = BUILDING_WIDTH / PropModel.size_of(id).x
+			_add_prop(PropModel.make(id, Vector3.ONE * scale_to), Vector3(x, 0.0, end * (half_l + 2.2)), 0.0 if end < 0.0 else PI)
 			variant += 1
 			x += HOUSE_SPACING
 
