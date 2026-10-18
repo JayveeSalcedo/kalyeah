@@ -166,7 +166,7 @@ func _layout() -> void:
 	# the percentage is centred vertically on the base's top edge, overlapping it
 	_percent.size = Vector2(size.x, PERCENT_HEIGHT)
 	_percent.position = Vector2(0.0, origin.y - PERCENT_HEIGHT / 2.0)
-	_percent.add_theme_font_size_override("font_size", int(PERCENT_HEIGHT * 0.78))
+	_percent.add_theme_font_size_override("font_size", int(PERCENT_HEIGHT * 0.6))
 	# the tip floats just above the base, over the art
 	var side: float = size.x * 0.08
 	# a wrapping label works out its height from its width, so give it the width first
