@@ -7,7 +7,7 @@ const PHONE: float = 720.0 / 1280.0
 
 func test_a_fixed_low_angle_with_a_wide_perspective_lens() -> void:
 	assert_eq(CAMERA.pitch_degrees, 26.0, "owner: a low angle behind the kid, far up the street")
-	assert_eq(CAMERA.vfov_degrees, 60.0, "wide vertical field of view")
+	assert_eq(CAMERA.vfov_degrees, 75.0, "wide vertical field of view")
 	assert_eq(CameraRules.DESIGN_ASPECT, 9.0 / 16.0, "portrait 9:16")
 
 
@@ -21,12 +21,12 @@ func test_distance_shows_the_visible_width_on_any_phone() -> void:
 		var distance: float = CAMERA.distance(aspect)
 		var width: float = 2.0 * distance * tan(deg_to_rad(CAMERA.vfov_degrees / 2.0)) * aspect
 		assert_almost_eq(width, CAMERA.visible_width, 0.001, "aspect %.2f" % aspect)
-	assert_almost_eq(CAMERA.distance(PHONE), 15.4, 0.05)
+	assert_almost_eq(CAMERA.distance(PHONE), 11.58, 0.05)
 
 
 func test_the_camera_is_low_behind_the_hero() -> void:
 	var offset: Vector3 = CAMERA.camera_offset(CAMERA.distance(PHONE), false)
-	assert_almost_eq(offset.y, 6.75, 0.1, "about 5 m up")
+	assert_almost_eq(offset.y, 5.08, 0.1, "about 5 m up")
 	assert_almost_eq(offset.length(), CAMERA.distance(PHONE), 0.001)
 
 
@@ -58,7 +58,7 @@ func test_other_team_view_is_mirrored() -> void:
 func test_the_aim_point_is_far_enough_ahead_to_hold_the_hero_low_on_screen() -> void:
 	var reach: float = CAMERA.distance(PHONE)
 	var ahead: float = CAMERA.look_ahead(reach)
-	assert_almost_eq(ahead, 3.76, 0.05, "about 3.8 m ahead")
+	assert_almost_eq(ahead, 3.53, 0.05, "about 3.8 m ahead")
 	assert_eq(CAMERA.camera_target(Vector2(0.0, 10.0), false, reach), Vector2(0.0, 10.0 - ahead), "own side looks toward -Z")
 	assert_eq(CAMERA.camera_target(Vector2(0.0, -10.0), true, reach), Vector2(0.0, -10.0 + ahead), "flipped looks toward +Z")
 
