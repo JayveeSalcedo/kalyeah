@@ -256,10 +256,10 @@ func _build_map() -> void:
 
 ## The main-screen model's props: each base's electric post and each tagged box's cardboard walls.
 func _add_corner_props() -> void:
-	for side: int in [MapLayout.SIDE_OWN, MapLayout.SIDE_ENEMY]:
-		var center: Vector2 = layout.base_center(side)
-		_posts[side] = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
-		_add_jail(side)
+	# only the far half of the street is modelled: the enemy post (top right) and your box (top left)
+	var center: Vector2 = layout.base_center(MapLayout.SIDE_ENEMY)
+	_posts[MapLayout.SIDE_ENEMY] = _add_prop(PropModel.by_height("electric_pole", POST_HEIGHT), Vector3(center.x, 0.0, center.y))
+	_add_jail(MapLayout.SIDE_OWN)
 	_turn_posts(MapLayout.SIDE_OWN)
 
 
@@ -281,11 +281,14 @@ func _street() -> ArrayMesh:
 	var kit: LowPoly = LowPoly.new()
 	var half_w: float = layout.lane_width / 2.0
 	var length: float = layout.lane_length + _reach() * 2.0
-	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	if diorama:
+		# the main-screen model is the far half only: the exact lane_width x lane_length / 2 area (1:1 when the street is 1:2)
+		var half: float = layout.lane_length / 2.0
+		kit.plain_box(Vector3(0.0, -0.05, -half / 2.0), Vector3(layout.lane_width, 0.1, half), CEMENT, CEMENT)
 		# the chunky stone base the map model stands on (bevelled: its edges catch the light)
-		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, 0.0), Vector3(layout.lane_width, PLINTH_HEIGHT, length), PLINTH, PLINTH)
+		kit.box(Vector3(0.0, -0.1 - PLINTH_HEIGHT / 2.0, -half / 2.0), Vector3(layout.lane_width, PLINTH_HEIGHT, half), PLINTH, PLINTH)
 		return kit.commit()
+	kit.plain_box(Vector3(0.0, -0.05, 0.0), Vector3(layout.lane_width, 0.1, length), CEMENT, CEMENT)
 	for side: float in [-1.0, 1.0]:
 		var reach: float = layout.boundary_thickness + SIDEWALK_WIDTH
 		kit.plain_box(Vector3(side * (half_w + reach / 2.0), CURB_HEIGHT / 2.0 - 0.02, 0.0), Vector3(reach, CURB_HEIGHT, length), SIDEWALK_EDGE, SIDEWALK_CEMENT)

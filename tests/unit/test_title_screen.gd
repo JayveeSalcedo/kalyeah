@@ -265,13 +265,13 @@ func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
 	assert_true(model.map.diorama)
 	assert_eq(layout.lane_length, (load("res://data/rules/map_layout.tres") as MapLayout).lane_length, "the real play area")
 	# the cement and its stone base in the game's exact shape, plus the corner props only
-	assert_eq(model.map._posts.size(), 2, "an electric post at each base")
+	assert_eq(model.map._posts.size(), 1, "the far base's electric post")
 	var street: AABB = (model.map.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).get_aabb()
-	assert_almost_eq(street.size.x / street.size.z, layout.lane_width / layout.lane_length, 0.001, "the game's 1:2 ratio")
+	assert_almost_eq(street.size.x / street.size.z, 1.0, 0.001, "exactly 1:1")
 	assert_almost_eq(street.size.x, layout.lane_width, 0.01, "no sidewalks")
-	assert_almost_eq(street.size.z, layout.lane_length, 0.01, "no extra space at the ends")
+	assert_almost_eq(street.size.z, layout.lane_length / 2.0, 0.01, "the top half, no extra space at the ends")
 	var props: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
-	assert_eq(props.size(), 1 + 2 + 2 * model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + posts + tagged-box walls and nothing else")
+	assert_eq(props.size(), 1 + 1 + model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + posts + tagged-box walls and nothing else")
 	assert_eq(model.viewport.find_children("*", "KidModel", true, false).size(), 0, "no characters")
 	for cx: float in [-layout.lane_width / 2.0, layout.lane_width / 2.0]:
 		for cz: float in [-layout.lane_length / 2.0, 0.0]:
