@@ -1,11 +1,12 @@
 class_name KalyeahTheme
 extends RefCounted
-## Kalyeah's portrait UI system. It uses a restrained street-sign palette, two
-## bundled OFL fonts, consistent spacing and clear interactive states. Screens
-## may choose a semantic button colour, but typography and surfaces come from here.
+## Kalyeah's portrait UI system: Dagsen display faces, compact spacing and raised,
+## toy-like controls inspired by the visual weight of polished mobile strategy games.
 
-const DISPLAY_FONT: Font = preload("res://assets/fonts/lilita_one/LilitaOne-Regular.ttf")
-const BODY_FONT: Font = preload("res://assets/fonts/nunito_sans/NunitoSans-Variable.ttf")
+const DISPLAY_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Inked.otf")
+const ACTION_FONT: Font = preload("res://assets/fonts/dagsen/Dagsen_Black.otf")
+const FALLBACK_FONT: Font = preload("res://assets/fonts/nunito_sans/NunitoSans-Variable.ttf")
+static var BODY_FONT: Font = _body_font()
 
 const INK: Color = Color("10192d")
 const INK_DEEP: Color = Color("080f1d")
@@ -27,6 +28,13 @@ const CORNER: int = 16
 const BUTTON_SHADOW: int = 6
 const FONT_SIZE: int = 26
 const PANEL_PADDING: float = 30.0
+
+
+static func _body_font() -> Font:
+	var font: SystemFont = SystemFont.new()
+	font.font_names = PackedStringArray(["SF Pro Text", "SF Pro Display", "Helvetica Neue", "Roboto", "Noto Sans"])
+	font.fallbacks = [FALLBACK_FONT]
+	return font
 
 
 static func apply() -> void:
@@ -61,7 +69,7 @@ static func build() -> Theme:
 	theme.set_stylebox("normal", "HudPill", painted_pill())
 	theme.set_constant("outline_size", "HudPill", 0)
 
-	theme.set_font("font", "Button", DISPLAY_FONT)
+	theme.set_font("font", "Button", ACTION_FONT)
 	theme.set_font_size("font_size", "Button", 30)
 	set_button_styles(theme, "Button", "orange")
 	theme.set_stylebox("disabled", "Button", painted_button("grey"))
@@ -187,6 +195,19 @@ static func painted_pill() -> StyleBoxFlat:
 	box.content_margin_left = 18.0
 	box.content_margin_right = 18.0
 	box.content_margin_top = 9.0
+	box.content_margin_bottom = 10.0
+	return box
+
+
+static func map_title_plate() -> StyleBoxFlat:
+	var box: StyleBoxFlat = surface_box(14, 3, 0.0)
+	box.bg_color = Color("213b61")
+	box.border_color = AMBER
+	box.shadow_size = 4
+	box.shadow_offset = Vector2(0.0, 5.0)
+	box.content_margin_left = 28.0
+	box.content_margin_right = 28.0
+	box.content_margin_top = 8.0
 	box.content_margin_bottom = 10.0
 	return box
 

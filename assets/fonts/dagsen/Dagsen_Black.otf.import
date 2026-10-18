@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://c8sm2ntfq34af"
-path="res://.godot/imported/LilitaOne-Regular.ttf-14dfbdb1bddf1b538171ebf614c0b381.fontdata"
+uid="uid://bv2qsytop0mim"
+path="res://.godot/imported/Dagsen_Black.otf-8dc0ed399b359c1afa32b70f432621a3.fontdata"
 
 [deps]
 
-source_file="res://assets/fonts/lilita_one/LilitaOne-Regular.ttf"
-dest_files=["res://.godot/imported/LilitaOne-Regular.ttf-14dfbdb1bddf1b538171ebf614c0b381.fontdata"]
+source_file="res://assets/fonts/dagsen/Dagsen_Black.otf"
+dest_files=["res://.godot/imported/Dagsen_Black.otf-8dc0ed399b359c1afa32b70f432621a3.fontdata"]
 
 [params]
 
