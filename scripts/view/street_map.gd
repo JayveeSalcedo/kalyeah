@@ -43,7 +43,7 @@ const BASE_STEPS: int = 36
 const JAIL_WALL_THICKNESS: float = 0.5
 ## How high the sidewalks stand above the street (owner: raised, was 0.18 m).
 const CURB_HEIGHT: float = 0.4
-const SIDEWALK_WIDTH: float = 2.4
+const SIDEWALK_WIDTH: float = 1.2
 ## The street goes on past both ends of the play area (behind a barricade).
 const END_REACH: float = 16.0
 ## The main screen shows the play area alone as a small model, the game's exact 1:2 shape: the
@@ -61,7 +61,7 @@ const HOUSE_SPACING: float = 6.4
 ## The owner's shopfront models, in the order they repeat, and how wide each is on the street.
 const BUILDINGS: Array[String] = ["vulcanizing", "barber_shop", "nena_store"]
 ## The two houses that fill in between the shopfronts (shop, house, shop, house, ...).
-const FILLER_HOUSES: Array[String] = ["house_1", "house_2"]
+const FILLER_HOUSES: Array[String] = ["house_1", "house_2", "house_3"]
 const BUILDING_WIDTH: float = 6.0
 const SHADOW_DISTANCE: float = 75.0
 ## Painted ground sits just above the coloured road and sidewalk boxes.
@@ -102,7 +102,7 @@ const POST_HEIGHT: float = 8.5
 const BARRIER_HEIGHTS: Dictionary[String, float] = {
 	"fishball_cart": 2.0, "tricycle": 2.3, "bench": 0.7, "crates": 0.8, "sacks": 0.9, "school_zone": 1.8,
 	"basketball_pole": 4.2, "ebike": 1.6, "truck_wheels": 1.4, "sewing_machine": 1.1, "ironing_board": 1.0,
-	"no_id_no_entry": 1.7, "rooster_tent": 1.4,
+	"no_id_no_entry": 1.7, "rooster_tent": 1.4, "plank_fence": 1.8, "roof_wall": 2.2, "roof_wall_2": 2.4,
 }
 ## Things whose long side is their depth: they are turned a quarter so the long side faces the play area.
 const BARRIER_TURNED: Array[String] = ["tricycle"]
