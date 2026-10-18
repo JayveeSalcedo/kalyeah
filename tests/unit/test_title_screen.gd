@@ -132,6 +132,16 @@ func test_the_actions_sit_low_on_the_screen_but_not_at_the_very_bottom() -> void
 	assert_lt(screen.carousel.get_global_rect().end.y, create.position.y, "below the cards")
 	assert_gt(screen.carousel.get_global_rect().position.y, screen.logo.get_global_rect().end.y - 1.0, "the cards are under the top row")
 	assert_gt(create.size.x + join.size.x, 600.0)
+	var title: Rect2 = screen.mode_name_label.get_global_rect()
+	var phrase: Rect2 = screen.mode_text_label.get_global_rect()
+	var cards_bottom: float = screen.carousel.cards[0].get_global_rect().end.y
+	var gap_middle: float = (cards_bottom + create.position.y) / 2.0
+	var block_middle: float = (title.position.y + phrase.end.y) / 2.0
+	assert_almost_eq(block_middle, gap_middle, 40.0, "the title and phrase are centred between the cards and the buttons")
+	assert_gt(title.position.y, cards_bottom, "under the cards")
+	assert_lt(phrase.end.y, create.position.y - 10.0, "and clear of the buttons")
+	assert_almost_eq(title.get_center().x, 360.0, 2.0, "centred left to right")
+	assert_almost_eq(phrase.get_center().x, 360.0, 2.0)
 
 
 func test_a_corner_button_opens_its_page_and_back_returns_home() -> void:

@@ -3,8 +3,8 @@ extends Control
 ## The main screen. The home page: a top row with the book (left), the KALYEAH! logo (middle) and
 ## the history and settings buttons (right); a horizontal carousel of large 3:4 mode cards (Hotspot,
 ## Online, Practice) with every card always visible, stacked behind the chosen one; and the chosen
-## mode's name, one phrase and action buttons low on the screen. A page opens over the home page with
-## a Back button (so does Android Back). Settings holds the player's name and the infrequent quit
+## mode's name and one phrase centred between the cards and the action buttons, which sit low on
+## the screen. A page opens over the home page with a Back button (so does Android Back). Settings holds the player's name and the infrequent quit
 ## action, while Android Back on the home page asks to quit.
 
 const SERVER_SCENE: String = "res://server/main.tscn"
@@ -148,15 +148,21 @@ func _build_home() -> VBoxContainer:
 	home.add_theme_constant_override("separation", 6)
 	home.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	home.add_child(_build_top_row())
-	# the cards fill the space between the top row and the action buttons, centred in it
+	# a little room above the cards, then the cards at their own height
+	var above: Control = Control.new()
+	above.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	above.size_flags_stretch_ratio = 0.5
+	above.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	home.add_child(above)
 	carousel = MenuCarousel.new()
 	carousel.name = "ModeCarousel"
 	carousel.custom_minimum_size = Vector2(0.0, ChoiceCard.CARD_SIZE.y)
 	carousel.size_flags_horizontal = Control.SIZE_FILL
-	carousel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	carousel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	home.add_child(carousel)
 	carousel.setup("", MODES, Session.menu_mode)
-	home.add_child(_build_details())
+	home.add_child(_build_titles())
+	home.add_child(_build_actions())
 	# a little room under the buttons: low on the screen, but not at the very bottom
 	var lift: Control = Control.new()
 	lift.custom_minimum_size = Vector2(0.0, ACTIONS_LIFT)
@@ -221,33 +227,42 @@ func _build_top_row() -> Control:
 	return holder
 
 
-func _build_details() -> Control:
-	var details: VBoxContainer = VBoxContainer.new()
-	details.name = "Details"
-	details.add_theme_constant_override("separation", 8)
-	details.mouse_filter = Control.MOUSE_FILTER_IGNORE
+## The mode's name and its one short phrase, centred in the space between the cards and the
+## action buttons.
+func _build_titles() -> Control:
+	var titles: VBoxContainer = VBoxContainer.new()
+	titles.name = "Titles"
+	titles.alignment = BoxContainer.ALIGNMENT_CENTER
+	titles.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	titles.size_flags_stretch_ratio = 1.0
+	titles.add_theme_constant_override("separation", 6)
+	titles.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mode_name_label = Label.new()
 	mode_name_label.name = "ModeName"
 	mode_name_label.theme_type_variation = &"DisplayLabel"
 	mode_name_label.add_theme_font_size_override("font_size", 40)
 	mode_name_label.add_theme_color_override("font_color", CREAM)
 	mode_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	details.add_child(mode_name_label)
+	titles.add_child(mode_name_label)
 	mode_text_label = Label.new()
 	mode_text_label.name = "ModeText"
 	mode_text_label.add_theme_font_size_override("font_size", 22)
 	mode_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mode_text_label.clip_text = true
 	mode_text_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	details.add_child(mode_text_label)
+	titles.add_child(mode_text_label)
+	return titles
+
+
+## The action buttons in one row: Create and Join, or Start.
+func _build_actions() -> Control:
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.name = "Actions"
 	actions.add_theme_constant_override("separation", 14)
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	details.add_child(actions)
 	primary_button = _action_button(actions, "PrimaryButton", "", "blue")
 	secondary_button = _action_button(actions, "SecondaryButton", "JOIN", "green")
-	return details
+	return actions
 
 
 ## The pages open here, over the home page, under a Back button.
