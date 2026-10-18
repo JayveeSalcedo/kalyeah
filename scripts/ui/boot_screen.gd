@@ -1,9 +1,9 @@
 class_name BootScreen
 extends Control
 ## Boot screen, laid out like the Clash Royale loading screen: the key art fills the screen above a
-## black band at the bottom (black is the base layer under everything). In the band sits the
-## cardboard loading bar with the loaded percentage in the middle (Dagsen), and a tip floats just
-## above it over the art. It loads the scenes the player is about to open, then hands over to the
+## cement-coloured loading base at the bottom (black is the base layer under everything). The
+## cardboard fills the base from left to right as the game loads, with the loaded percentage in the
+## middle (Dagsen), and a tip floats just above it over the art. It loads the scenes the player is about to open, then hands over to the
 ## title screen. A dedicated server skips it.
 
 const TITLE_SCENE: String = "res://scenes/ui/title_screen.tscn"
@@ -13,11 +13,14 @@ const WARM_SCENES: Array[String] = [
 	"res://scenes/match/practice.tscn",
 ]
 const BACKGROUND: Texture2D = preload("res://assets/ui/boot/boot_bg.webp")
-const TRACK: Texture2D = preload("res://assets/ui/boot/boot_bar_track.png")
 const FILL: Texture2D = preload("res://assets/ui/boot/boot_bar_fill.png")
+## The cardboard picture has rounded ends and a margin: only this part of it is used, stretched
+## to cover the whole loading base.
+const FILL_REGION: Rect2 = Rect2(25.0, 22.0, 828.0, 68.0)
+## The ground of the key art (its average colour along the bottom edge): the loading base.
+const BASE_COLOR: Color = Color(0.66, 0.533, 0.455)
 
-const BAR_WIDTH_FRACTION: float = 0.94
-## The black band along the bottom edge (the phone's home-bar inset is added to it).
+## The loading base along the bottom edge (the phone's home-bar inset is added to it).
 const BAND_HEIGHT: float = 104.0
 ## One tip is shown per launch.
 const TIPS: Array[String] = [
@@ -29,8 +32,6 @@ const TIPS: Array[String] = [
 	"Hotspot rooms need no server: share a hotspot and play.",
 	"Two weapons, two skills: pick a pair that covers each other.",
 ]
-## Where the rounded ends of the bar start, as a fraction of its width.
-const BAR_INSET: float = 0.075
 ## The bar never fills faster than this, so the screen is seen even when loading is instant.
 const MAX_FILL_PER_SECOND: float = 0.7
 
@@ -41,18 +42,17 @@ var _loaded: float = 0.0
 var _done: bool = false
 var _fill_clip: Control
 var _fill_rect: TextureRect
-var _track_rect: TextureRect
+var _base: ColorRect
 var _band: ColorRect
 var _art: TextureRect
 var _percent: Label
 var _tip: Label
 
 
-## Width of the filled part of a bar `width` wide at `progress` (0..1): it starts
-## at the left rounded end and finishes at the right one.
-static func fill_width(fraction: float, width: float, inset: float = BAR_INSET) -> float:
-	var edge: float = width * inset
-	return edge + (width - 2.0 * edge) * clampf(fraction, 0.0, 1.0)
+## Width of the filled part of a base `width` wide at `fraction` (0..1): the cardboard grows from
+## the left edge to the right edge.
+static func fill_width(fraction: float, width: float) -> float:
+	return width * clampf(fraction, 0.0, 1.0)
 
 
 func _ready() -> void:
@@ -82,12 +82,19 @@ func _build() -> void:
 	_art.clip_contents = true
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_art)
-	_track_rect = _bar_layer(TRACK)
+	_base = ColorRect.new()
+	_base.name = "Base"
+	_base.color = BASE_COLOR
+	_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_base)
 	_fill_clip = Control.new()
 	_fill_clip.clip_contents = true
 	_fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_fill_clip)
-	_fill_rect = _bar_layer(FILL, _fill_clip)
+	var cardboard: AtlasTexture = AtlasTexture.new()
+	cardboard.atlas = FILL
+	cardboard.region = FILL_REGION
+	_fill_rect = _bar_layer(cardboard, _fill_clip)
 	_percent = Label.new()
 	_percent.add_theme_font_override("font", KalyeahTheme.ACTION_FONT)
 	_percent.add_theme_color_override("font_color", Color.WHITE)
@@ -133,24 +140,24 @@ func _bar_layer(texture: Texture2D, parent: Control = self) -> TextureRect:
 
 
 func _layout() -> void:
-	if _track_rect == null:
+	if _base == null:
 		return
 	var band: float = band_height()
 	_art.position = Vector2.ZERO
 	_art.size = Vector2(size.x, size.y - band)
-	var bar_size: Vector2 = Vector2(size.x * BAR_WIDTH_FRACTION, 0.0)
-	bar_size.y = bar_size.x * float(TRACK.get_height()) / float(TRACK.get_width())
-	# the bar sits in the black band, centred above the home-bar inset
-	var origin: Vector2 = Vector2((size.x - bar_size.x) * 0.5, size.y - band + (BAND_HEIGHT - bar_size.y) * 0.5)
-	_track_rect.position = origin
-	_track_rect.size = bar_size
+	# the cement-coloured base and the cardboard on it are the same size: the whole band
+	var origin: Vector2 = Vector2(0.0, size.y - band)
+	var base_size: Vector2 = Vector2(size.x, band)
+	_base.position = origin
+	_base.size = base_size
 	_fill_clip.position = origin
 	_fill_rect.position = Vector2.ZERO
-	_fill_rect.size = bar_size
+	_fill_rect.size = base_size
+	# the percentage is centred in the part above the phone's home-bar inset
 	_percent.position = origin
-	_percent.size = bar_size
-	_percent.add_theme_font_size_override("font_size", int(bar_size.y * 0.62))
-	# the tip floats just above the black band, over the art
+	_percent.size = Vector2(size.x, BAND_HEIGHT)
+	_percent.add_theme_font_size_override("font_size", int(BAND_HEIGHT * 0.5))
+	# the tip floats just above the base, over the art
 	var side: float = size.x * 0.08
 	# a wrapping label works out its height from its width, so give it the width first
 	_tip.custom_minimum_size = Vector2(size.x - side * 2.0, 0.0)
@@ -160,15 +167,14 @@ func _layout() -> void:
 
 
 func _apply_progress() -> void:
-	if _track_rect == null:
+	if _base == null:
 		return
-	var width: float = fill_width(progress, _track_rect.size.x)
-	_fill_clip.size = Vector2(width, _track_rect.size.y)
+	_fill_clip.size = Vector2(fill_width(progress, _base.size.x), _base.size.y)
 	_percent.text = "%d%%" % roundi(clampf(progress, 0.0, 1.0) * 100.0)
 
 
 func _process(delta: float) -> void:
-	if _done or _track_rect == null:
+	if _done or _base == null:
 		return
 	_loaded = _loading_fraction()
 	progress = minf(_loaded, progress + MAX_FILL_PER_SECOND * delta)
