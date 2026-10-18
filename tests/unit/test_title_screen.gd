@@ -1,5 +1,5 @@
 extends GutTest
-## The main screen: profile, titled map model, one primary action, two alternate modes and dialogs.
+## The main screen: the K! logo and settings on top, a vertical map carousel on the left, the map's details and the action buttons on the right.
 
 const TITLE_SCENE: PackedScene = preload("res://scenes/ui/title_screen.tscn")
 
@@ -29,7 +29,6 @@ func after_each() -> void:
 	Settings.save_server_url(_saved_url)
 	Settings.save_hotspot_url(_saved_hotspot)
 	Session.lobby_hotspot = false
-	Session.menu_mode = 0
 	Session.menu_map = 0
 
 
@@ -53,73 +52,109 @@ func test_server_scene_and_lobby_scene_exist() -> void:
 	assert_true(ResourceLoader.exists(TitleScreen.PRACTICE_SCENE))
 
 
-func test_the_screen_has_everything_the_owner_asked_for() -> void:
-	var screen: TitleScreen = _screen()
-	assert_not_null(screen.profile_button, "username")
-	assert_not_null(screen.settings_button, "settings")
-	assert_not_null(screen.diorama, "the map model")
-	assert_eq((_find(screen, "MapTitle") as Label).text, "AGAWAN BASE")
-	assert_eq(ChoiceCarousel.choice_of(screen.mode_card), "HOTSPOT", "hotspot is the default mode")
-	assert_eq(ChoiceCarousel.choice_of(screen.map_card), "AGAWAN BASE", "agawan base is the default map")
-	assert_eq(screen.start_button.text, "START")
-	assert_null(screen.quit_button, "quit stays out of the main action area")
-
-
-func test_two_to_one_cards_and_start_at_the_right_most_side() -> void:
+func _phone_screen() -> TitleScreen:
 	var phone: Control = autofree(Control.new()) as Control
 	phone.custom_minimum_size = Vector2(720.0, 1280.0)
 	phone.size = Vector2(720.0, 1280.0)
 	add_child(phone)
 	var screen: TitleScreen = autofree(TITLE_SCENE.instantiate()) as TitleScreen
 	phone.add_child(screen)
+	return screen
+
+
+func test_the_screen_has_everything_the_owner_asked_for() -> void:
+	var screen: TitleScreen = _screen()
+	assert_not_null(screen.logo, "the K! logo")
+	assert_not_null(screen.settings_button, "settings")
+	assert_not_null(screen.carousel, "the map carousel")
+	assert_eq(screen.map_name_label.text, "AGAWAN BASE", "agawan base is the default map")
+	assert_eq(screen.hotspot_button.text, "HOTSPOT")
+	assert_eq(screen.online_button.text, "ONLINE")
+	assert_eq(screen.practice_button.text, "PRACTICE")
+	assert_null(screen.quit_button, "quit stays out of the main action area")
+	assert_null(screen.find_child("ModeCard", true, false), "the mode cards are gone: the buttons are the modes")
+
+
+func test_logo_top_left_settings_top_right_carousel_left_details_right() -> void:
+	var screen: TitleScreen = _phone_screen()
 	await wait_frames(3)
-	var mode: Rect2 = screen.mode_card.get_global_rect()
-	var map: Rect2 = screen.map_card.get_global_rect()
-	var start: Rect2 = screen.start_button.get_global_rect()
-	assert_almost_eq(mode.size.x / mode.size.y, 2.0, 0.05, "the mode card is 2:1")
-	assert_almost_eq(map.size.x / map.size.y, 2.0, 0.05, "the map card is 2:1")
-	assert_lt(mode.end.x, map.position.x, "mode, then map")
-	assert_lt(map.end.x, start.position.x, "start is the right-most")
-	assert_almost_eq(mode.position.y, map.position.y, 1.0, "one row")
-	assert_lt(start.end.x, 720.0)
-	assert_lt(start.end.y, 1280.0)
-	assert_gt(screen.diorama.get_global_rect().end.y, 0.0)
-	assert_lte(screen.diorama.get_global_rect().end.y, mode.position.y + 1.0, "the map model is above the cards")
+	var logo: Rect2 = screen.logo.get_global_rect()
+	var gear: Rect2 = screen.settings_button.get_global_rect()
+	var strip: Rect2 = screen.carousel.get_global_rect()
+	var buttons: Rect2 = screen.hotspot_button.get_global_rect()
+	assert_lt(logo.position.x, 120.0, "the logo is on the left")
+	assert_gt(gear.end.x, 720.0 - 120.0, "settings is on the right")
+	assert_almost_eq(logo.position.y, gear.position.y, 8.0, "one top row")
+	assert_gt(strip.position.y, logo.end.y, "the middle is under the top row")
+	assert_lt(strip.end.x, buttons.position.x, "the carousel is left of the details")
+	assert_lt(screen.map_name_label.get_global_rect().position.x, buttons.end.x)
+	assert_lt(buttons.end.x, 720.0)
+	assert_lt(screen.practice_button.get_global_rect().end.y, 1280.0)
+	assert_lt(screen.hotspot_button.get_global_rect().position.y, screen.online_button.get_global_rect().position.y, "hotspot first, not online")
+	assert_lt(screen.online_button.get_global_rect().position.y, screen.practice_button.get_global_rect().position.y)
 
 
-func test_the_cards_open_a_carousel_of_choices_over_a_tint() -> void:
+func test_the_carousel_keeps_the_chosen_card_in_front_and_the_others_behind_and_fainter() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	var strip: MapCarousel = screen.carousel
+	assert_eq(strip.cards.size(), 3)
+	var middle: Button = strip.cards[0]
+	var next: Button = strip.cards[1]
+	assert_almost_eq(middle.size.x / middle.size.y, 2.0, 0.01, "2:1 cards")
+	assert_eq(middle.modulate.a, 1.0)
+	assert_lt(next.modulate.a, 1.0, "the next card is see-through")
+	assert_lt(next.scale.x, middle.scale.x, "and smaller")
+	assert_lt(next.z_index, middle.z_index, "and behind")
+	assert_gt(next.position.y + next.size.y / 2.0, middle.position.y + middle.size.y / 2.0, "and below it")
+	strip.select(1, false)
+	assert_eq(strip.cards[1].modulate.a, 1.0, "the chosen card comes forward")
+	assert_lt(strip.cards[0].modulate.a, 1.0)
+	assert_eq(screen.map_name_label.text, "TUMBANG PRESO", "the details follow the chosen card")
+	assert_true(screen.hotspot_button.disabled, "only agawan base can be played yet")
+	strip.select(0, false)
+	assert_false(screen.hotspot_button.disabled)
+
+
+func test_scrolling_and_tapping_the_carousel_changes_the_card() -> void:
+	var screen: TitleScreen = _phone_screen()
+	await wait_frames(3)
+	var strip: MapCarousel = screen.carousel
+	var wheel: InputEventMouseButton = InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel.pressed = true
+	strip._gui_input(wheel)
+	assert_eq(strip.index, 1, "the wheel moves to the next card")
+	await wait_seconds(0.4)
+	var press: InputEventMouseButton = InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = Vector2(150.0, strip.size.y / 2.0 + 300.0)
+	press.pressed = true
+	strip._gui_input(press)
+	var drag: InputEventMouseMotion = InputEventMouseMotion.new()
+	drag.position = Vector2(150.0, strip.size.y / 2.0 + 300.0 - MapCarousel.STEP * 1.1)
+	strip._gui_input(drag)
+	press.pressed = false
+	press.position = drag.position
+	strip._gui_input(press)
+	assert_eq(strip.index, 2, "dragging up scrolls on to the third card")
+	await wait_seconds(0.4)
+	var tap: InputEventMouseButton = InputEventMouseButton.new()
+	tap.button_index = MOUSE_BUTTON_LEFT
+	tap.position = Vector2(150.0, strip.size.y / 2.0 - MapCarousel.STEP)
+	tap.pressed = true
+	strip._gui_input(tap)
+	tap.pressed = false
+	strip._gui_input(tap)
+	assert_eq(strip.index, 1, "tapping the card above brings it to the middle")
+
+
+func test_the_action_buttons_open_their_modes() -> void:
 	var screen: TitleScreen = _screen()
-	var modes: ChoiceCarousel = screen.open_mode_choices()
-	await wait_frames(2)
-	assert_not_null(modes.find_child("Tint", true, false), "a tint behind the choices")
-	assert_eq(modes.cards.size(), 3)
-	assert_eq(ChoiceCarousel.choice_of(modes.cards[0]), "HOTSPOT", "hotspot first, not online")
-	var scroll: Control = modes.find_child("Scroll", true, false) as Control
-	for card: Button in modes.cards:
-		assert_lte(card.get_global_rect().end.x, scroll.get_global_rect().end.x + 1.0, "%s is visible without scrolling" % ChoiceCarousel.choice_of(card))
-		assert_almost_eq(card.size.x / card.size.y, 2.0, 0.05, "2:1")
-	assert_eq(ChoiceCarousel.choice_of(modes.cards[1]), "ONLINE")
-	assert_eq(ChoiceCarousel.choice_of(modes.cards[2]), "PRACTICE")
-	modes.cards[2].pressed.emit()
-	assert_eq(ChoiceCarousel.choice_of(screen.mode_card), "PRACTICE")
-	var maps: ChoiceCarousel = screen.open_map_choices()
-	await wait_frames(2)
-	assert_eq(maps.cards.size(), 3)
-	assert_eq(ChoiceCarousel.choice_of(maps.cards[0]), "AGAWAN BASE")
-	assert_eq(ChoiceCarousel.choice_of(maps.cards[1]), "TUMBANG PRESO")
-	assert_eq(ChoiceCarousel.choice_of(maps.cards[2]), "PATINTERO")
-	maps.cards[1].pressed.emit()
-	assert_eq((_find(screen, "MapTitle") as Label).text, "TUMBANG PRESO")
-	assert_true(screen.start_button.disabled, "only agawan base is playable yet")
-
-
-func test_start_plays_the_chosen_mode() -> void:
-	var screen: TitleScreen = _screen()
-	screen.start()
+	screen.hotspot_button.pressed.emit()
 	assert_not_null(screen.dialog, "hotspot opens its create / join card")
-	assert_null(screen.dialog.find_child("AddressField", true, false), "a hotspot room needs no address, only a code")
-	Session.menu_mode = 1
-	screen.start()
+	assert_null(screen.dialog.find_child("AddressField", true, false), "a hotspot room needs no address or code")
+	screen.online_button.pressed.emit()
 	assert_null(screen.dialog.find_child("AddressField", true, false), "online has no address field")
 
 
@@ -152,7 +187,7 @@ func test_the_background_is_the_owners_diamond_picture_covering_the_screen() -> 
 func test_every_tap_target_is_big_enough_for_a_thumb() -> void:
 	var screen: TitleScreen = _screen()
 	# 720 px design width is about 390 dp on a phone: 88 px is about 48 dp
-	for button: Button in [screen.mode_card, screen.map_card, screen.start_button, screen.settings_button, screen.profile_button]:
+	for button: Button in [screen.hotspot_button, screen.online_button, screen.practice_button, screen.settings_button]:
 		assert_gte(button.custom_minimum_size.y, 88.0, "%s is tall enough" % button.name)
 	assert_gte(screen.settings_button.custom_minimum_size.x, 88.0)
 
@@ -173,6 +208,7 @@ func test_the_profile_shows_your_name_and_your_character_face() -> void:
 	Session.player_name = "Juan"
 	Session.avatar_id = "toni"
 	var screen: TitleScreen = _screen()
+	screen.open_settings()
 	var name_label: Label = screen.profile_button.find_children("*", "Label", true, false)[0] as Label
 	assert_eq(name_label.text, "Juan")
 	for kid: String in Session.AVATARS:
@@ -258,45 +294,6 @@ func test_safe_insets_are_never_negative_or_huge() -> void:
 	var inset: Vector4 = screen.safe_insets()
 	for value: float in [inset.x, inset.y, inset.z, inset.w]:
 		assert_between(value, 0.0, 120.0)
-
-
-func test_the_map_model_is_the_play_area_alone_and_fits_its_frame() -> void:
-	var screen: TitleScreen = _screen()
-	var model: MenuDiorama = screen.diorama
-	(screen.find_child("MapStage", true, false) as Control).size = Vector2(690.0, 480.0)
-	await wait_frames(2)
-	var layout: MapLayout = model.map.layout
-	assert_true(model.map.diorama)
-	assert_eq(layout.lane_length, (load("res://data/rules/map_layout.tres") as MapLayout).lane_length, "the real play area")
-	# the cement and its stone base in the game's exact shape, plus the corner props only
-	assert_eq(model.map._posts.size(), 1, "the far base's electric post")
-	var found: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
-	var street: AABB = (found[0] as MeshInstance3D).get_aabb()
-	var platform: AABB = (found[1] as MeshInstance3D).get_aabb()
-	assert_almost_eq(street.size.x / street.size.z, 1.0, 0.001, "exactly 1:1 (the slab and the platform both)")
-	assert_almost_eq(street.size.x, layout.lane_width, 0.01, "no sidewalks")
-	assert_almost_eq(street.size.z, layout.lane_length / 2.0, 0.01, "the top half, no extra street at the ends")
-	assert_almost_eq(platform.size.x, layout.lane_width + StreetMap.PLATFORM_MARGIN * 2.0, 0.01, "the blue platform reaches past it evenly")
-	assert_almost_eq(platform.size.x / platform.size.z, 1.0, 0.001, "and is 1:1 too")
-	assert_gt(StreetMap.PLATFORM_HEIGHT, StreetMap.PLINTH_HEIGHT, "a thick stone base on a thicker platform")
-	var props: Array[Node] = model.map.find_children("*", "MeshInstance3D", true, false)
-	assert_eq(props.size(), 2 + 1 + model.map.jail_wall_rects(layout.jail_rect(MapLayout.SIDE_OWN), MapLayout.SIDE_OWN).size(), "slab + platform + post + tagged-box walls and nothing else")
-	assert_eq(model.viewport.find_children("*", "KidModel", true, false).size(), 0, "no characters")
-	for cx: float in [-layout.lane_width / 2.0, layout.lane_width / 2.0]:
-		for cz: float in [-layout.lane_length / 2.0, 0.0]:
-			assert_true(model.camera.is_position_in_frustum(Vector3(cx, 0.0, cz)), "corner %s of the top half is in view" % Vector2(cx, cz))
-
-
-func test_the_map_model_stands_still() -> void:
-	var screen: TitleScreen = _screen()
-	var model: MenuDiorama = screen.diorama
-	(screen.find_child("MapStage", true, false) as Control).size = Vector2(690.0, 480.0)
-	await wait_frames(2)
-	var before: Transform3D = model.camera.global_transform
-	await wait_frames(30)
-	assert_eq(model.camera.global_transform, before)
-	assert_false(model.is_processing(), "nothing runs every frame")
-	assert_false(model.is_physics_processing())
 
 
 func test_online_offers_create_and_join_on_the_game_server() -> void:
