@@ -279,7 +279,8 @@ func _mouse_aim(slot: int) -> Vector2:
 	if viewport == null or slot >= player.weapons.size():
 		return Vector2.ZERO
 	var mouse: Vector2 = viewport.get_mouse_position()
-	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(mouse), _camera.project_ray_normal(mouse))
+	var flat: Vector2 = _camera.flat_position(mouse)
+	var hit: Variant = Plane(Vector3.UP, 0.0).intersects_ray(_camera.project_ray_origin(flat), _camera.project_ray_normal(flat))
 	if hit == null:
 		return Vector2.ZERO
 	var point: Vector3 = hit as Vector3

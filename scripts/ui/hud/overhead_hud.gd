@@ -94,7 +94,7 @@ func _head(state: PlayerState) -> Variant:
 	var world: Vector3 = Vector3(state.position.x, HEAD_HEIGHT, state.position.y)
 	if _camera == null or _camera.is_position_behind(world):
 		return null
-	return _camera.unproject_position(world)
+	return _camera.screen_position(world) if _camera is FollowCamera else _camera.unproject_position(world)
 
 
 func _draw() -> void:
