@@ -175,3 +175,24 @@ func test_a_heal_floats_a_green_cross_over_the_kid_and_it_goes_away() -> void:
 		practice.advance(DT)
 	var left: Array[Node] = fx.find_children("HealCross*", "Node3D", true, false).filter(func(c: Node) -> bool: return not c.is_queued_for_deletion())
 	assert_eq(left.size(), 0, "and fades away")
+
+
+## Audit: casting any of the weapons shows the owner's 3D model (a ground disc or a flash may
+## come with it, but never instead of it).
+func test_every_weapon_shows_its_model_when_cast() -> void:
+	var all: Array[StringName] = [&"bato_light", &"bato_heavy", &"gunting_light", &"gunting_heavy", &"papel_trap", &"papel_shield", &"tsinelas_light", &"tsinelas_heavy", &"lata", &"jacks", &"bola", &"trumpo", &"heal", &"langit_lupa"]
+	for weapon: StringName in all:
+		var practice: PracticeMatch = _casting(weapon, &"heal" if weapon != &"heal" else &"bola")
+		var fx: WeaponFxView = practice.get_node("%WeaponFx") as WeaponFxView
+		practice.aim_started(0)
+		practice.aim_released(Vector2.ZERO, false, 0)
+		var models: int = 0
+		for step: int in 40:
+			practice.advance(DT)
+			for mesh: Node in fx.find_children("*", "MeshInstance3D", true, false):
+				if not mesh.is_queued_for_deletion() and (mesh as MeshInstance3D).mesh is ArrayMesh:
+					models += 1
+			if models > 0:
+				break
+		assert_gt(models, 0, "%s shows a 3D model when cast" % weapon)
+		practice.free()

@@ -16,6 +16,9 @@ const SNIP_LUNGE: float = 0.2
 ## The meteor of a rock-meteor circle starts this high and this far off, and falls straight in.
 const METEOR_FROM: Vector3 = Vector3(3.0, 11.0, -3.0)
 ## The green cross over a healed kid: where it starts above the ground, how far it rises, how long.
+## The tossed can (lata): how high its arc goes and how high its middle rests on the ground.
+const CAN_ARC: float = 2.2
+const CAN_REST: float = 0.35
 const CROSS_START: float = 2.9
 const CROSS_RISE: float = 0.9
 const CROSS_TIME: float = 0.9
@@ -83,6 +86,12 @@ func sync(sim: MatchSim, delta: float) -> void:
 			var left: float = clampf(zone.time_left / maxf(zone.def.delay, 0.01), 0.0, 1.0)
 			meteor.position = METEOR_FROM * left + Vector3(0.0, WeaponModel.METEOR_SIZE / 2.0, 0.0)
 			meteor.rotation.x += delta * 4.0
+		var can: Node3D = node.get_node_or_null("Can") as Node3D
+		if can != null:
+			# the tossed can arcs over and lands on the circle as the delay ends
+			var flight: float = clampf(zone.time_left / maxf(zone.def.delay, 0.01), 0.0, 1.0)
+			can.position.y = sin(flight * PI) * CAN_ARC + CAN_REST
+			can.rotation.x += delta * 9.0
 	for shield: WeaponSystem.Shield in sim.weapons.shields:
 		seen[shield.id] = true
 		var node: Node3D = _nodes.get(shield.id) as Node3D
@@ -151,6 +160,10 @@ func _zone_node(zone: WeaponSystem.Zone) -> Node3D:
 		var meteor: Node3D = WeaponModel.meteor()
 		meteor.name = "Meteor"
 		node.add_child(meteor)
+	elif zone.def != null and zone.def.id == &"lata":
+		var can: Node3D = WeaponModel.make(&"lata", true)
+		can.name = "Can"
+		node.add_child(can)
 	elif zone.def != null and zone.def.id == &"jacks":
 		node.add_child(WeaponModel.spikes(zone.radius))
 	return node
