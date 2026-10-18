@@ -1,7 +1,7 @@
 class_name BottomNav
 extends PanelContainer
-## The main screen's bottom bar: a flat strip of slightly light gray cement across the whole bottom
-## edge (no margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
+## The main screen's bottom bar: a flat wall of light stone slabs, like a Clash of Clans castle, across
+## the whole bottom edge (no margin, not a card) with five icon tabs: Characters, Weapons, Battle, History, Menu. Only the
 ## open tab is lit and shows its name.
 
 signal tab_selected(tab: StringName)
@@ -15,10 +15,12 @@ const TABS: Array[Dictionary] = [
 ]
 ## The strip's height without the phone's home-bar inset.
 const HEIGHT: float = 104.0
-const CEMENT_SHADER: Shader = preload("res://shaders/nav_cement.gdshader")
-const BAR_COLOR: Color = Color(0.66, 0.665, 0.675)
-## Icons on the light cement: dark gray when idle, burnt orange when open.
-const IDLE: Color = Color("4b4e55")
+## The stone cap along the top edge (the shader's lip).
+const LIP: float = 7.0
+const STONE_SHADER: Shader = preload("res://shaders/nav_stone.gdshader")
+const BAR_COLOR: Color = Color(0.84, 0.81, 0.74)
+## Icons on the light stone: dark gray when idle, burnt orange when open.
+const IDLE: Color = Color("5a564f")
 const LIT: Color = Color("c85f00")
 
 var current: StringName = &"battle"
@@ -37,13 +39,17 @@ func _init() -> void:
 	style.border_color = Color(0.0, 0.0, 0.0, 0.18)
 	add_theme_stylebox_override("panel", style)
 	var cement: ColorRect = ColorRect.new()
-	cement.name = "Cement"
+	cement.name = "Stone"
 	cement.color = BAR_COLOR
 	cement.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cement.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var material: ShaderMaterial = ShaderMaterial.new()
-	material.shader = CEMENT_SHADER
+	material.shader = STONE_SHADER
 	cement.material = material
+	cement.resized.connect(func() -> void:
+		material.set_shader_parameter("rect_size", cement.size)
+		# one slab per tab: the bar's height under the lip, a fifth of its width
+		material.set_shader_parameter("slab", Vector2(cement.size.x / float(TABS.size()), cement.size.y - LIP)))
 	add_child(cement)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.name = "Tabs"

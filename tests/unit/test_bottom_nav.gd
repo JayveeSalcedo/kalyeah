@@ -54,10 +54,10 @@ func test_the_bar_is_a_flat_gray_strip_edge_to_edge_with_no_margin() -> void:
 	var style: StyleBoxFlat = screen.nav.get_theme_stylebox("panel") as StyleBoxFlat
 	assert_eq(style.corner_radius_top_left, 0, "not a rounded card")
 	assert_eq(style.shadow_size, 0, "no card shadow")
-	var cement: ColorRect = screen.nav.find_child("Cement", true, false) as ColorRect
-	assert_true(cement.material is ShaderMaterial, "light gray cement from a shader")
-	assert_almost_eq(cement.color.r, cement.color.g, 0.03, "gray, not tinted")
-	assert_between(cement.color.v, 0.55, 0.8, "slightly light")
+	var stone: ColorRect = screen.nav.find_child("Stone", true, false) as ColorRect
+	assert_true(stone.material is ShaderMaterial, "light stone slabs from a shader")
+	assert_between(stone.color.v, 0.7, 0.95, "light")
+	assert_eq((stone.material as ShaderMaterial).get_shader_parameter("rect_size"), stone.size, "the slabs are sized to the bar")
 	for tab: Dictionary in BottomNav.TABS:
 		var button: Button = screen.nav.buttons[tab["id"]]
 		assert_gte(button.get_global_rect().size.y, 88.0, "%s is tall enough for a thumb" % tab["label"])
