@@ -3,7 +3,8 @@ extends Node3D
 ## The Patintero practice screen (scenes/match/patintero.tscn): you and two bots against three
 ## bots on the street, your team running first. Runs a local PatinteroSim and draws it: the
 ## kids, the chalk grid (the taggers' lines in the tagging team's colour, the runners' home
-## tinted), a HOME! tag over runners who turned back. Input goes through MatchInput (the stick
+## tinted), a HOME! tag over runners who turned back. Taggers stand arms out on their line (the
+## guard pose) facing the nearest runner, and lunge when they catch one. Input goes through MatchInput (the stick
 ## only) like the main match. Reads sim state only; all rules live in scripts/sim/.
 
 const LOCAL_ID: int = 1
@@ -34,6 +35,8 @@ var _characters: Dictionary[StringName, CharacterDef] = {}
 ## The paint of the guarded lines and the middle line (recoloured when the teams switch).
 var _guard_paint: StandardMaterial3D
 var _snap_camera: bool = true
+## The tagger who caught someone this turn faces them through the freeze: tagger id -> runner id.
+var _catch: Dictionary[int, int] = {}
 ## The soft focus beyond the ends of the street (null when off).
 var _far_blur: ShaderMaterial
 
@@ -140,6 +143,7 @@ func _connect_sim() -> void:
 	sim.sides_switched.connect(func(team: int) -> void:
 		hud.joystick.release()
 		_snap_camera = true
+		_catch.clear()
 		_paint_guard_lines()
 		hud.show_banner("YOUR TEAM RUNS!" if team == LOCAL_TEAM else "YOUR TEAM TAGS!"))
 	sim.match_over.connect(func(winner: int) -> void:
@@ -149,6 +153,10 @@ func _connect_sim() -> void:
 
 func _on_runner_caught(id: int, by_id: int) -> void:
 	_audio.play(&"ko")
+	_views[id].play_hit()
+	if by_id != PatinteroSim.OUT_OF_BOUNDS:
+		_catch[by_id] = id
+		_views[by_id].play_tag()
 	if id == LOCAL_ID:
 		_camera.shake(0.25)
 	var who: String = "YOU" if id == LOCAL_ID else names[id]
@@ -226,7 +234,9 @@ func _sync(delta: float) -> void:
 		var state: PatinteroPlayer = sim.players[id]
 		var view: KidModel = _views[id]
 		view.position = Vector3(state.position.x, 0.0, state.position.y)
-		view.face(state.facing)
+		var tagger: bool = state.role != PatinteroPlayer.Role.RUNNER
+		view.face(_tagger_facing(state) if tagger else state.facing)
+		view.set_guarding(tagger and sim.phase != PatinteroSim.Phase.MATCH_OVER)
 		view.animate(delta, minf(view.ground_speed(state.position, delta), 20.0), state)
 		var tag: Label3D = _home_tags[id]
 		tag.visible = state.role == PatinteroPlayer.Role.RUNNER and state.reached_back and sim.phase == PatinteroSim.Phase.PLAYING
@@ -235,6 +245,19 @@ func _sync(delta: float) -> void:
 	_camera.follow(sim.players[LOCAL_ID].position, false, 0.0 if _snap_camera else delta)
 	StreetGameView.update_far_blur(_far_blur, _camera, layout)
 	_snap_camera = false
+
+
+## A tagger faces the runner they just caught, else the nearest runner, else back down the grid.
+func _tagger_facing(state: PatinteroPlayer) -> Vector2:
+	var target: PatinteroPlayer = sim.players.get(_catch.get(state.id, -1)) as PatinteroPlayer
+	if target == null:
+		for id: int in sim.players:
+			var runner: PatinteroPlayer = sim.players[id]
+			if runner.role == PatinteroPlayer.Role.RUNNER and (target == null or runner.position.distance_to(state.position) < target.position.distance_to(state.position)):
+				target = runner
+	if target == null or target.position.distance_to(state.position) < 0.01:
+		return Vector2(0.0, 1.0)
+	return state.position.direction_to(target.position)
 
 
 ## Patintero has no aimed buttons: Q / E aim nothing.

@@ -96,3 +96,30 @@ func test_without_input_you_stay_put() -> void:
 	for i: int in 90:
 		screen.advance(DT)
 	assert_eq(me.position, start)
+
+
+func test_taggers_stand_arms_out_and_face_the_runners() -> void:
+	var screen: PatinteroMatch = _match()
+	for i: int in 15:
+		screen.advance(DT)
+	for id: int in PatinteroMatch.ENEMY_IDS:
+		assert_eq(screen._views[id].action_pose(), "guard", "tagger %d in the guard pose" % id)
+	assert_eq(screen._views[PatinteroMatch.LOCAL_ID].action_pose(), "", "runners run normally")
+	var guard: PatinteroPlayer = screen.sim.players[PatinteroMatch.ENEMY_IDS[0]]
+	var facing: Vector2 = screen._tagger_facing(guard)
+	assert_gt(facing.y, 0.0, "a line guard faces down the grid toward the runners at home")
+
+
+func test_a_catch_plays_the_tag_lunge_toward_the_runner() -> void:
+	var screen: PatinteroMatch = _match()
+	var sim: PatinteroSim = screen.sim
+	var runner: PatinteroPlayer = sim.players[PatinteroMatch.LOCAL_ID]
+	var tagger_id: int = PatinteroMatch.ENEMY_IDS[0]
+	runner.position = Vector2(2.0, PAT.guard_lines[0] + 0.6)
+	sim.players[tagger_id].position.x = 2.0
+	screen.advance(DT)
+	assert_eq(sim.phase, PatinteroSim.Phase.SWITCH_FREEZE)
+	screen.advance(DT * 3.0)
+	assert_eq(screen._views[tagger_id].action_pose(), "tag")
+	var facing: Vector2 = screen._tagger_facing(sim.players[tagger_id])
+	assert_gt(facing.dot(sim.players[tagger_id].position.direction_to(runner.position)), 0.99, "faces the runner it caught")

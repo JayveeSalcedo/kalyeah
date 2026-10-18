@@ -50,8 +50,10 @@ const GET_UP_BLEND: float = 0.3
 const STAR_COUNT: int = 5
 ## A pick-up (a slipper, the can): bend down and come back up, in seconds.
 const PICKUP_TIME: float = 0.45
-## How fast the carry pose blends in and out (full weight per second).
+## How fast the carry and guard poses blend in and out (full weight per second).
 const CARRY_BLEND: float = 6.0
+## A tag: lunge with both arms and come back, in seconds.
+const TAG_TIME: float = 0.4
 
 static var _scenes: Dictionary[String, PackedScene] = {}
 static var _layers: Dictionary[String, AnimationLibrary] = {}
@@ -102,6 +104,8 @@ var _ground_speed: float = 0.0
 var _pose: KidPose
 var _pickup_left: float = 0.0
 var _carrying: bool = false
+var _guarding: bool = false
+var _tag_left: float = 0.0
 ## Last pose name, for tests and debugging ("idle", "run", "cast", "ko", ...).
 var pose: String = "idle"
 
@@ -152,13 +156,27 @@ func set_carrying(on: bool) -> void:
 	_carrying = on
 
 
-## "pickup" while bending down, "carry" while carrying, else "" (for tests and debugging).
+## Spreads both arms out to the sides (a Patintero tagger on their line); blends in and out.
+func set_guarding(on: bool) -> void:
+	_guarding = on
+
+
+## Lunges forward with both arms to tag someone (face them first) and comes back.
+func play_tag() -> void:
+	_tag_left = TAG_TIME
+
+
+## "tag", "pickup", "carry" or "guard" (the one showing, in that order), else "" (tests, debugging).
 func action_pose() -> String:
 	if _pose == null:
 		return ""
+	if _pose.reach > 0.0:
+		return "tag"
 	if _pose.pickup > 0.0:
 		return "pickup"
-	return "carry" if _pose.carry >= 0.5 else ""
+	if _pose.carry >= 0.5:
+		return "carry"
+	return "guard" if _pose.guard >= 0.5 else ""
 
 
 ## The point between the kid's hands (world space): where a carried thing sits.
@@ -350,10 +368,15 @@ func _clip_length(clip: String) -> float:
 
 func _step_pose(delta: float) -> void:
 	_pickup_left = maxf(0.0, _pickup_left - delta)
+	_tag_left = maxf(0.0, _tag_left - delta)
 	if _pose == null:
 		return
 	_pose.pickup = sin((1.0 - _pickup_left / PICKUP_TIME) * PI) if _pickup_left > 0.0 else 0.0
 	_pose.carry = move_toward(_pose.carry, 1.0 if _carrying else 0.0, delta * CARRY_BLEND)
+	_pose.guard = move_toward(_pose.guard, 1.0 if _guarding else 0.0, delta * CARRY_BLEND)
+	# the lunge snaps out fast and eases back
+	var tag_t: float = 1.0 - _tag_left / TAG_TIME
+	_pose.reach = (minf(tag_t * 3.0, 1.0) * (1.0 - tag_t * tag_t)) if _tag_left > 0.0 else 0.0
 
 
 ## The whole body tips over backwards in a knockout (and gets back up), and flinches back
